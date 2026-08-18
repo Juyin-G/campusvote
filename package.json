@@ -1,0 +1,38 @@
+{
+  "name": "campusvote",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "dev": "nodemon src/server.js",
+    "start": "node src/server.js",
+    "lint": "eslint .",
+    "test": "jest",
+    "db:up": "docker compose up -d",
+    "db:init": "docker compose exec -T db psql -U postgres -d campusvote_db -f /database/sql/000_extensions.sql && docker compose exec -T db psql -U postgres -d campusvote_db -f /database/sql/005_base_functions.sql && docker compose exec -T db psql -U postgres -d campusvote_db -f /database/sql/010_organizations.sql && docker compose exec -T db psql -U postgres -d campusvote_db -f /database/sql/020_users.sql && docker compose exec -T db psql -U postgres -d campusvote_db -f /database/sql/030_academic.sql && docker compose exec -T db psql -U postgres -d campusvote_db -f /database/sql/040_elections.sql && docker compose exec -T db psql -U postgres -d campusvote_db -f /database/sql/050_ballots.sql",
+    "db:seed": "docker compose exec -T db psql -U postgres -d campusvote_db -f /database/seeds/001_organizations.seed.sql && docker compose exec -T db psql -U postgres -d campusvote_db -f /database/seeds/002_users.seed.sql",
+    "db:setup": "npm run db:init && npm run db:seed"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@prisma/client": "^6.19.3",
+    "bcryptjs": "^3.0.3",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "jsonwebtoken": "^9.0.3",
+    "swagger-ui-express": "^5.0.1",
+    "winston": "^3.19.0"
+  },
+  "devDependencies": {
+    "eslint": "^10.8.1",
+    "jest": "^30.4.2",
+    "nodemon": "^3.1.14",
+    "prettier": "^3.9.6",
+    "prisma": "^6.19.3",
+    "supertest": "^7.2.2"
+  }
+}

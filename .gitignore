@@ -1,0 +1,26 @@
+# Dependencias (se instalan con npm install)
+node_modules/
+
+# Archivos de entorno y variables secretas
+.env
+.env.local
+.env.development
+.env.production
+.env*.local
+
+# Archivos de compilación y salida
+dist/
+build/
+coverage/
+logs/
+*.log
+
+# Archivos de la base de datos local (si usas SQLite con Prisma)
+prisma/*.db
+prisma/*.db-journal
+
+# Archivos del sistema operativo y editores
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
