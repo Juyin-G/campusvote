@@ -1,10 +1,10 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import env from '../../config/env.js';
+import logger from '../../config/logger.js';
 import * as authRepository from './auth.repository.js';
 
 export const login = async ({ email, password }) => {
-  // 1. Verificar si el login está permitido (no bloqueado)
   const isAllowed = await authRepository.loginIsAllowed(email);
 
   if (!isAllowed) {
@@ -13,7 +13,6 @@ export const login = async ({ email, password }) => {
     throw error;
   }
 
-  // 2. Buscar usuario
   const user = await authRepository.findUserByEmail(email);
 
   if (!user || !user.isActive) {
@@ -23,7 +22,6 @@ export const login = async ({ email, password }) => {
     throw error;
   }
 
-  // 3. Verificar contraseña
   const isValidPassword = await bcrypt.compare(password, user.password);
 
   if (!isValidPassword) {
@@ -33,10 +31,8 @@ export const login = async ({ email, password }) => {
     throw error;
   }
 
-  // 4. Registrar login exitoso
   await authRepository.registerSuccessfulLogin(email);
 
-  // 5. Generar JWT
   const token = jwt.sign(
     {
       userId: user.id,
@@ -46,11 +42,12 @@ export const login = async ({ email, password }) => {
       isSuperuser: user.isSuperuser,
     },
     env.JWT_SECRET,
-    { expiresIn: env.JWT_EXPIRES_IN }
+    { expiresIn: env.JWT_EXPIRES_IN },
   );
 
   return {
     token,
+    expiresIn: env.JWT_EXPIRES_IN,
     user: {
       id: user.id,
       username: user.username,
@@ -61,6 +58,14 @@ export const login = async ({ email, password }) => {
       isVerified: user.isVerified,
       mustChangePassword: user.mustChangePassword,
     },
+  };
+};
+
+export const logout = async ({ userId, email }) => {
+  logger.info('User logged out', { userId, email });
+
+  return {
+    loggedOut: true,
   };
 };
 
@@ -80,7 +85,7 @@ export const register = async ({
     throw error;
   }
 
-  const hashedPassword = await bcrypt.hash(password, Number(env.BCRYPT_SALT_ROUNDS) || 12);
+  const hashedPassword = await bcrypt.hash(password, env.BCRYPT_ROUNDS);
 
   const user = await authRepository.createUser({
     username,

@@ -32,6 +32,20 @@
  *       423:
  *         description: Cuenta bloqueada
  *
+ * /auth/logout:
+ *   post:
+ *     tags:
+ *       - Auth
+ *     summary: Cerrar sesión
+ *     description: Cierra la sesión del usuario autenticado
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Logout exitoso
+ *       401:
+ *         description: Token inválido o expirado
+ *
  * /auth/register:
  *   post:
  *     tags:

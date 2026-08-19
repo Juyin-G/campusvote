@@ -1,9 +1,14 @@
 import express from 'express';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import helmet from 'helmet';
 import cors from './config/cors.js';
 import logger from './config/logger.js';
 import { swaggerSetup } from './config/swagger/index.js';
 import routes from './routes/index.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 
@@ -29,17 +34,15 @@ app.use((req, res, next) => {
 // Swagger documentation
 swaggerSetup(app);
 
+// Static demo pages (login / logout HTML)
+app.use(express.static(path.join(__dirname, '../public')));
+
 // API Routes
 app.use('/api', routes);
 
-// Health check root
+// Demo HTML at root; API info still available at /api
 app.get('/', (req, res) => {
-  res.json({
-    success: true,
-    message: 'CampusVote API is running',
-    version: '1.0.0',
-    docs: '/api-docs'
-  });
+  res.sendFile(path.join(__dirname, '../public/index.html'));
 });
 
 // 404 handler

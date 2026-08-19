@@ -1,8 +1,5 @@
-// src/modules/health/health.controller.js
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../../database/prisma.js';
 import logger from '../../config/logger.js';
-
-const prisma = new PrismaClient();
 
 export const checkHealth = (req, res) => {
   res.json({

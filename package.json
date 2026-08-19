@@ -10,7 +10,8 @@
     "lint": "eslint .",
     "test": "jest",
     "db:up": "docker compose up -d",
-    "db:setup": "powershell -ExecutionPolicy Bypass -File scripts/db-setup.ps1"
+    "db:setup": "powershell -ExecutionPolicy Bypass -File scripts/db-setup.ps1",
+    "db:generate": "prisma generate"
   },
   "keywords": [],
   "author": "",
