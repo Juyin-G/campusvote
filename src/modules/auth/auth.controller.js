@@ -6,7 +6,6 @@ export const login = async (req, res) => {
   try {
     assertLoginBody(req.body);
     const result = await authService.login(req.body);
-
     logger.info(`User logged in successfully: ${req.body.email}`);
 
     return res.status(200).json({

@@ -1,6 +1,6 @@
 /**
  * @file index.js
- * @description Configuración principal de Swagger/OpenAPI
+ * @description Configuración principal de Swagger/OpenAPI para CampusVote
  */
 
 import swaggerJsdoc from 'swagger-jsdoc';
@@ -8,9 +8,6 @@ import swaggerUi from 'swagger-ui-express';
 import env from '../env.js';
 import schemas from './schemas/index.js';
 
-/**
- * Metadatos de la API
- */
 const apiInfo = {
   title: 'CampusVote API',
   version: env.APP_VERSION || '1.0.0',
@@ -21,16 +18,16 @@ API para sistema de votación universitaria CampusVote.
 Esta API usa **JWT (JSON Web Tokens)** para autenticación.
 
 ### Pasos para autenticarte:
-1. Haz login en \`POST /api/auth/login\`
-2. Copia el token de la respuesta
-3. Haz clic en el botón **"Authorize"** arriba
-4. Pega el token (sin "Bearer")
+1. Haz login en \`POST /api/v1/auth/login\`
+2. Copia el token recibido en la respuesta
+3. Haz clic en el botón **"Authorize"** (arriba a la derecha)
+4. Pega el token en el campo correspondiente
 
 ## Convenciones
-- Todas las respuestas siguen el formato: \`{ success, data, error }\`
+- Respuestas estandarizadas: \`{ success: boolean, data: object|array, error: object|null }\`
 - Fechas en formato **ISO 8601** (UTC)
-- IDs en formato **UUID v4**
-- Paginación con parámetros: \`page\`, \`limit\`
+- IDs únicos en formato **UUID v4**
+- Paginación con query params: \`page\` (default: 1), \`limit\` (default: 10)
   `,
   contact: {
     name: 'CampusVote Team',
@@ -42,49 +39,37 @@ Esta API usa **JWT (JSON Web Tokens)** para autenticación.
   },
 };
 
-/**
- * Servidores disponibles
- */
 const servers = [
   {
-    url: `http://localhost:${env.PORT}`,
-    description: 'Development server',
+    url: `http://localhost:${env.PORT || 3000}/api/v1`,
+    description: 'Servidor de Desarrollo (v1)',
   },
   {
-    url: 'https://api.campusvote.com',
-    description: 'Production server',
+    url: 'https://api.campusvote.com/api/v1',
+    description: 'Servidor de Producción (v1)',
   },
 ];
 
-/**
- * Esquemas de seguridad
- */
 const securitySchemes = {
   bearerAuth: {
     type: 'http',
     scheme: 'bearer',
     bearerFormat: 'JWT',
-    description: 'Ingresa tu JWT token',
+    description: 'Ingresa tu JWT token obtenido en el login',
   },
 };
 
-/**
- * Tags para agrupar endpoints
- */
 const tags = [
-  { name: 'Health', description: 'Endpoints de verificación de estado' },
-  { name: 'Auth', description: 'Autenticación y gestión de sesiones' },
-  { name: 'Users', description: 'Gestión de usuarios' },
+  { name: 'Health', description: 'Verificación de estado del servicio' },
+  { name: 'Auth', description: 'Autenticación, recuperación y sesión (Local/AWS)' },
+  { name: 'Users', description: 'Gestión de usuarios y perfiles' },
   { name: 'Organizations', description: 'Gestión de organizaciones (tenants)' },
-  { name: 'Elections', description: 'Gestión de elecciones' },
-  { name: 'Voting', description: 'Proceso de votación' },
-  { name: 'Ballots', description: 'Gestión de boletas' },
-  { name: 'Results', description: 'Resultados y estadísticas' },
+  { name: 'Elections', description: 'Configuración y ciclo de vida de elecciones' },
+  { name: 'Voting', description: 'Emisión y registro de votos' },
+  { name: 'Ballots', description: 'Gestión de boletas electorales' },
+  { name: 'Results', description: 'Escrutinio y métricas estadísticas' },
 ];
 
-/**
- * Opciones completas de Swagger
- */
 const options = {
   definition: {
     openapi: '3.0.0',
@@ -95,16 +80,18 @@ const options = {
       schemas,
     },
     tags,
+    security: [
+      {
+        bearerAuth: [],
+      },
+    ],
   },
-  apis: ['./src/routes/*.js', './src/modules/**/*.js'],
+  // Escanea ÚNICAMENTE los archivos dedicados a documentación
+  apis: ['./src/modules/**/*.docs.js'],
 };
 
 export const swaggerSpec = swaggerJsdoc(options);
 
-/**
- * Middleware para montar Swagger en la app
- * @param {import('express').Application} app
- */
 export const swaggerSetup = (app) => {
   app.use(
     '/api-docs',
@@ -124,9 +111,8 @@ export const swaggerSetup = (app) => {
     })
   );
 
-  // Endpoint JSON con la especificación OpenAPI
   app.get('/api-docs.json', (req, res) => {
     res.setHeader('Content-Type', 'application/json');
-    res.send(swaggerSpec);
+    res.json(swaggerSpec);
   });
 };

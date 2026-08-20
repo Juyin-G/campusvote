@@ -12,8 +12,12 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 
-// Security middleware
-app.use(helmet());
+// Security middleware (configurado para no bloquear Swagger UI)
+app.use(
+  helmet({
+    contentSecurityPolicy: false,
+  })
+);
 
 // CORS
 app.use(cors);
@@ -24,7 +28,7 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Request logging
 app.use((req, res, next) => {
-  logger.info(`${req.method} ${req.path}`, {
+  logger.info(`${req.method}${req.path}`, {
     ip: req.ip,
     userAgent: req.get('user-agent')
   });
@@ -51,7 +55,7 @@ app.use((req, res) => {
     success: false,
     error: {
       code: 'NOT_FOUND',
-      message: `Route ${req.method} ${req.path} not found`
+      message: `Route ${req.method}${req.path} not found`
     }
   });
 });
