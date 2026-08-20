@@ -5,7 +5,7 @@ import { login, logout } from '../modules/auth/auth.controller.js';
 const router = Router();
 
 router.post('/login', login);
-router.post('/register', register);
+//router.post('/register', register);
 
 /**
  * @openapi
