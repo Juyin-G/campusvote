@@ -24,3 +24,20 @@ prisma/*.db-journal
 Thumbs.db
 .vscode/
 .idea/
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# ia
+agents.md
+workflow/

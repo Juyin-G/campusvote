@@ -6,6 +6,11 @@ import cors from './config/cors.js';
 import logger from './config/logger.js';
 import { swaggerSetup } from './config/swagger/index.js';
 import routes from './routes/index.js';
+import { generateRequestId } from './common/helpers/response.helper.js';
+import { errorHandler } from './common/middlewares/errorHandler.js';
+import { AppError } from './common/errors/AppError.js';
+import { ErrorCodes } from './common/errors/errorCodes.js';
+import { HttpStatus } from './common/errors/httpStatus.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -16,7 +21,7 @@ const app = express();
 app.use(
   helmet({
     contentSecurityPolicy: false,
-  })
+  }),
 );
 
 // CORS
@@ -26,11 +31,19 @@ app.use(cors);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+// Request ID para correlación en logs y respuestas
+app.use((req, res, next) => {
+  req.requestId = generateRequestId();
+  res.setHeader('X-Request-Id', req.requestId);
+  next();
+});
+
 // Request logging
 app.use((req, res, next) => {
-  logger.info(`${req.method}${req.path}`, {
+  logger.info(`${req.method} ${req.path}`, {
+    requestId: req.requestId,
     ip: req.ip,
-    userAgent: req.get('user-agent')
+    userAgent: req.get('user-agent'),
   });
   next();
 });
@@ -49,29 +62,20 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, '../public/index.html'));
 });
 
-// 404 handler
-app.use((req, res) => {
-  res.status(404).json({
-    success: false,
-    error: {
-      code: 'NOT_FOUND',
-      message: `Route ${req.method}${req.path} not found`
-    }
-  });
+// 404 handler — delega al errorHandler global vía next(AppError)
+app.use((req, res, next) => {
+  next(
+    new AppError({
+      message: `Ruta ${req.method} ${req.path} no encontrada`,
+      code: ErrorCodes.NOT_FOUND,
+      statusCode: HttpStatus.NOT_FOUND,
+    }),
+  );
 });
 
-// Error handler
+// Error handler global
 app.use((err, req, res, next) => {
-  logger.error('Unhandled error:', err);
-  
-  res.status(err.status || 500).json({
-    success: false,
-    error: {
-      code: err.code || 'INTERNAL_ERROR',
-      message: err.message || 'Internal server error',
-      ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
-    }
-  });
+  errorHandler(err, req, res, next);
 });
 
 export default app;
