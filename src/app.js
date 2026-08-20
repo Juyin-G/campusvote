@@ -1,28 +1,25 @@
+// src/app.js
 import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { randomUUID } from 'crypto'; // Utilidad nativa de Node.js
 import helmet from 'helmet';
+
 import cors from './config/cors.js';
 import logger from './config/logger.js';
 import { swaggerSetup } from './config/swagger/index.js';
 import routes from './routes/index.js';
-import { generateRequestId } from './common/helpers/response.helper.js';
-import { errorHandler } from './common/middlewares/errorHandler.js';
-import { AppError } from './common/errors/AppError.js';
-import { ErrorCodes } from './common/errors/errorCodes.js';
-import { HttpStatus } from './common/errors/httpStatus.js';
+
+import { notFoundHandler } from './middlewares/notFoundHandler.js';
+import { errorHandler } from './middlewares/errorHandler.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
 
-// Security middleware (configurado para no bloquear Swagger UI)
-app.use(
-  helmet({
-    contentSecurityPolicy: false,
-  }),
-);
+// Seguridad
+app.use(helmet({ contentSecurityPolicy: false }));
 
 // CORS
 app.use(cors);
@@ -33,7 +30,7 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Request ID para correlación en logs y respuestas
 app.use((req, res, next) => {
-  req.requestId = generateRequestId();
+  req.requestId = randomUUID();
   res.setHeader('X-Request-Id', req.requestId);
   next();
 });
@@ -48,34 +45,24 @@ app.use((req, res, next) => {
   next();
 });
 
-// Swagger documentation
+// Documentación Swagger
 swaggerSetup(app);
 
-// Static demo pages (login / logout HTML)
+// Archivos estáticos
 app.use(express.static(path.join(__dirname, '../public')));
 
-// API Routes
+// Rutas de la API
 app.use('/api', routes);
 
-// Demo HTML at root; API info still available at /api
+// Vista demo en la raíz
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, '../public/index.html'));
 });
 
-// 404 handler — delega al errorHandler global vía next(AppError)
-app.use((req, res, next) => {
-  next(
-    new AppError({
-      message: `Ruta ${req.method} ${req.path} no encontrada`,
-      code: ErrorCodes.NOT_FOUND,
-      statusCode: HttpStatus.NOT_FOUND,
-    }),
-  );
-});
+// Manejo de rutas no encontradas (404)
+app.use(notFoundHandler);
 
-// Error handler global
-app.use((err, req, res, next) => {
-  errorHandler(err, req, res, next);
-});
+// Manejo global de errores
+app.use(errorHandler);
 
 export default app;

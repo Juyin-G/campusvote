@@ -1,0 +1,79 @@
+export const HTTP_STATUS = {
+  // 1xx
+  CONTINUE: 100,
+  SWITCHING_PROTOCOLS: 101,
+  PROCESSING: 102,
+  EARLY_HINTS: 103,
+
+  // 2xx
+  OK: 200,
+  CREATED: 201,
+  ACCEPTED: 202,
+  NON_AUTHORITATIVE_INFORMATION: 203,
+  NO_CONTENT: 204,
+  RESET_CONTENT: 205,
+  PARTIAL_CONTENT: 206,
+
+  // 3xx
+  MULTIPLE_CHOICES: 300,
+  MOVED_PERMANENTLY: 301,
+  FOUND: 302,
+  SEE_OTHER: 303,
+  NOT_MODIFIED: 304,
+  TEMPORARY_REDIRECT: 307,
+  PERMANENT_REDIRECT: 308,
+
+  // 4xx
+  BAD_REQUEST: 400,
+  UNAUTHORIZED: 401,
+  PAYMENT_REQUIRED: 402,
+  FORBIDDEN: 403,
+  NOT_FOUND: 404,
+  METHOD_NOT_ALLOWED: 405,
+  NOT_ACCEPTABLE: 406,
+  REQUEST_TIMEOUT: 408,
+  CONFLICT: 409,
+  GONE: 410,
+  PAYLOAD_TOO_LARGE: 413,
+  UNSUPPORTED_MEDIA_TYPE: 415,
+  UNPROCESSABLE_ENTITY: 422,
+  LOCKED: 423,
+  TOO_MANY_REQUESTS: 429,
+
+  // 5xx
+  INTERNAL_SERVER_ERROR: 500,
+  NOT_IMPLEMENTED: 501,
+  BAD_GATEWAY: 502,
+  SERVICE_UNAVAILABLE: 503,
+  GATEWAY_TIMEOUT: 504,
+};
+
+export const HTTP_MESSAGES = {
+  [HTTP_STATUS.OK]: 'OK',
+  [HTTP_STATUS.CREATED]: 'Created',
+  [HTTP_STATUS.NO_CONTENT]: 'No Content',
+  [HTTP_STATUS.BAD_REQUEST]: 'Bad Request',
+  [HTTP_STATUS.UNAUTHORIZED]: 'Unauthorized',
+  [HTTP_STATUS.FORBIDDEN]: 'Forbidden',
+  [HTTP_STATUS.NOT_FOUND]: 'Not Found',
+  [HTTP_STATUS.METHOD_NOT_ALLOWED]: 'Method Not Allowed',
+  [HTTP_STATUS.REQUEST_TIMEOUT]: 'Request Timeout',
+  [HTTP_STATUS.CONFLICT]: 'Conflict',
+  [HTTP_STATUS.GONE]: 'Gone',
+  [HTTP_STATUS.PAYLOAD_TOO_LARGE]: 'Payload Too Large',
+  [HTTP_STATUS.UNSUPPORTED_MEDIA_TYPE]: 'Unsupported Media Type',
+  [HTTP_STATUS.UNPROCESSABLE_ENTITY]: 'Unprocessable Entity',
+  [HTTP_STATUS.LOCKED]: 'Locked',
+  [HTTP_STATUS.TOO_MANY_REQUESTS]: 'Too Many Requests',
+  [HTTP_STATUS.INTERNAL_SERVER_ERROR]: 'Internal Server Error',
+  [HTTP_STATUS.BAD_GATEWAY]: 'Bad Gateway',
+  [HTTP_STATUS.SERVICE_UNAVAILABLE]: 'Service Unavailable',
+  [HTTP_STATUS.GATEWAY_TIMEOUT]: 'Gateway Timeout',
+};
+
+export const isSuccessStatus = (code) => code >= 200 && code < 300;
+export const isClientError = (code) => code >= 400 && code < 500;
+export const isServerError = (code) => code >= 500 && code < 600;
+export const isRedirect = (code) => code >= 300 && code < 400;
+
+export default HTTP_STATUS;

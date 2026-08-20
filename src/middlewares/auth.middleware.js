@@ -1,3 +1,4 @@
+// src/middlewares/auth.middleware.js
 import jwt from 'jsonwebtoken';
 import env from '../config/env.js';
 import { AppError } from '../common/errors/AppError.js';
@@ -114,3 +115,4 @@ export const authorize =
 
     next();
   };
+// Fin de archivo

@@ -25,8 +25,8 @@
  *                   type: string
  *                   format: date-time
  *                 uptime:
- *                   type: number
- *                   description: Tiempo en segundos desde que inició el servidor
+ *                   type: string
+ *                   example: "0d 1h 15m 30s"
  *       500:
  *         description: Error del servidor
  *         content:
@@ -64,6 +64,7 @@
  *                     latency:
  *                       type: number
  *                       description: Latencia en milisegundos
+ *                       example: 12
  *       500:
  *         description: Error de conexión a base de datos
  *         content:
@@ -71,3 +72,4 @@
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
+
