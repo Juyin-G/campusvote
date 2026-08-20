@@ -18,6 +18,7 @@ export const authenticate = (req, res, next) => {
 
     const token = authHeader.substring(7);
     const decoded = jwt.verify(token, env.JWT_SECRET);
+
     req.user = decoded;
 
     next();
@@ -52,6 +53,30 @@ export const authenticate = (req, res, next) => {
       },
     });
   }
+};
+
+export const requireTotpPending = (req, res, next) => {
+  if (!req.user) {
+    return res.status(401).json({
+      success: false,
+      error: {
+        code: 'UNAUTHORIZED',
+        message: 'No autenticado',
+      },
+    });
+  }
+
+  if (req.user.purpose !== 'TOTP_PENDING') {
+    return res.status(403).json({
+      success: false,
+      error: {
+        code: 'TOTP_SESSION_REQUIRED',
+        message: 'Se requiere una sesión temporal de verificación TOTP',
+      },
+    });
+  }
+
+  next();
 };
 
 export const authorize =
