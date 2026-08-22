@@ -8,11 +8,12 @@
     "dev": "nodemon src/server.js",
     "start": "node src/server.js",
     "lint": "eslint .",
-    "test": "jest",
     "db:up": "docker compose up -d",
     "db:setup": "powershell -ExecutionPolicy Bypass -File scripts/db-setup.ps1",
     "db:generate": "prisma generate",
-    "test:email": "node scripts/test-email.js"
+    "test:email": "node scripts/test-email.js",
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
+    "test:watch": "node --experimental-vm-modules node_modules/jest/bin/jest.js --watch"
   },
   "keywords": [],
   "author": "",
@@ -49,3 +50,5 @@
     "supertest": "^7.2.2"
   }
 }
+
+
