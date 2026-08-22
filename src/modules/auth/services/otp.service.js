@@ -13,7 +13,7 @@ export const setupTotp = async (userId) => {
     throw ApiError.notFound('Usuario no encontrado');
   }
 
-  if (user.two_factor_enabled) {
+  if (user.twoFactorEnabled) {
     throw ApiError.conflict(OTP_CONSTANTS.MESSAGES.OTP_ALREADY_ENABLED);
   }
 
@@ -36,11 +36,11 @@ export const setupTotp = async (userId) => {
 export const verifyAndEnableTotp = async (userId, totpCode) => {
   const user = await otpRepository.getUserWithTwoFactor(userId);
 
-  if (!user || !user.two_factor_secret) {
+  if (!user || !user.twoFactorSecret) {
     throw ApiError.badRequest('Primero debes iniciar la configuración de 2FA');
   }
 
-  const isValid = otpUtil.verifyTotp(totpCode, user.two_factor_secret);
+  const isValid = otpUtil.verifyTotp(totpCode, user.twoFactorSecret);
 
   if (!isValid) {
     throw ApiError.badRequest(OTP_CONSTANTS.MESSAGES.OTP_CODE_INVALID);
@@ -66,11 +66,11 @@ export const verifyAndEnableTotp = async (userId, totpCode) => {
 export const verifyLoginTotp = async (userId, totpCode) => {
   const user = await otpRepository.getUserWithTwoFactor(userId);
 
-  if (!user?.two_factor_enabled) {
+  if (!user?.twoFactorEnabled) {
     throw ApiError.badRequest(OTP_CONSTANTS.MESSAGES.OTP_NOT_ENABLED);
   }
 
-  const isValid = otpUtil.verifyTotp(totpCode, user.two_factor_secret);
+  const isValid = otpUtil.verifyTotp(totpCode, user.twoFactorSecret);
 
   if (!isValid) {
     throw ApiError.badRequest(OTP_CONSTANTS.MESSAGES.OTP_CODE_INVALID);
@@ -85,13 +85,13 @@ export const verifyLoginTotp = async (userId, totpCode) => {
 export const verifyBackupCodeLogin = async (userId, backupCode) => {
   const user = await otpRepository.getUserWithTwoFactor(userId);
 
-  if (!user?.two_factor_enabled) {
+  if (!user?.twoFactorEnabled) {
     throw ApiError.badRequest(OTP_CONSTANTS.MESSAGES.OTP_NOT_ENABLED);
   }
 
   const { valid, index } = otpUtil.verifyBackupCode(
     backupCode,
-    user.two_factor_backup_codes
+    user.twoFactorBackupCodes
   );
 
   if (!valid) {
@@ -99,7 +99,7 @@ export const verifyBackupCodeLogin = async (userId, backupCode) => {
   }
 
   // Eliminamos el código usado
-  const updatedCodes = [...user.two_factor_backup_codes];
+  const updatedCodes = [...user.twoFactorBackupCodes];
   updatedCodes.splice(index, 1);
   await otpRepository.updateBackupCodes(userId, updatedCodes);
 
@@ -115,7 +115,7 @@ export const verifyBackupCodeLogin = async (userId, backupCode) => {
 export const disableTotp = async (userId) => {
   const user = await otpRepository.getUserWithTwoFactor(userId);
 
-  if (!user?.two_factor_enabled) {
+  if (!user?.twoFactorEnabled) {
     throw ApiError.badRequest(OTP_CONSTANTS.MESSAGES.OTP_NOT_ENABLED);
   }
 

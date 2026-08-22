@@ -89,21 +89,36 @@ export const errorHandler = (err, req, res, next) => {
 
   // 2. ERRORES DE PRISMA (Base de Datos)
   else if (err instanceof Prisma.PrismaClientKnownRequestError) {
-    const prismaError = PRISMA_ERROR_MAP[err.code];
+    const pgMessage = typeof err.meta?.message === 'string' ? err.meta.message : '';
 
-    if (prismaError) {
-      statusCode = prismaError.status;
-      message = prismaError.message;
-      code = `PRISMA_${err.code}`;
-      details = {
-        prismaCode: err.code,
-        target: err.meta?.target,
-      };
-    } else {
+    if (err.code === 'P2010') {
       statusCode = 500;
-      message = 'Error en la base de datos';
-      code = `PRISMA_${err.code}`;
-      details = { prismaCode: err.code };
+      code = 'DATABASE_QUERY_FAILED';
+      message =
+        process.env.NODE_ENV === 'development' && pgMessage
+          ? `Error en consulta SQL: ${pgMessage}`
+          : MESSAGES.COMMON.INTERNAL_SERVER_ERROR;
+      details =
+        process.env.NODE_ENV === 'development'
+          ? { prismaCode: err.code, pgMessage }
+          : { prismaCode: err.code };
+    } else {
+      const prismaError = PRISMA_ERROR_MAP[err.code];
+
+      if (prismaError) {
+        statusCode = prismaError.status;
+        message = prismaError.message;
+        code = `PRISMA_${err.code}`;
+        details = {
+          prismaCode: err.code,
+          target: err.meta?.target,
+        };
+      } else {
+        statusCode = 500;
+        message = 'Error en la base de datos';
+        code = `PRISMA_${err.code}`;
+        details = { prismaCode: err.code };
+      }
     }
 
     logger.error({

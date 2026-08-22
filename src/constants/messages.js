@@ -41,6 +41,9 @@ export const MESSAGES = {
     EMAIL_VERIFIED_SUCCESS: 'Correo electrónico verificado correctamente.',
     EMAIL_VERIFICATION_INVALID: 'El enlace de verificación es inválido o ha expirado.',
     EMAIL_ALREADY_VERIFIED: 'El correo electrónico ya se encuentra verificado.',
+    EMAIL_SEND_FAILED: 'No se pudo enviar el correo electrónico. Intente más tarde.',
+    REGISTER_EMAIL_FAILED:
+      'La cuenta fue creada pero no se pudo enviar el correo de verificación. Contacte al administrador.',
   },
 
   // USUARIOS (USERS)

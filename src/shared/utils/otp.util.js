@@ -1,35 +1,34 @@
 /**
  * Utilidad TOTP para 2FA
  */
-import { createRequire } from 'node:module';
 import crypto from 'node:crypto';
 import QRCode from 'qrcode';
+import { generateSecret, generateURI, verifySync } from 'otplib';
+
 import { OTP_CONSTANTS } from '../../constants/otp.constants.js';
 
-// Carga segura CJS con fallback para otplib
-const require = createRequire(import.meta.url);
-const otplibPkg = require('otplib');
-const authenticator = otplibPkg.authenticator || otplibPkg.default?.authenticator || otplibPkg;
-
-// Configuración TOTP
-authenticator.options = {
-  window: OTP_CONSTANTS.TOTP_WINDOW,
-  step: OTP_CONSTANTS.TOTP_STEP,
+const totpOptions = {
   digits: OTP_CONSTANTS.TOTP_DIGITS,
+  period: OTP_CONSTANTS.TOTP_STEP,
 };
 
 export const generateTotpSecret = () => {
-  return authenticator.generateSecret();
+  return generateSecret();
 };
 
 export const generateTotpUri = (secret, email, appName = 'CampusVote') => {
-  return authenticator.keyuri(email, appName, secret);
+  return generateURI({
+    issuer: appName,
+    label: email,
+    secret,
+    ...totpOptions,
+  });
 };
 
 export const generateQrCode = async (otpauthUri) => {
   try {
     return await QRCode.toDataURL(otpauthUri);
-  } catch (error) {
+  } catch {
     throw new Error('Error al generar la imagen QR');
   }
 };
@@ -37,15 +36,23 @@ export const generateQrCode = async (otpauthUri) => {
 export const verifyTotp = (token, secret) => {
   try {
     if (!token || !secret) return false;
+
     const cleanToken = String(token).trim();
-    return authenticator.verify({ token: cleanToken, secret });
+    const result = verifySync({
+      secret,
+      token: cleanToken,
+      epochTolerance: OTP_CONSTANTS.TOTP_STEP * OTP_CONSTANTS.TOTP_WINDOW,
+      ...totpOptions,
+    });
+
+    return result.valid;
   } catch {
     return false;
   }
 };
 
 export const generateBackupCodes = (
-  count = OTP_CONSTANTS.BACKUP_CODES_COUNT
+  count = OTP_CONSTANTS.BACKUP_CODES_COUNT,
 ) => {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   const codes = [];

@@ -4,98 +4,100 @@
  */
 import { prisma } from '../../../config/prisma.js';
 
+const userAuthSelect = {
+  id: true,
+  email: true,
+  username: true,
+  password: true,
+  authProvider: true,
+  role: true,
+  isActive: true,
+  isVerified: true,
+  isStaff: true,
+  isSuperuser: true,
+  firstName: true,
+  lastName: true,
+  institutionalId: true,
+  organizationId: true,
+  mustChangePassword: true,
+  twoFactorEnabled: true,
+  twoFactorSecret: true,
+  twoFactorBackupCodes: true,
+  failedLoginAttempts: true,
+  lockedUntil: true,
+  lastLogin: true,
+};
+
 // BÚSQUEDAS
 
 export const findByEmail = async (email) => {
-  return prisma.users.findUnique({
+  return prisma.user.findUnique({
     where: { email },
-    select: {
-      id: true,
-      email: true,
-      username: true,
-      password: true,
-      auth_provider: true,
-      role: true,
-      is_active: true,
-      is_verified: true,
-      is_staff: true,
-      is_superuser: true,
-      first_name: true,
-      last_name: true,
-      institutional_id: true,
-      organization_id: true,
-      must_change_password: true,
-      two_factor_enabled: true,
-      two_factor_secret: true,
-      two_factor_backup_codes: true,
-      failed_login_attempts: true,
-      locked_until: true,
-      last_login: true,
-    },
+    select: userAuthSelect,
   });
 };
 
 export const findById = async (id) => {
-  return prisma.users.findUnique({
+  return prisma.user.findUnique({
     where: { id },
     select: {
       id: true,
       email: true,
       username: true,
-      auth_provider: true,
+      authProvider: true,
       role: true,
-      is_active: true,
-      is_verified: true,
-      is_staff: true,
-      is_superuser: true,
-      first_name: true,
-      last_name: true,
-      institutional_id: true,
-      organization_id: true,
-      must_change_password: true,
-      two_factor_enabled: true,
-      last_login: true,
-      date_joined: true,
+      isActive: true,
+      isVerified: true,
+      isStaff: true,
+      isSuperuser: true,
+      firstName: true,
+      lastName: true,
+      institutionalId: true,
+      organizationId: true,
+      mustChangePassword: true,
+      twoFactorEnabled: true,
+      lastLogin: true,
+      dateJoined: true,
     },
   });
 };
 
 export const findByUsername = async (username) => {
-  return prisma.users.findUnique({
+  return prisma.user.findUnique({
     where: { username },
   });
 };
 
 export const findByGoogleId = async (googleId) => {
-  return prisma.users.findFirst({
-    where: { google_id: googleId },
+  return prisma.user.findFirst({
+    where: { googleId },
   });
 };
 
 // CREACIÓN
 
 export const createUser = async (data) => {
-  return prisma.users.create({
+  return prisma.user.create({
     data: {
       username: data.username,
       email: data.email,
       password: data.password,
-      first_name: data.first_name,
-      last_name: data.last_name,
-      institutional_id: data.institutional_id,
+      firstName: data.firstName,
+      lastName: data.lastName,
+      institutionalId: data.institutionalId,
       role: data.role || 'STUDENT',
-      auth_provider: data.auth_provider || 'LOCAL',
-      google_id: data.google_id || null,
-      organization_id: data.organization_id || null,
-      must_change_password: data.must_change_password ?? true,
+      authProvider: data.authProvider || 'LOCAL',
+      googleId: data.googleId || null,
+      organizationId: data.organizationId || null,
+      mustChangePassword: data.mustChangePassword ?? true,
     },
     select: {
       id: true,
       username: true,
       email: true,
       role: true,
-      is_active: true,
-      date_joined: true,
+      isActive: true,
+      dateJoined: true,
     },
   });
 };
@@ -104,20 +106,20 @@ export const createUser = async (data) => {
 
 export const loginIsAllowed = async (email) => {
   const result = await prisma.$queryRaw`
-    SELECT login_is_allowed(${email}) AS allowed
+    SELECT login_is_allowed(${email}::citext) AS allowed
   `;
   return result[0]?.allowed ?? false;
 };
 
 export const registerFailedLogin = async (email) => {
   await prisma.$queryRaw`
-    SELECT register_failed_login(${email})
+    SELECT register_failed_login(${email}::citext)
   `;
 };
 
 export const registerSuccessfulLogin = async (email) => {
   await prisma.$queryRaw`
-    SELECT register_successful_login(${email})
+    SELECT register_successful_login(${email}::citext)
   `;
 };
 
@@ -125,7 +127,7 @@ export const registerSuccessfulLogin = async (email) => {
 
 export const generatePasswordResetToken = async (email) => {
   const result = await prisma.$queryRaw`
-    SELECT generate_password_reset_token(${email}) AS token
+    SELECT generate_password_reset_token(${email}::citext) AS token
   `;
   return result[0]?.token;
 };
@@ -156,18 +158,18 @@ export const verifyEmailWithToken = async (token) => {
 // ACTUALIZACIONES
 
 export const updateLastLogin = async (userId) => {
-  return prisma.users.update({
+  return prisma.user.update({
     where: { id: userId },
-    data: { last_login: new Date() },
+    data: { lastLogin: new Date() },
   });
 };
 
 export const updatePassword = async (userId, newPasswordHash) => {
-  return prisma.users.update({
+  return prisma.user.update({
     where: { id: userId },
     data: {
       password: newPasswordHash,
-      must_change_password: false,
+      mustChangePassword: false,
     },
   });
 };
@@ -175,36 +177,36 @@ export const updatePassword = async (userId, newPasswordHash) => {
 // 2FA - TOTP
 
 export const saveTwoFactorSecret = async (userId, secret) => {
-  return prisma.users.update({
+  return prisma.user.update({
     where: { id: userId },
-    data: { two_factor_secret: secret },
+    data: { twoFactorSecret: secret },
   });
 };
 
 export const enableTwoFactor = async (userId, backupCodes) => {
-  return prisma.users.update({
+  return prisma.user.update({
     where: { id: userId },
     data: {
-      two_factor_enabled: true,
-      two_factor_backup_codes: backupCodes,
+      twoFactorEnabled: true,
+      twoFactorBackupCodes: backupCodes,
     },
   });
 };
 
 export const disableTwoFactor = async (userId) => {
-  return prisma.users.update({
+  return prisma.user.update({
     where: { id: userId },
     data: {
-      two_factor_enabled: false,
-      two_factor_secret: null,
-      two_factor_backup_codes: [],
+      twoFactorEnabled: false,
+      twoFactorSecret: null,
+      twoFactorBackupCodes: [],
     },
   });
 };
 
 export const updateBackupCodes = async (userId, backupCodes) => {
-  return prisma.users.update({
+  return prisma.user.update({
     where: { id: userId },
-    data: { two_factor_backup_codes: backupCodes },
+    data: { twoFactorBackupCodes: backupCodes },
   });
 };

@@ -60,6 +60,10 @@ export class ApiError extends Error {
     return new ApiError(500, message, details, 'INTERNAL_SERVER_ERROR');
   }
 
+  static serviceUnavailable(message = 'Service Unavailable', details = null, code = 'SERVICE_UNAVAILABLE') {
+    return new ApiError(503, message, details, code);
+  }
+
   // MÉTODOS ESTÁTICOS - Errores específicos de CampusVote
 
   static invalidCredentials() {
