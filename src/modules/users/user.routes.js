@@ -7,6 +7,7 @@ import {
   userParamsSchema,
   listUserSchema,
   createUserSchema,
+  updateMeSchema,
   updateUserSchema,
   changeRoleSchema,
   setActiveSchema,
@@ -43,7 +44,7 @@ router.post(
 router.put(
   '/me',
   authenticate,
-  validate(updateUserSchema),
+  validate(updateMeSchema),
   userController.updateMe
 );
 

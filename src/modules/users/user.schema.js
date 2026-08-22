@@ -34,19 +34,29 @@ export const createUserSchema = z.object({
   }),
 });
 
-// Actualizar usuario
+const profileBodySchema = z
+  .object({
+    first_name: z.string().min(1, 'Como mínimo 1 carácter').max(50).optional(),
+    last_name: z.string().min(1, 'Como mínimo 1 carácter').max(50).optional(),
+  })
+  .refine((data) => Object.keys(data).length > 0, {
+    message: 'Al menos un campo debe ser proporcionado',
+  });
+
+// Actualizar perfil propio (PUT /me)
+export const updateMeSchema = z.object({
+  body: profileBodySchema,
+});
+
+// Actualizar usuario por ID (PUT /:id) — solo campos que el service persiste
 export const updateUserSchema = z.object({
   params: z.object({
     id: z.string().uuid('ID inválido'),
   }),
   body: z
     .object({
-      username: z.string().min(3, 'Como mínimo 3 caracteres').max(50).optional(),
-      email: z.string().email('Email inválido').optional(),
       first_name: z.string().min(1, 'Como mínimo 1 carácter').max(50).optional(),
       last_name: z.string().min(1, 'Como mínimo 1 carácter').max(50).optional(),
-      role: roleEnum.optional(),
-      is_active: z.boolean().optional(),
       organization_id: z.string().uuid('ID inválido').optional(),
     })
     .refine((data) => Object.keys(data).length > 0, {

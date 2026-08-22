@@ -2,7 +2,8 @@ import bcrypt from 'bcryptjs';
 import { prisma } from '../../config/prisma.js';
 import { ApiError } from '../../shared/errors/ApiError.js';
 import { isValidRole, ADMIN_ROLES } from '../../constants/roles.js';
-import { prismaPagination } from '../../shared/utils/pagination.js';
+import { prismaPagination, parsePagination } from '../../shared/utils/pagination.js';
+import { formatUserResponse } from '../../shared/utils/formatUserResponse.js';
 import MESSAGES from '../../constants/messages.js';
 
 const userSelect = {
@@ -18,10 +19,10 @@ const userSelect = {
   isVerified: true,
   isStaff: true,
   isSuperuser: true,
-  authProvider: true,
+  mustChangePassword: true,
+  twoFactorEnabled: true,
   dateJoined: true,
   lastLogin: true,
-  updatedAt: true,
 };
 
 const notFoundIfMissing = (err) => {
@@ -30,7 +31,7 @@ const notFoundIfMissing = (err) => {
 };
 
 export const listUsers = async (query = {}) => {
-  const { page = 1, limit = 20 } = query;
+  const { page, limit } = parsePagination(query);
   const where = {};
 
   if (query.role) {
@@ -60,7 +61,7 @@ export const listUsers = async (query = {}) => {
   ]);
 
   return {
-    users,
+    users: users.map(formatUserResponse),
     pagination: {
       page,
       limit,
@@ -68,6 +69,12 @@ export const listUsers = async (query = {}) => {
       totalPages: Math.ceil(total / limit) || 0,
     },
   };
+};
+
+export const getMe = async (userId) => {
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: userSelect });
+  if (!user) throw ApiError.notFound(MESSAGES.USER.NOT_FOUND);
+  return formatUserResponse(user);
 };
 
 export const getUserById = async (id, actor) => {
@@ -79,7 +86,7 @@ export const getUserById = async (id, actor) => {
   const isAdmin = ADMIN_ROLES.includes(actor?.role);
   if (!isSelf && !isAdmin) throw ApiError.forbidden(MESSAGES.COMMON.FORBIDDEN);
 
-  return user;
+  return formatUserResponse(user);
 };
 
 export const createUser = async (body = {}) => {
@@ -108,7 +115,7 @@ export const createUser = async (body = {}) => {
       organizationId: organization_id,
     },
     select: userSelect,
-  });
+  }).then(formatUserResponse);
 };
 
 export const updateUser = async (id, body = {}) => {
@@ -122,7 +129,8 @@ export const updateUser = async (id, body = {}) => {
   }
 
   try {
-    return await prisma.user.update({ where: { id }, data, select: userSelect });
+    const updated = await prisma.user.update({ where: { id }, data, select: userSelect });
+    return formatUserResponse(updated);
   } catch (err) {
     notFoundIfMissing(err);
   }
@@ -135,11 +143,12 @@ export const setActiveStatus = async (id, isActive, actor) => {
   }
 
   try {
-    return await prisma.user.update({
+    const updated = await prisma.user.update({
       where: { id },
       data: { isActive },
       select: userSelect,
     });
+    return formatUserResponse(updated);
   } catch (err) {
     notFoundIfMissing(err);
   }
@@ -147,11 +156,12 @@ export const setActiveStatus = async (id, isActive, actor) => {
 
 export const unlockUser = async (id) => {
   try {
-    return await prisma.user.update({
+    const updated = await prisma.user.update({
       where: { id },
-      data: { failedAttempts: 0, lockUntil: null },
+      data: { failedLoginAttempts: 0, lockedUntil: null },
       select: userSelect,
     });
+    return formatUserResponse(updated);
   } catch (err) {
     notFoundIfMissing(err);
   }
@@ -177,7 +187,8 @@ export const updateUserRole = async (id, role) => {
     }
   }
 
-  return prisma.user.update({ where: { id }, data: { role }, select: userSelect });
+  const updated = await prisma.user.update({ where: { id }, data: { role }, select: userSelect });
+  return formatUserResponse(updated);
 };
 
 export const updateMyProfile = async (userId, body = {}) => {
@@ -189,7 +200,8 @@ export const updateMyProfile = async (userId, body = {}) => {
     throw ApiError.badRequest(MESSAGES.COMMON.BAD_REQUEST);
   }
 
-  return prisma.user.update({ where: { id: userId }, data, select: userSelect });
+  const updated = await prisma.user.update({ where: { id: userId }, data, select: userSelect });
+  return formatUserResponse(updated);
 };
 
 export const changeMyPassword = async (userId, body = {}) => {
@@ -233,6 +245,7 @@ export const changeMyPassword = async (userId, body = {}) => {
 
 export default {
   listUsers,
+  getMe,
   getUserById,
   createUser,
   updateUser,

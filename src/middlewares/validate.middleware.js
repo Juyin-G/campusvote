@@ -1,10 +1,8 @@
 import { ApiError } from '../shared/errors/ApiError.js';
-import { TokenExpiredError } from '../shared/errors/TokenExpiredError.js';
-import { HTTP_STATUS } from '../constants/httpStatus.js';
 
 /**
  * Devuelve un middleware que valida req.body/req.query/req.params con el schema dado.
- * Si falla, delega al errorHandler global con un AppError que incluye details por campo.
+ * Si falla, delega al errorHandler global con un ApiError que incluye details por campo.
  */
 export const validate = (schema) => {
   return (req, res, next) => {
@@ -21,12 +19,7 @@ export const validate = (schema) => {
       }));
 
       return next(
-        new ApiError({
-          message: 'Los datos enviados no son válidos',
-          code: TokenExpiredError.VALIDATION_ERROR,
-          statusCode: HTTP_STATUS.BAD_REQUEST,
-          details,
-        }),
+        ApiError.badRequest('Los datos enviados no son válidos', details)
       );
     }
 
