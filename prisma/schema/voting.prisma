@@ -1,0 +1,102 @@
+model voter_registries {
+  id                 String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id            String           @db.Uuid
+  program_id         String           @db.Uuid
+  period_id          String           @db.Uuid
+  semester           Int              @db.SmallInt
+  is_eligible        Boolean          @default(true)
+  eligibility_reason String?
+  created_at         DateTime         @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime         @default(now()) @db.Timestamptz(6)
+  academic_periods   academic_periods @relation(fields: [period_id], references: [id], onUpdate: NoAction)
+  programs           programs         @relation(fields: [program_id], references: [id], onUpdate: NoAction)
+  user               User             @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([user_id, period_id], map: "uq_voter_registries_user_period")
+  @@index([period_id], map: "idx_voter_registries_period_id")
+  @@index([program_id], map: "idx_voter_registries_program_id")
+  @@index([program_id, period_id], map: "idx_voter_registries_program_period")
+}
+
+model voting_sessions {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  election_id   String    @db.Uuid
+  voter_id      String    @db.Uuid
+  started_at    DateTime  @default(now()) @db.Timestamptz(6)
+  completed_at  DateTime? @db.Timestamptz(6)
+  ip_address    String?   @db.Inet
+  user_agent    String?
+  is_successful Boolean   @default(false)
+  created_at    DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime  @default(now()) @db.Timestamptz(6)
+  votes         votes?
+  elections     elections @relation(fields: [election_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  user          User      @relation(fields: [voter_id], references: [id], onUpdate: NoAction)
+
+  @@index([election_id], map: "idx_voting_sessions_election")
+  @@index([voter_id], map: "idx_voting_sessions_voter")
+}
+
+model votes {
+  id                String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  election_id       String            @db.Uuid
+  voter_id          String            @db.Uuid
+  session_id        String            @unique @db.Uuid
+  cast_at           DateTime          @default(now()) @db.Timestamptz(6)
+  receipt_code      String            @unique @db.VarChar(64)
+  encrypted_payload String
+  payload_hash      String            @db.VarChar(128)
+  vote_selections   vote_selections[]
+  elections         elections         @relation(fields: [election_id], references: [id], onUpdate: NoAction)
+  voting_sessions   voting_sessions   @relation(fields: [session_id], references: [id], onUpdate: NoAction)
+  user              User              @relation(fields: [voter_id], references: [id], onUpdate: NoAction)
+
+  @@unique([election_id, voter_id], map: "uq_votes_election_voter")
+  @@index([cast_at(sort: Desc)], map: "idx_votes_cast_at")
+  @@index([election_id], map: "idx_votes_election")
+  @@index([payload_hash], map: "idx_votes_payload_hash")
+  @@index([voter_id], map: "idx_votes_voter")
+}
+
+model vote_selections {
+  id               String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  vote_id          String         @db.Uuid
+  ballot_option_id String         @db.Uuid
+  created_at       DateTime       @default(now()) @db.Timestamptz(6)
+  ballot_options   ballot_options @relation(fields: [ballot_option_id], references: [id], onUpdate: NoAction)
+  votes            votes          @relation(fields: [vote_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([vote_id, ballot_option_id], map: "uq_vote_selections_vote_option")
+  @@index([ballot_option_id], map: "idx_vote_selections_ballot_option")
+  @@index([vote_id], map: "idx_vote_selections_vote")
+}
+
+model tallies {
+  id             String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  election_id    String         @db.Uuid
+  position_id    String         @db.Uuid
+  option_id      String         @db.Uuid
+  votes_count    Int            @default(0)
+  updated_at     DateTime       @default(now()) @db.Timestamptz(6)
+  elections      elections      @relation(fields: [election_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  ballot_options ballot_options @relation(fields: [option_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  positions      positions      @relation(fields: [position_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([election_id, position_id, option_id], map: "uq_tallies_election_position_option")
+  @@index([position_id], map: "idx_tallies_position")
+}
+
+model one_time_tokens {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  token_hash  String    @unique @db.VarChar(64)
+  user_id     String    @db.Uuid
+  election_id String    @db.Uuid
+  created_at  DateTime  @default(now()) @db.Timestamptz(6)
+  expires_at  DateTime  @db.Timestamptz(6)
+  used_at     DateTime? @db.Timestamptz(6)
+  elections   elections @relation(fields: [election_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  user        User      @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([election_id], map: "idx_ott_election")
+  @@index([user_id, election_id], map: "idx_ott_user_election")
+}

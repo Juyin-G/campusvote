@@ -11,7 +11,7 @@ jest.unstable_mockModule('../../src/middlewares/rateLimiter.middleware.js', () =
 }));
 
 const app = (await import('../../src/app.js')).default;
-const { prisma } = await import('../../src/config/prisma.js');
+const { prisma } = await import('../../src/database/prisma.js');
 
 const PASSWORD = 'UsersTest123!';
 const runId = Date.now();
@@ -96,6 +96,12 @@ describe('Users Integration (HTTP + DB)', () => {
   });
 
   afterAll(async () => {
+    const idsToDelete = [adminId, studentId, targetId].filter(Boolean);
+    if (idsToDelete.length > 0) {
+      await prisma.user.deleteMany({
+        where: { id: { in: idsToDelete } },
+      }).catch(() => {});
+    }
     await prisma.$disconnect();
   });
 
@@ -229,6 +235,10 @@ describe('Users Integration (HTTP + DB)', () => {
 
   describe('POST /api/users (crear)', () => {
     const newEmail = `users.created.${runId}@campusvote.edu.pe`;
+
+    afterAll(async () => {
+      await prisma.user.deleteMany({ where: { email: newEmail } }).catch(() => {});
+    });
 
     it('Deberia denegar creacion a STUDENT con 403', async () => {
       const res = await request(app)
@@ -378,4 +388,4 @@ describe('Users Integration (HTTP + DB)', () => {
       expect(res.status).toBe(400);
     });
   });
-});
+}); 

@@ -16,7 +16,7 @@ jest.unstable_mockModule('../../src/middlewares/rateLimiter.middleware.js', () =
 }));
 
 const app = (await import('../../src/app.js')).default;
-const { prisma } = await import('../../src/config/prisma.js');
+const { prisma } = await import('../../src/database/prisma.js');
 
 const TEST_PASSWORD = 'AuthTest123!';
 const runId = Date.now();

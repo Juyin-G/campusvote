@@ -1,0 +1,29 @@
+model audit_logs {
+  id            String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  actor_id      String?           @db.Uuid
+  election_id   String?           @db.Uuid
+  action        audit_action_type
+  timestamp     DateTime          @default(now()) @db.Timestamptz(6)
+  ip_address    String?           @db.Inet
+  metadata      Json              @default("{}")
+  previous_hash String            @default("") @db.VarChar(64)
+  current_hash  String            @default("") @db.VarChar(64)
+  signature     String            @default("")
+  user          User?             @relation(fields: [actor_id], references: [id], onUpdate: NoAction)
+  elections     elections?        @relation(fields: [election_id], references: [id], onUpdate: NoAction)
+
+  @@index([action, timestamp(sort: Desc)], map: "idx_audit_logs_action_timestamp")
+  @@index([election_id, timestamp(sort: Desc)], map: "idx_audit_logs_election_timestamp")
+  @@index([timestamp(sort: Desc)], map: "idx_audit_logs_timestamp_desc")
+}
+
+enum audit_action_type {
+  LOGIN
+  VERIFY_2FA
+  CREATE_ELECTION
+  OPEN_ELECTION
+  CAST_VOTE
+  CLOSE_ELECTION
+  CERTIFY_RESULT
+  PUBLISH_RESULT
+}

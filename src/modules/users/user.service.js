@@ -1,5 +1,5 @@
 import bcrypt from 'bcryptjs';
-import { prisma } from '../../config/prisma.js';
+import { prisma } from '../../database/prisma.js';
 import { ApiError } from '../../shared/errors/ApiError.js';
 import { isValidRole, ADMIN_ROLES } from '../../constants/roles.js';
 import { prismaPagination, parsePagination } from '../../shared/utils/pagination.js';

@@ -37,11 +37,17 @@ app.use((req, res, next) => {
 
 // Request logging
 app.use((req, res, next) => {
-  logger.info(`${req.method} ${req.path}`, {
-    requestId: req.requestId,
-    ip: req.ip,
-    userAgent: req.get('user-agent'),
+  const start = Date.now();
+
+  res.on('finish', () => {
+    const duration = Date.now() - start;
+    logger.info(`${req.method} ${req.originalUrl} ${res.statusCode} - ${duration}ms`, {
+      requestId: req.requestId,
+      ip: req.ip,
+      userAgent: req.get('user-agent'),
+    });
   });
+
   next();
 });
 

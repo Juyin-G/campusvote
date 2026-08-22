@@ -6,7 +6,7 @@ const mockCount = jest.fn();
 const mockCreate = jest.fn();
 const mockUpdate = jest.fn();
 
-jest.unstable_mockModule('../../../src/config/prisma.js', () => ({
+jest.unstable_mockModule('../../../src/database/prisma.js', () => ({
   prisma: {
     user: {
       findUnique: mockFindUnique,

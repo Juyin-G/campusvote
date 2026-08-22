@@ -1,0 +1,92 @@
+model organizations {
+  id                      String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name                    String            @db.VarChar(200)
+  code                    String            @unique @db.VarChar(30)
+  org_type                organization_type @default(UNIVERSITY)
+  is_active               Boolean           @default(true)
+  created_at              DateTime          @default(now()) @db.Timestamptz(6)
+  updated_at              DateTime          @default(now()) @db.Timestamptz(6)
+  logo                    String?           @db.VarChar(500)
+  primary_color           String            @default("#0066CC") @db.VarChar(7)
+  secondary_color         String            @default("#FFD700") @db.VarChar(7)
+  country                 String            @default("Perú") @db.VarChar(100)
+  timezone                String            @default("America/Lima") @db.VarChar(50)
+  onboarding_completed    Boolean           @default(false)
+  onboarding_completed_at DateTime?         @db.Timestamptz(6)
+  users                   User[]
+}
+
+model organization_requests {
+  id                String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  institution_name  String                      @db.VarChar(200)
+  institution_type  organization_type
+  country           String                      @db.VarChar(100)
+  estimated_members Int
+  contact_email     String                      @db.Citext
+  contact_phone     String?                     @db.VarChar(20)
+  message           String?
+  status            organization_request_status @default(PENDING)
+  reviewed_by       String?                     @db.Uuid
+  reviewed_at       DateTime?                   @db.Timestamptz(6)
+  rejection_reason  String?
+  created_at        DateTime                    @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime                    @default(now()) @db.Timestamptz(6)
+  user              User?                       @relation(fields: [reviewed_by], references: [id], onUpdate: NoAction)
+
+  @@index([contact_email], map: "idx_org_requests_email")
+  @@index([status], map: "idx_org_requests_status")
+}
+
+model faculties {
+  id         String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name       String      @unique(map: "uq_faculties_name") @db.VarChar(150)
+  code       String      @unique(map: "uq_faculties_code") @db.VarChar(20)
+  created_at DateTime    @default(now()) @db.Timestamptz(6)
+  updated_at DateTime    @default(now()) @db.Timestamptz(6)
+  elections  elections[]
+  programs   programs[]
+}
+
+model programs {
+  id               String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  faculty_id       String             @db.Uuid
+  name             String             @db.VarChar(150)
+  code             String             @unique(map: "uq_programs_code") @db.VarChar(20)
+  created_at       DateTime           @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime           @default(now()) @db.Timestamptz(6)
+  elections        elections[]
+  faculties        faculties          @relation(fields: [faculty_id], references: [id], onUpdate: NoAction)
+  voter_registries voter_registries[]
+
+  @@unique([faculty_id, name], map: "uq_programs_faculty_name")
+  @@index([faculty_id], map: "idx_programs_faculty_id")
+}
+
+model academic_periods {
+  id               String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name             String             @db.VarChar(50)
+  start_date       DateTime           @db.Date
+  end_date         DateTime           @db.Date
+  is_active        Boolean            @default(false)
+  created_at       DateTime           @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime           @default(now()) @db.Timestamptz(6)
+  elections        elections[]
+  voter_registries voter_registries[]
+
+  @@index([start_date, end_date], map: "idx_academic_periods_dates")
+}
+
+enum organization_type {
+  UNIVERSITY
+  INSTITUTE
+  SCHOOL
+  COMPANY
+  ASSOCIATION
+  OTHER
+}
+
+enum organization_request_status {
+  PENDING
+  APPROVED
+  REJECTED
+}

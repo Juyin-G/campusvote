@@ -2,7 +2,7 @@
  * Auth Repository
  * Interacción directa con tabla users + funciones SQL nativas
  */
-import { prisma } from '../../../config/prisma.js';
+import { prisma } from '../../../database/prisma.js';
 
 const userAuthSelect = {
   id: true,
@@ -108,6 +108,7 @@ export const loginIsAllowed = async (email) => {
   const result = await prisma.$queryRaw`
     SELECT login_is_allowed(${email}::citext) AS allowed
   `;
+
   return result[0]?.allowed ?? false;
 };
 
@@ -129,6 +130,7 @@ export const generatePasswordResetToken = async (email) => {
   const result = await prisma.$queryRaw`
     SELECT generate_password_reset_token(${email}::citext) AS token
   `;
+
   return result[0]?.token;
 };
 
@@ -136,6 +138,7 @@ export const resetPasswordWithToken = async (token, newPasswordHash) => {
   const result = await prisma.$queryRaw`
     SELECT reset_password_with_token(${token}, ${newPasswordHash}) AS success
   `;
+
   return result[0]?.success ?? false;
 };
 
@@ -145,6 +148,7 @@ export const generateEmailVerificationToken = async (userId) => {
   const result = await prisma.$queryRaw`
     SELECT generate_email_verification_token(${userId}::uuid) AS token
   `;
+
   return result[0]?.token;
 };
 
@@ -152,6 +156,7 @@ export const verifyEmailWithToken = async (token) => {
   const result = await prisma.$queryRaw`
     SELECT verify_email_with_token(${token}) AS success
   `;
+
   return result[0]?.success ?? false;
 };
 
@@ -160,7 +165,9 @@ export const verifyEmailWithToken = async (token) => {
 export const updateLastLogin = async (userId) => {
   return prisma.user.update({
     where: { id: userId },
-    data: { lastLogin: new Date() },
+    data: {
+      lastLogin: new Date(),
+    },
   });
 };
 
@@ -179,7 +186,9 @@ export const updatePassword = async (userId, newPasswordHash) => {
 export const saveTwoFactorSecret = async (userId, secret) => {
   return prisma.user.update({
     where: { id: userId },
-    data: { twoFactorSecret: secret },
+    data: {
+      twoFactorSecret: secret,
+    },
   });
 };
 
@@ -207,6 +216,8 @@ export const disableTwoFactor = async (userId) => {
 export const updateBackupCodes = async (userId, backupCodes) => {
   return prisma.user.update({
     where: { id: userId },
-    data: { twoFactorBackupCodes: backupCodes },
+    data: {
+      twoFactorBackupCodes: backupCodes,
+    },
   });
 };

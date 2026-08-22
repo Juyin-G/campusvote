@@ -1,4 +1,4 @@
-import { prisma } from '../../../config/prisma.js';
+import { prisma } from '../../../database/prisma.js';
 
 /**
  * Obtiene información 2FA del usuario

@@ -1,1 +1,7 @@
 *.sh text eol=lf
+*.sql text eol=lf
+*.js text eol=lf
+*.ts text eol=lf
+
+# Manejo automático para el resto del código
+* text=auto

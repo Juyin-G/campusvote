@@ -28,4 +28,6 @@ EXCEPTION
     WHEN duplicate_object THEN NULL;
 END $$;
 
+CREATE TYPE user_status AS ENUM ('pending', 'active', 'suspended', 'deleted');
+
 COMMIT;
