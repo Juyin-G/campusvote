@@ -4,7 +4,6 @@
  * @module shared/services/email
  */
 import nodemailer from 'nodemailer';
-
 import env from '../../config/env.js';
 import logger from '../../config/logger.js';
 import { ApiError } from '../errors/ApiError.js';

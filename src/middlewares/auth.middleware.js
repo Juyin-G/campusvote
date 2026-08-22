@@ -1,9 +1,9 @@
 // src/middlewares/auth.middleware.js
 import jwt from 'jsonwebtoken';
 import env from '../config/env.js';
-import { AppError } from '../common/errors/AppError.js';
-import { ErrorCodes } from '../common/errors/errorCodes.js';
-import { HttpStatus } from '../common/errors/httpStatus.js';
+import { ApiError } from '../shared/errors/ApiError.js'; 
+import { TokenExpiredError } from '../shared/errors/TokenExpiredError.js';
+import { HTTP_STATUS } from '../constants/httpStatus.js';
 
 /**
  * Verifica el Bearer token y rellena req.user.
@@ -14,11 +14,11 @@ export const authenticate = (req, res, next) => {
 
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return next(
-      new AppError({
+      new ApiError({
         message:
           'No se envió token de autenticación en el header Authorization',
-        code: ErrorCodes.NO_TOKEN,
-        statusCode: HttpStatus.UNAUTHORIZED,
+        code: TokenExpiredError.NO_TOKEN,
+        statusCode: HTTP_STATUS.UNAUTHORIZED,
       }),
     );
   }
@@ -32,9 +32,9 @@ export const authenticate = (req, res, next) => {
   } catch (error) {
     if (error.name === 'TokenExpiredError') {
       return next(
-        new AppError({
+        new ApiError({
           message: 'El token JWT expiró. Vuelve a iniciar sesión',
-          code: ErrorCodes.TOKEN_EXPIRED,
+          code: TokenExpiredError.TOKEN_EXPIRED,
           statusCode: HttpStatus.UNAUTHORIZED,
         }),
       );
@@ -42,18 +42,18 @@ export const authenticate = (req, res, next) => {
 
     if (error.name === 'JsonWebTokenError') {
       return next(
-        new AppError({
+        new ApiError({
           message: 'El token JWT es inválido o está mal formado',
-          code: ErrorCodes.INVALID_TOKEN,
+          code: TokenExpiredError.INVALID_TOKEN,
           statusCode: HttpStatus.UNAUTHORIZED,
         }),
       );
     }
 
     return next(
-      new AppError({
+      new ApiError({
         message: 'Error de autenticación',
-        code: ErrorCodes.AUTH_ERROR,
+        code: TokenExpiredError.AUTH_ERROR,
         statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
       }),
     );
@@ -66,9 +66,9 @@ export const authenticate = (req, res, next) => {
 export const requireTotpPending = (req, res, next) => {
   if (!req.user) {
     return next(
-      new AppError({
+      new ApiError({
         message: 'No autenticado',
-        code: ErrorCodes.UNAUTHORIZED,
+        code: TokenExpiredError.UNAUTHORIZED,
         statusCode: HttpStatus.UNAUTHORIZED,
       }),
     );
@@ -76,9 +76,9 @@ export const requireTotpPending = (req, res, next) => {
 
   if (req.user.purpose !== 'TOTP_PENDING') {
     return next(
-      new AppError({
+      new ApiError({
         message: 'Se requiere una sesión temporal de verificación TOTP',
-        code: ErrorCodes.TOTP_SESSION_REQUIRED,
+        code: TokenExpiredError.TOTP_SESSION_REQUIRED,
         statusCode: HttpStatus.FORBIDDEN,
       }),
     );
@@ -95,9 +95,9 @@ export const authorize =
   (req, res, next) => {
     if (!req.user) {
       return next(
-        new AppError({
+        new ApiError({
           message: 'No autenticado',
-          code: ErrorCodes.UNAUTHORIZED,
+          code: TokenExpiredError.UNAUTHORIZED,
           statusCode: HttpStatus.UNAUTHORIZED,
         }),
       );
@@ -105,9 +105,9 @@ export const authorize =
 
     if (!roles.includes(req.user.role)) {
       return next(
-        new AppError({
+        new ApiError({
           message: 'No tienes permisos para realizar esta acción',
-          code: ErrorCodes.FORBIDDEN,
+          code: TokenExpiredError.FORBIDDEN,
           statusCode: HttpStatus.FORBIDDEN,
         }),
       );

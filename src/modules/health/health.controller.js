@@ -1,12 +1,12 @@
 import { prisma } from '../../database/prisma.js';
-import { ok } from '../../common/helpers/response.helper.js';
-import { asyncHandler } from '../../common/middlewares/asyncHandler.js';
-import { AppError } from '../../common/errors/AppError.js';
-import { ErrorCodes } from '../../common/errors/errorCodes.js';
-import { HttpStatus } from '../../common/errors/httpStatus.js';
+import { sendSuccess } from '../../shared/utils/apiResponse.js';
+import { asyncHandler  } from '../../middlewares/errorHandler.js';
+import { ApiError } from '../../shared/errors/ApiError.js';
+import { TokenExpiredError } from '../../shared/errors/TokenExpiredError.js';
+import { HTTP_STATUS } from '../../constants/httpStatus.js';
 
-export const checkHealth = asyncHandler((req, res) => {
-  return ok(res, {
+export const checkHealth = asyncHandler ((req, res) => {
+  return sendSuccess (res, {
     message: 'Servicio operativo',
     data: {
       timestamp: new Date().toISOString(),
@@ -16,14 +16,14 @@ export const checkHealth = asyncHandler((req, res) => {
   });
 });
 
-export const checkDatabase = asyncHandler(async (req, res) => {
+export const checkDatabase = asyncHandler (async (req, res) => {
   const start = Date.now();
 
   try {
     await prisma.$queryRaw`SELECT 1`;
     const latency = Date.now() - start;
 
-    return ok(res, {
+    return sendSuccess (res, {
       message: 'Conexión a la base de datos verificada',
       data: {
         connected: true,
@@ -32,10 +32,10 @@ export const checkDatabase = asyncHandler(async (req, res) => {
       requestId: req.requestId,
     });
   } catch {
-    throw new AppError({
+    throw new ApiError({
       message: 'No se pudo conectar con la base de datos',
-      code: ErrorCodes.DATABASE_ERROR,
-      statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+      code: TokenExpiredError.DATABASE_ERROR,
+      statusCode: HTTP_STATUS.INTERNAL_SERVER_ERROR,
     });
   }
 });

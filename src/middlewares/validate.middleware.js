@@ -1,6 +1,6 @@
-import { AppError } from '../common/errors/AppError.js';
-import { ErrorCodes } from '../common/errors/errorCodes.js';
-import { HttpStatus } from '../common/errors/httpStatus.js';
+import { ApiError } from '../shared/errors/ApiError.js';
+import { TokenExpiredError } from '../shared/errors/TokenExpiredError.js';
+import { HTTP_STATUS } from '../constants/httpStatus.js';
 
 /**
  * Devuelve un middleware que valida req.body/req.query/req.params con el schema dado.
@@ -23,8 +23,8 @@ export const validate = (schema) => {
       return next(
         new AppError({
           message: 'Los datos enviados no son válidos',
-          code: ErrorCodes.VALIDATION_ERROR,
-          statusCode: HttpStatus.BAD_REQUEST,
+          code: TokenExpiredError.VALIDATION_ERROR,
+          statusCode: HTTP_STATUS.BAD_REQUEST,
           details,
         }),
       );
