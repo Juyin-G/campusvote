@@ -141,14 +141,32 @@ export class ApiError extends Error {
       return error;
     }
 
+    // Manejo de errores de validación de Zod
+    if (error.name === 'ZodError') {
+      const formattedDetails = error.issues.map((issue) => ({
+        field: issue.path.join('.'),
+        message: issue.message,
+      }));
+      return ApiError.unprocessable('Validation Error', formattedDetails);
+    }
+
+    // Prisma: Restricción de duplicados (Unique constraint)
     if (error.code === 'P2002') {
       return ApiError.conflict('A record with this value already exists', {
         target: error.meta?.target,
       });
     }
 
+    // Prisma: Registro no encontrado
     if (error.code === 'P2025') {
       return ApiError.notFound('Record not found');
+    }
+
+    // Prisma: Clave foránea no válida
+    if (error.code === 'P2003') {
+      return ApiError.badRequest('Referenced resource does not exist', {
+        field: error.meta?.field_name,
+      });
     }
 
     return new ApiError(

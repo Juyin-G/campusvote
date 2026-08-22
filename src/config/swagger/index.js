@@ -61,7 +61,7 @@ const securitySchemes = {
 
 const tags = [
   { name: 'Health', description: 'Verificación de estado del servicio' },
-  { name: 'Auth', description: 'Autenticación, recuperación y sesión (Local/AWS)' },
+  { name: 'Auth', description: 'Autenticación, recuperación y sesión ' },
   { name: 'Users', description: 'Gestión de usuarios y perfiles' },
   { name: 'Organizations', description: 'Gestión de organizaciones (tenants)' },
   { name: 'Elections', description: 'Configuración y ciclo de vida de elecciones' },

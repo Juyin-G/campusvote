@@ -13,9 +13,7 @@ const DEFAULT_LIMIT = 20;
 const MAX_LIMIT = 100;
 const MIN_LIMIT = 1;
 
-// ═══════════════════════════════════════════════════════════
 // PARSEO DE PARÁMETROS
-// ═══════════════════════════════════════════════════════════
 
 /**
  * Parsea y valida los parámetros de paginación desde la query string
@@ -57,9 +55,7 @@ export const parsePagination = (query = {}, options = {}) => {
   };
 };
 
-// ═══════════════════════════════════════════════════════════
 // RESPUESTA DE PAGINACIÓN
-// ═══════════════════════════════════════════════════════════
 
 /**
  * Formatea la respuesta de paginación para la API
@@ -87,9 +83,7 @@ export const formatPagination = ({ data = [], total = 0, page = 1, limit = DEFAU
   };
 };
 
-// ═══════════════════════════════════════════════════════════
 // HELPERS PARA BASE DE DATOS
-// ═══════════════════════════════════════════════════════════
 
 /**
  * Genera el objeto de paginación para Prisma
@@ -119,9 +113,7 @@ export const paginationForCount = ({ page = DEFAULT_PAGE, limit = DEFAULT_LIMIT 
   };
 };
 
-// ═══════════════════════════════════════════════════════════
 // VALIDACIÓN
-// ═══════════════════════════════════════════════════════════
 
 /**
  * Valida que los parámetros de paginación sean válidos
@@ -137,7 +129,6 @@ export const isValidPagination = ({ page, limit } = {}) => {
 };
 
 // EXPORTS
-
 export default {
   parsePagination,
   formatPagination,

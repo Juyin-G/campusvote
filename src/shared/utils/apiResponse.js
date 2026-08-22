@@ -147,3 +147,19 @@ export const sendDeleted = (res, message = 'Deleted successfully') => {
 export const sendError = (res, message = 'An error occurred', statusCode = 500, details = null, code = 'INTERNAL_SERVER_ERROR') => {
   return sendResponse(res, errorResponse({ message, statusCode, details, code }));
 };
+
+export default {
+  successResponse,
+  createdResponse,
+  errorResponse,
+  paginatedResponse,
+  updatedResponse,
+  deletedResponse,
+  sendResponse,
+  sendSuccess,
+  sendCreated,
+  sendPaginated,
+  sendUpdated,
+  sendDeleted,
+  sendError,
+};

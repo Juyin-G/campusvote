@@ -1,11 +1,9 @@
 import bcrypt from 'bcryptjs';
 import { prisma } from '../../config/prisma.js';
 import { ApiError } from '../../shared/errors/ApiError.js';
-import { isValidRole } from '../../constants/roles.js';
+import { isValidRole, ADMIN_ROLES } from '../../constants/roles.js';
 import { prismaPagination } from '../../shared/utils/pagination.js';
 import MESSAGES from '../../constants/messages.js';
-
-const ADMIN_ROLES = ['ADMIN', 'ELECTORAL_COMMISSION'];
 
 const userSelect = {
   id: true,
@@ -31,14 +29,7 @@ const notFoundIfMissing = (err) => {
   throw err;
 };
 
-const pickFields = (body, allowed) =>
-  Object.fromEntries(allowed.filter((f) => body[f] !== undefined).map((f) => [f, body[f]]));
-
-export const listUsers = async (query = {}, actor) => {
-  if (!ADMIN_ROLES.includes(actor?.role)) {
-    throw ApiError.forbidden(MESSAGES.COMMON.FORBIDDEN);
-  }
-
+export const listUsers = async (query = {}) => {
   const { page = 1, limit = 20 } = query;
   const where = {};
 
@@ -83,23 +74,51 @@ export const getUserById = async (id, actor) => {
   const user = await prisma.user.findUnique({ where: { id }, select: userSelect });
   if (!user) throw ApiError.notFound(MESSAGES.USER.NOT_FOUND);
 
-  const isSelf = actor?.userId === id;
+  const actorId = actor?.id || actor?.userId;
+  const isSelf = actorId === id;
   const isAdmin = ADMIN_ROLES.includes(actor?.role);
   if (!isSelf && !isAdmin) throw ApiError.forbidden(MESSAGES.COMMON.FORBIDDEN);
 
   return user;
 };
 
-export const updateUser = async (id, body = {}, actor) => {
-  if (!ADMIN_ROLES.includes(actor?.role)) {
-    throw ApiError.forbidden(MESSAGES.COMMON.FORBIDDEN);
-  }
+export const createUser = async (body = {}) => {
+  const {
+    username,
+    email,
+    password,
+    first_name,
+    last_name,
+    institutional_id,
+    role,
+    organization_id,
+  } = body;
 
-  const allowed = ['firstName', 'lastName', 'organizationId'];
-  const data = pickFields(body, allowed);
+  const hashedPassword = await bcrypt.hash(password, 12);
+
+  return prisma.user.create({
+    data: {
+      username,
+      email,
+      password: hashedPassword,
+      firstName: first_name,
+      lastName: last_name,
+      institutionalId: institutional_id,
+      role,
+      organizationId: organization_id,
+    },
+    select: userSelect,
+  });
+};
+
+export const updateUser = async (id, body = {}) => {
+  const data = {};
+  if (body.first_name !== undefined) data.firstName = body.first_name;
+  if (body.last_name !== undefined) data.lastName = body.last_name;
+  if (body.organization_id !== undefined) data.organizationId = body.organization_id;
 
   if (Object.keys(data).length === 0) {
-    throw ApiError.badRequest(MESSAGES.COMMON.BAD_REQUEST, { allowedFields: allowed });
+    throw ApiError.badRequest(MESSAGES.COMMON.BAD_REQUEST);
   }
 
   try {
@@ -109,26 +128,36 @@ export const updateUser = async (id, body = {}, actor) => {
   }
 };
 
-export const deactivateUser = async (id, actor) => {
-  if (!ADMIN_ROLES.includes(actor?.role)) {
-    throw ApiError.forbidden(MESSAGES.COMMON.FORBIDDEN);
-  }
-
-  if (actor.userId === id) {
+export const setActiveStatus = async (id, isActive, actor) => {
+  const actorId = actor?.id || actor?.userId;
+  if (actorId === id && !isActive) {
     throw ApiError.badRequest('No puedes desactivar tu propia cuenta');
   }
 
   try {
-    await prisma.user.update({ where: { id }, data: { isActive: false } });
+    return await prisma.user.update({
+      where: { id },
+      data: { isActive },
+      select: userSelect,
+    });
   } catch (err) {
     notFoundIfMissing(err);
   }
 };
 
-export const updateUserRole = async (id, role, actor) => {
-  if (!ADMIN_ROLES.includes(actor?.role)) {
-    throw ApiError.forbidden(MESSAGES.COMMON.FORBIDDEN);
+export const unlockUser = async (id) => {
+  try {
+    return await prisma.user.update({
+      where: { id },
+      data: { failedAttempts: 0, lockUntil: null },
+      select: userSelect,
+    });
+  } catch (err) {
+    notFoundIfMissing(err);
   }
+};
+
+export const updateUserRole = async (id, role) => {
   if (!isValidRole(role)) throw ApiError.badRequest(MESSAGES.USER.INVALID_ROLE);
 
   const existing = await prisma.user.findUnique({
@@ -143,7 +172,7 @@ export const updateUserRole = async (id, role, actor) => {
     });
     if (superuserCount <= 1) {
       throw ApiError.badRequest(
-        'No se puede cambiar el rol del último superusuario activo',
+        'No se puede cambiar el rol del último superusuario activo'
       );
     }
   }
@@ -151,16 +180,13 @@ export const updateUserRole = async (id, role, actor) => {
   return prisma.user.update({ where: { id }, data: { role }, select: userSelect });
 };
 
-export const updateMyProfile = async (userId, body = {}, actor) => {
-  if (actor?.userId !== userId) {
-    throw ApiError.forbidden(MESSAGES.COMMON.FORBIDDEN);
-  }
-
-  const allowed = ['firstName', 'lastName'];
-  const data = pickFields(body, allowed);
+export const updateMyProfile = async (userId, body = {}) => {
+  const data = {};
+  if (body.first_name !== undefined) data.firstName = body.first_name;
+  if (body.last_name !== undefined) data.lastName = body.last_name;
 
   if (Object.keys(data).length === 0) {
-    throw ApiError.badRequest(MESSAGES.COMMON.BAD_REQUEST, { allowedFields: allowed });
+    throw ApiError.badRequest(MESSAGES.COMMON.BAD_REQUEST);
   }
 
   return prisma.user.update({ where: { id: userId }, data, select: userSelect });
@@ -170,9 +196,7 @@ export const changeMyPassword = async (userId, body = {}) => {
   const { currentPassword, newPassword } = body;
 
   if (!currentPassword || !newPassword) {
-    throw ApiError.badRequest(MESSAGES.COMMON.BAD_REQUEST, {
-      required: ['currentPassword', 'newPassword'],
-    });
+    throw ApiError.badRequest(MESSAGES.COMMON.BAD_REQUEST);
   }
 
   if (newPassword.length < 8) {
@@ -188,7 +212,13 @@ export const changeMyPassword = async (userId, body = {}) => {
   }
 
   const matches = await bcrypt.compare(currentPassword, dbUser.password);
-  if (!matches) throw ApiError.badRequest(MESSAGES.USER.PASSWORD_SAME_AS_OLD);
+  if (!matches) {
+    throw ApiError.badRequest('La contraseña actual es incorrecta');
+  }
+
+  if (currentPassword === newPassword) {
+    throw ApiError.badRequest(MESSAGES.USER.PASSWORD_SAME_AS_OLD);
+  }
 
   await prisma.user.update({
     where: { id: userId },
@@ -204,8 +234,10 @@ export const changeMyPassword = async (userId, body = {}) => {
 export default {
   listUsers,
   getUserById,
+  createUser,
   updateUser,
-  deactivateUser,
+  setActiveStatus,
+  unlockUser,
   updateUserRole,
   updateMyProfile,
   changeMyPassword,

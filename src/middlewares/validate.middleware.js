@@ -21,7 +21,7 @@ export const validate = (schema) => {
       }));
 
       return next(
-        new AppError({
+        new ApiError({
           message: 'Los datos enviados no son válidos',
           code: TokenExpiredError.VALIDATION_ERROR,
           statusCode: HTTP_STATUS.BAD_REQUEST,
