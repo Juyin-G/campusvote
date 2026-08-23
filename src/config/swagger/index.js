@@ -1,36 +1,37 @@
 /**
  * @file index.js
- * @description Configuración principal de Swagger/OpenAPI para CampusVote
+ * @description Configuración centralizada e inicialización de OpenAPI / Swagger UI.
+ * @module config/swagger
  */
 
 import swaggerJsdoc from 'swagger-jsdoc';
 import swaggerUi from 'swagger-ui-express';
 import env from '../env.js';
 import schemas from './schemas/index.js';
+import { responses } from './responses.js';
 
+// Metadata principal de la API
 const apiInfo = {
   title: 'CampusVote API',
   version: env.APP_VERSION || '1.0.0',
   description: `
-API para sistema de votación universitaria CampusVote.
+### Sistema de Votación Universitaria - API RESTful
 
-## Autenticación
-Esta API usa **JWT (JSON Web Tokens)** para autenticación.
+#### Autenticación
+Esta API utiliza esquemas de autenticación basados en **JWT (JSON Web Tokens)**.
 
-### Pasos para autenticarte:
-1. Haz login en \`POST /api/v1/auth/login\`
-2. Copia el token recibido en la respuesta
-3. Haz clic en el botón **"Authorize"** (arriba a la derecha)
-4. Pega el token en el campo correspondiente
+1. Autentícate en \`POST /api/v1/auth/login\`.
+2. Copia el token de acceso devuelto en la respuesta.
+3. Haz clic en el botón **Authorize** ubicado arriba a la derecha e ingresa tu token.
 
-## Convenciones
-- Respuestas estandarizadas: \`{ success: boolean, data: object|array, error: object|null }\`
-- Fechas en formato **ISO 8601** (UTC)
-- IDs únicos en formato **UUID v4**
-- Paginación con query params: \`page\` (default: 1), \`limit\` (default: 10)
+#### Convenciones de Respuesta
+- **Formato Estándar:** \`{ "success": boolean, "data": object|array, "error": object|null }\`
+- **Marcas de Tiempo:** Estándar **ISO 8601** (UTC).
+- **Identificadores:** Identificadores únicos globales **UUID v4**.
+- **Paginación:** Mediante parámetros de consulta \`page\` (defecto: 1) y \`limit\` (defecto: 10).
   `,
   contact: {
-    name: 'CampusVote Team',
+    name: 'CampusVote Engineering Team',
     email: 'support@campusvote.com',
   },
   license: {
@@ -39,45 +40,51 @@ Esta API usa **JWT (JSON Web Tokens)** para autenticación.
   },
 };
 
+// Construcción dinámica de servidores
 const servers = [
   {
-    url: `http://localhost:${env.PORT || 3000}/api/v1`,
-    description: 'Servidor de Desarrollo (v1)',
+    url: env.APP_URL || `http://localhost:${env.PORT || 3000}`,
+    description: `Servidor de Desarrollo (${env.NODE_ENV || 'development'})`,
   },
-  {
-    url: 'https://api.campusvote.com/api/v1',
-    description: 'Servidor de Producción (v1)',
-  },
+  ...(env.STAGE_API_URL
+    ? [{ url: env.STAGE_API_URL, description: 'Servidor de Staging / QA' }]
+    : []),
+  ...(env.PROD_API_URL
+    ? [{ url: env.PROD_API_URL, description: 'Servidor de Producción' }]
+    : []),
 ];
 
+// Esquemas de Seguridad
 const securitySchemes = {
   bearerAuth: {
     type: 'http',
     scheme: 'bearer',
     bearerFormat: 'JWT',
-    description: 'Ingresa tu JWT token obtenido en el login',
+    description: 'Ingrese el token JWT con prefijo Bearer generado tras iniciar sesión.',
   },
 };
 
+// Categorización global de Endpoints
 const tags = [
-  { name: 'Health', description: 'Verificación de estado del servicio' },
-  { name: 'Auth', description: 'Autenticación, recuperación y sesión ' },
-  { name: 'Users', description: 'Gestión de usuarios y perfiles' },
-  { name: 'Organizations', description: 'Gestión de organizaciones (tenants)' },
-  { name: 'Elections', description: 'Configuración y ciclo de vida de elecciones' },
-  { name: 'Voting', description: 'Emisión y registro de votos' },
-  { name: 'Ballots', description: 'Gestión de boletas electorales' },
-  { name: 'Results', description: 'Escrutinio y métricas estadísticas' },
+  { name: 'Health', description: 'Monitoreo y diagnóstico del estado de la infraestructura' },
+  { name: 'Auth', description: 'Gestión de autenticación, sesión y recuperación' },
+  { name: 'Users', description: 'Administración de usuarios y perfiles' },
+  { name: 'Organizations', description: 'Gestión multitenant de instituciones y organizaciones' },
+  { name: 'Elections', description: 'Ciclo de vida y parámetros de procesos electorales' },
+  { name: 'Voting', description: 'Registro y validación de votos criptográficos' },
+  { name: 'Ballots', description: 'Gestión de cédulas y configuraciones de votación' },
+  { name: 'Results', description: 'Escrutinio automatizado y análisis métrico' },
 ];
 
 const options = {
   definition: {
-    openapi: '3.0.0',
+    openapi: '3.0.3',
     info: apiInfo,
     servers,
     components: {
       securitySchemes,
       schemas,
+      responses,
     },
     tags,
     security: [
@@ -86,33 +93,53 @@ const options = {
       },
     ],
   },
-  // Escanea ÚNICAMENTE los archivos dedicados a documentación
-  apis: ['./src/modules/**/*.docs.js'],
+  apis: [
+    './src/modules/**/*.docs.js',
+    './src/config/swagger/schemas/**/*.js',
+  ],
 };
 
+/**
+ * Especificación OpenAPI compilada
+ */
 export const swaggerSpec = swaggerJsdoc(options);
 
+/**
+ * Registra la interfaz gráfica Swagger UI y el endpoint JSON en la aplicación Express.
+ * @param {import('express').Application} app - Instancia principal de Express.
+ */
 export const swaggerSetup = (app) => {
-  app.use(
-    '/api-docs',
-    swaggerUi.serve,
-    swaggerUi.setup(swaggerSpec, {
-      customCss: '.swagger-ui .topbar { display: none }',
-      customSiteTitle: 'CampusVote API Documentation',
-      customfavIcon: '/favicon.ico',
-      swaggerOptions: {
-        persistAuthorization: true,
-        docExpansion: 'list',
-        filter: true,
-        showRequestDuration: true,
-        defaultModelsExpandDepth: 2,
-        defaultModelExpandDepth: 2,
-      },
-    })
-  );
+  // Opcional: Desactivar en entornos donde no se requiera la UI
+  if (env.SWAGGER_ENABLED === false) {
+    return;
+  }
 
+  const swaggerUiOptions = {
+    customCss: `
+      .swagger-ui .topbar { display: none }
+      .swagger-ui .info { margin: 20px 0 }
+      .swagger-ui .scheme-container { padding: 15px 0 }
+    `,
+    customSiteTitle: 'CampusVote API Documentation',
+    customfavIcon: '/favicon.ico',
+    swaggerOptions: {
+      persistAuthorization: true,
+      displayRequestDuration: true,
+      docExpansion: 'list',
+      filter: true,
+      defaultModelsExpandDepth: 2,
+      defaultModelExpandDepth: 2,
+      tryItOutEnabled: true,
+    },
+  };
+
+  // UI Interactive Documentation
+  app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, swaggerUiOptions));
+
+  // JSON Raw Specification Endpoint
   app.get('/api-docs.json', (req, res) => {
     res.setHeader('Content-Type', 'application/json');
-    res.json(swaggerSpec);
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    res.send(swaggerSpec);
   });
 };

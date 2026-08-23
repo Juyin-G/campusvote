@@ -2,8 +2,10 @@
 import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { randomUUID } from 'crypto'; // Utilidad nativa de Node.js
+import { randomUUID } from 'crypto';
 import helmet from 'helmet';
+import compression from 'compression'; // OPCIONAL: npm i compression
+import rateLimit from 'express-rate-limit'; // OPCIONAL: npm i express-rate-limit
 
 import cors from './config/cors.js';
 import logger from './config/logger.js';
@@ -18,11 +20,23 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 
-// Seguridad
-app.use(helmet({ contentSecurityPolicy: false }));
+// Confianza en proxies inversos (Nginx, Cloudflare, Render, Heroku)
+app.set('trust proxy', 1);
 
-// CORS
+// Limitador de peticiones para evitar abuso de la API
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  max: 100, // Límite de 100 peticiones por IP por ventana
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { status: 429, message: 'Demasiadas solicitudes, intenta más tarde.' },
+});
+
+// Seguridad y Optimización
+app.use(helmet({ contentSecurityPolicy: false }));
+app.use(compression());
 app.use(cors);
+app.use('/api', limiter); // Aplica limitador solo a la API
 
 // Body parsers
 app.use(express.json({ limit: '10mb' }));
@@ -49,6 +63,15 @@ app.use((req, res, next) => {
   });
 
   next();
+});
+
+// Endpoint de Health Check (Monitoreo del servicio)
+app.get('/health', (req, res) => {
+  res.status(200).json({
+    status: 'UP',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+  });
 });
 
 // Documentación Swagger
