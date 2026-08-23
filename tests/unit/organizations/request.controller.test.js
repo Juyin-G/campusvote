@@ -9,24 +9,12 @@ jest.unstable_mockModule(
   })
 );
 
-jest.unstable_mockModule(
-  '../../../src/modules/organizations/approval.service.js',
-  () => ({
-    approveRequest: jest.fn(),
-    rejectRequest: jest.fn(),
-  })
-);
-
 const controller = await import(
   '../../../src/modules/organizations/request.controller.js'
 );
 
 const requestService = await import(
   '../../../src/modules/organizations/request.service.js'
-);
-
-const approvalService = await import(
-  '../../../src/modules/organizations/approval.service.js'
 );
 
 describe('Organization Request Controller Unit Tests', () => {
@@ -66,54 +54,63 @@ describe('Organization Request Controller Unit Tests', () => {
 
       await controller.createRequest(req, res);
 
-      expect(requestService.createRequest).toHaveBeenCalledWith(req.body);
+      expect(requestService.createRequest).toHaveBeenCalledWith(
+        req.body
+      );
 
       expect(res.status).toHaveBeenCalledWith(201);
     });
   });
 
-  describe('approveRequest', () => {
-    it('debe aprobar la solicitud', async () => {
-      req.params.id = 'req-1';
-
+  describe('listRequests', () => {
+    it('debe listar las solicitudes paginadas con status 200', async () => {
       const mockResult = {
-        id: 'org-1',
+        requests: [
+          {
+            id: 'req-1',
+            status: 'PENDING',
+          },
+        ],
+        pagination: {
+          page: 1,
+          limit: 10,
+          total: 1,
+          totalPages: 1,
+        },
       };
 
-      approvalService.approveRequest.mockResolvedValue(mockResult);
+      req.query = {
+        page: '1',
+        limit: '10',
+      };
 
-      await controller.approveRequest(req, res);
+      requestService.listRequests.mockResolvedValue(mockResult);
 
-      expect(approvalService.approveRequest).toHaveBeenCalledWith(
-        'req-1',
-        'admin-uuid'
+      await controller.listRequests(req, res);
+
+      expect(requestService.listRequests).toHaveBeenCalledWith(
+        req.query
       );
 
       expect(res.status).toHaveBeenCalledWith(200);
     });
   });
 
-  describe('rejectRequest', () => {
-    it('debe rechazar la solicitud', async () => {
+  describe('getRequestById', () => {
+    it('debe obtener una solicitud por ID con status 200', async () => {
       req.params.id = 'req-1';
-
-      req.body = {
-        rejection_reason: 'Datos no válidos',
-      };
 
       const mockResult = {
         id: 'req-1',
-        status: 'REJECTED',
+        status: 'PENDING',
       };
 
-      approvalService.rejectRequest.mockResolvedValue(mockResult);
+      requestService.getRequestById.mockResolvedValue(mockResult);
 
-      await controller.rejectRequest(req, res);
+      await controller.getRequestById(req, res);
 
-      expect(approvalService.rejectRequest).toHaveBeenCalledWith(
-        'req-1',
-        'admin-uuid',
-        'Datos no válidos'
+      expect(requestService.getRequestById).toHaveBeenCalledWith(
+        'req-1'
       );
 
       expect(res.status).toHaveBeenCalledWith(200);
