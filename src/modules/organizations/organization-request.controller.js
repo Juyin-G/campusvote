@@ -1,18 +1,16 @@
-// src/modules/organizations/organization.controller.js
+import organizationService from './organization.service.js';
+import asyncHandler from '../../shared/utils/asyncHandler.js';
+import { sendSuccess, sendPaginated } from '../../shared/utils/apiResponse.js';
+import { HTTP_STATUS } from '../../constants/httpStatus.js';
+import MESSAGES from '../../constants/messages.js';
+import logger from '../../config/logger.js';
 
-const organizationService = require('./organization.service');
-const asyncHandler = require('../../shared/utils/asyncHandler');
-const { sendSuccess, sendPaginated } = require('../../shared/utils/apiResponse');
-const { HTTP_STATUS } = require('../../constants/httpStatus');
-const MESSAGES = require('../../constants/messages');
-const logger = require('../../config/logger');
-
-const getOrganizationRequests = asyncHandler(async (req, res) => {
+export const getOrganizationRequests = asyncHandler(async (req, res) => {
   const { requests, pagination } = await organizationService.listRequests(req.query);
   return sendPaginated(res, requests, pagination, 'Solicitudes obtenidas exitosamente');
 });
 
-const createOrganizationRequest = asyncHandler(async (req, res) => {
+export const createOrganizationRequest = asyncHandler(async (req, res) => {
   const request = await organizationService.createRequest(req.body);
 
   logger.info(`Solicitud de organización recibida: ${req.body.institution_name}`, {
@@ -30,7 +28,7 @@ const createOrganizationRequest = asyncHandler(async (req, res) => {
   );
 });
 
-const approveOrganizationRequest = asyncHandler(async (req, res) => {
+export const approveOrganizationRequest = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const reviewerId = req.user.id;
 
@@ -52,7 +50,7 @@ const approveOrganizationRequest = asyncHandler(async (req, res) => {
   );
 });
 
-const rejectOrganizationRequest = asyncHandler(async (req, res) => {
+export const rejectOrganizationRequest = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const reviewerId = req.user.id;
   const { rejection_reason } = req.body;
@@ -76,7 +74,7 @@ const rejectOrganizationRequest = asyncHandler(async (req, res) => {
   );
 });
 
-module.exports = {
+export default {
   getOrganizationRequests,
   createOrganizationRequest,
   approveOrganizationRequest,

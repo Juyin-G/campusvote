@@ -1,4 +1,4 @@
-const { prisma } = require('../../database/prisma');
+import { prisma } from '../../database/prisma.js';
 
 // SELECTS compartidos por dominio
 const ORG_SELECT = {
@@ -67,11 +67,11 @@ const PERIOD_SELECT = {
 // Helper para queries con filtros y casteos correctos
 const buildOrgWhere = ({ is_active, search } = {}) => {
   const where = {};
-  
+
   if (is_active !== undefined) {
     where.is_active = is_active === 'true' || is_active === true;
   }
-  
+
   if (search) {
     where.OR = [
       { name: { contains: search, mode: 'insensitive' } },
@@ -84,19 +84,19 @@ const buildOrgWhere = ({ is_active, search } = {}) => {
 
 // --- ORGANIZATIONS ---
 
-const findOrgById = (id) =>
+export const findOrgById = (id) =>
   prisma.organizations.findUnique({
     where: { id },
     select: ORG_SELECT,
   });
 
-const findOrgByCode = (code) =>
+export const findOrgByCode = (code) =>
   prisma.organizations.findUnique({
     where: { code },
     select: ORG_SELECT,
   });
 
-const listOrgs = ({ is_active, search, skip = 0, take = 10 } = {}) =>
+export const listOrgs = ({ is_active, search, skip = 0, take = 10 } = {}) =>
   prisma.organizations.findMany({
     where: buildOrgWhere({ is_active, search }),
     select: ORG_SELECT,
@@ -105,32 +105,32 @@ const listOrgs = ({ is_active, search, skip = 0, take = 10 } = {}) =>
     take,
   });
 
-const countOrgs = ({ is_active, search } = {}) =>
+export const countOrgs = ({ is_active, search } = {}) =>
   prisma.organizations.count({
     where: buildOrgWhere({ is_active, search }),
   });
 
-const createOrg = (data) =>
+export const createOrg = (data) =>
   prisma.organizations.create({
     data,
     select: ORG_SELECT,
   });
 
-const updateOrg = (id, data) =>
+export const updateOrg = (id, data) =>
   prisma.organizations.update({
     where: { id },
     data,
     select: ORG_SELECT,
   });
 
-const setOrgActive = (id, is_active) =>
+export const setOrgActive = (id, is_active) =>
   prisma.organizations.update({
     where: { id },
     data: { is_active },
     select: ORG_SELECT,
   });
 
-const completeOrgOnboarding = (id) =>
+export const completeOrgOnboarding = (id) =>
   prisma.organizations.update({
     where: { id },
     data: {
@@ -140,7 +140,7 @@ const completeOrgOnboarding = (id) =>
     select: ORG_SELECT,
   });
 
-const deleteOrgById = (id) =>
+export const deleteOrgById = (id) =>
   prisma.organizations.delete({
     where: { id },
     select: { id: true },
@@ -148,13 +148,13 @@ const deleteOrgById = (id) =>
 
 // --- ORGANIZATION REQUESTS ---
 
-const findRequestById = (id) =>
+export const findRequestById = (id) =>
   prisma.organization_requests.findUnique({
     where: { id },
     select: REQUEST_SELECT,
   });
 
-const listRequests = ({ status, skip = 0, take = 10 } = {}) =>
+export const listRequests = ({ status, skip = 0, take = 10 } = {}) =>
   prisma.organization_requests.findMany({
     where: status ? { status } : undefined,
     select: REQUEST_SELECT,
@@ -163,31 +163,31 @@ const listRequests = ({ status, skip = 0, take = 10 } = {}) =>
     take,
   });
 
-const countRequests = ({ status } = {}) =>
+export const countRequests = ({ status } = {}) =>
   prisma.organization_requests.count({
     where: status ? { status } : undefined,
   });
 
-const createRequest = (data) =>
+export const createRequest = (data) =>
   prisma.organization_requests.create({
     data,
     select: REQUEST_SELECT,
   });
 
-const updateRequest = (id, data) =>
+export const updateRequest = (id, data) =>
   prisma.organization_requests.update({
     where: { id },
     data,
     select: REQUEST_SELECT,
   });
 
-const deleteRequestById = (id) =>
+export const deleteRequestById = (id) =>
   prisma.organization_requests.delete({
     where: { id },
     select: { id: true },
   });
 
-const approveOrganizationRequest = async (requestId, reviewerUserId) => {
+export const approveOrganizationRequest = async (requestId, reviewerUserId) => {
   const result = await prisma.$queryRaw`
     SELECT approve_organization_request(${requestId}::uuid, ${reviewerUserId}::uuid) AS org_id
   `;
@@ -197,7 +197,7 @@ const approveOrganizationRequest = async (requestId, reviewerUserId) => {
   return findOrgById(newOrgId);
 };
 
-const rejectOrganizationRequest = async (requestId, reviewerUserId, reason) => {
+export const rejectOrganizationRequest = async (requestId, reviewerUserId, reason) => {
   return prisma.organization_requests.update({
     where: { id: requestId },
     data: {
@@ -212,19 +212,19 @@ const rejectOrganizationRequest = async (requestId, reviewerUserId, reason) => {
 
 // --- FACULTIES ---
 
-const findFacultyById = (id) =>
+export const findFacultyById = (id) =>
   prisma.faculties.findUnique({
     where: { id },
     select: FACULTY_SELECT,
   });
 
-const findFacultyByCode = (code) =>
+export const findFacultyByCode = (code) =>
   prisma.faculties.findUnique({
     where: { code },
     select: FACULTY_SELECT,
   });
 
-const listFaculties = ({ organization_id, skip = 0, take = 50 } = {}) =>
+export const listFaculties = ({ organization_id, skip = 0, take = 50 } = {}) =>
   prisma.faculties.findMany({
     where: organization_id ? { organization_id } : undefined,
     select: FACULTY_SELECT,
@@ -233,20 +233,20 @@ const listFaculties = ({ organization_id, skip = 0, take = 50 } = {}) =>
     take,
   });
 
-const createFaculty = (data) =>
+export const createFaculty = (data) =>
   prisma.faculties.create({
     data,
     select: FACULTY_SELECT,
   });
 
-const updateFaculty = (id, data) =>
+export const updateFaculty = (id, data) =>
   prisma.faculties.update({
     where: { id },
     data,
     select: FACULTY_SELECT,
   });
 
-const deleteFaculty = (id) =>
+export const deleteFaculty = (id) =>
   prisma.faculties.delete({
     where: { id },
     select: { id: true },
@@ -254,13 +254,13 @@ const deleteFaculty = (id) =>
 
 // --- PROGRAMS ---
 
-const findProgramById = (id) =>
+export const findProgramById = (id) =>
   prisma.programs.findUnique({
     where: { id },
     select: PROGRAM_SELECT,
   });
 
-const listPrograms = ({ faculty_id, skip = 0, take = 50 } = {}) =>
+export const listPrograms = ({ faculty_id, skip = 0, take = 50 } = {}) =>
   prisma.programs.findMany({
     where: faculty_id ? { faculty_id } : undefined,
     select: PROGRAM_SELECT,
@@ -269,20 +269,20 @@ const listPrograms = ({ faculty_id, skip = 0, take = 50 } = {}) =>
     take,
   });
 
-const createProgram = (data) =>
+export const createProgram = (data) =>
   prisma.programs.create({
     data,
     select: PROGRAM_SELECT,
   });
 
-const updateProgram = (id, data) =>
+export const updateProgram = (id, data) =>
   prisma.programs.update({
     where: { id },
     data,
     select: PROGRAM_SELECT,
   });
 
-const deleteProgram = (id) =>
+export const deleteProgram = (id) =>
   prisma.programs.delete({
     where: { id },
     select: { id: true },
@@ -290,13 +290,13 @@ const deleteProgram = (id) =>
 
 // --- ACADEMIC PERIODS ---
 
-const findPeriodById = (id) =>
+export const findPeriodById = (id) =>
   prisma.academic_periods.findUnique({
     where: { id },
     select: PERIOD_SELECT,
   });
 
-const listPeriods = ({ organization_id, skip = 0, take = 50 } = {}) =>
+export const listPeriods = ({ organization_id, skip = 0, take = 50 } = {}) =>
   prisma.academic_periods.findMany({
     where: organization_id ? { organization_id } : undefined,
     select: PERIOD_SELECT,
@@ -305,20 +305,20 @@ const listPeriods = ({ organization_id, skip = 0, take = 50 } = {}) =>
     take,
   });
 
-const createPeriod = (data) =>
+export const createPeriod = (data) =>
   prisma.academic_periods.create({
     data,
     select: PERIOD_SELECT,
   });
 
-const updatePeriod = (id, data) =>
+export const updatePeriod = (id, data) =>
   prisma.academic_periods.update({
     where: { id },
     data,
     select: PERIOD_SELECT,
   });
 
-const setActivePeriod = async (id, organizationId) => {
+export const setActivePeriod = async (id, organizationId) => {
   return prisma.$transaction(async (tx) => {
     if (organizationId) {
       await tx.academic_periods.updateMany({
@@ -335,13 +335,13 @@ const setActivePeriod = async (id, organizationId) => {
   });
 };
 
-const deletePeriod = (id) =>
+export const deletePeriod = (id) =>
   prisma.academic_periods.delete({
     where: { id },
     select: { id: true },
   });
 
-module.exports = {
+export default {
   findOrgById,
   findOrgByCode,
   listOrgs,

@@ -1,10 +1,10 @@
-const orgRepository = require('./organization.repository');
-const { ApiError } = require('../../shared/errors');
+import orgRepository from './organization.repository.js';
+import { ApiError } from '../../shared/errors/index.js';
 
 /**
  * Listar organizaciones paginadas usando el repositorio
  */
-const listOrganizations = async (query = {}) => {
+export const listOrganizations = async (query = {}) => {
   const page = Math.max(1, parseInt(query.page) || 1);
   const limit = Math.max(1, Math.min(100, parseInt(query.limit) || 10));
   const skip = (page - 1) * limit;
@@ -35,7 +35,7 @@ const listOrganizations = async (query = {}) => {
 /**
  * Obtener organización por ID
  */
-const getOrganizationById = async (id) => {
+export const getOrganizationById = async (id) => {
   const organization = await orgRepository.findOrgById(id);
 
   if (!organization) {
@@ -48,7 +48,7 @@ const getOrganizationById = async (id) => {
 /**
  * Crear una nueva organización
  */
-const createOrganization = async (data = {}) => {
+export const createOrganization = async (data = {}) => {
   const normalizedCode = data.code.trim().toUpperCase();
 
   const existingOrg = await orgRepository.findOrgByCode(normalizedCode);
@@ -71,7 +71,7 @@ const createOrganization = async (data = {}) => {
 /**
  * Actualizar una organización
  */
-const updateOrganization = async (id, data = {}) => {
+export const updateOrganization = async (id, data = {}) => {
   const existingOrg = await orgRepository.findOrgById(id);
   if (!existingOrg) {
     throw ApiError.notFound('Organización no encontrada');
@@ -115,7 +115,7 @@ const updateOrganization = async (id, data = {}) => {
 /**
  * Eliminar una organización por ID
  */
-const deleteOrganization = async (id) => {
+export const deleteOrganization = async (id) => {
   const existingOrg = await orgRepository.findOrgById(id);
   if (!existingOrg) {
     throw ApiError.notFound('Organización no encontrada');
@@ -127,7 +127,7 @@ const deleteOrganization = async (id) => {
 /**
  * Actualizar datos específicos del proceso de onboarding
  */
-const updateOnboarding = async (organizationId, data = {}) => {
+export const updateOnboarding = async (organizationId, data = {}) => {
   const existingOrg = await orgRepository.findOrgById(organizationId);
   if (!existingOrg) {
     throw ApiError.notFound('Organización no encontrada');
@@ -152,7 +152,7 @@ const updateOnboarding = async (organizationId, data = {}) => {
 /**
  * Marcar onboarding como completado
  */
-const completeOnboarding = async (organizationId) => {
+export const completeOnboarding = async (organizationId) => {
   const existingOrg = await orgRepository.findOrgById(organizationId);
   if (!existingOrg) {
     throw ApiError.notFound('Organización no encontrada');
@@ -165,7 +165,7 @@ const completeOnboarding = async (organizationId) => {
   return orgRepository.completeOrgOnboarding(organizationId);
 };
 
-module.exports = {
+export default {
   listOrganizations,
   getOrganizationById,
   createOrganization,
