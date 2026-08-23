@@ -1,27 +1,36 @@
 import { jest, describe, it, expect, beforeEach } from '@jest/globals';
 
 jest.unstable_mockModule(
-  '../../../src/modules/organizations/organization.service.js',
+  '../../../src/modules/organizations/request.service.js',
   () => ({
-    default: {
-      listRequests: jest.fn(),
-      createRequest: jest.fn(),
-      approveRequest: jest.fn(),
-      rejectRequest: jest.fn(),
-    },
+    createRequest: jest.fn(),
+    listRequests: jest.fn(),
+    getRequestById: jest.fn(),
+  })
+);
+
+jest.unstable_mockModule(
+  '../../../src/modules/organizations/approval.service.js',
+  () => ({
+    approveRequest: jest.fn(),
+    rejectRequest: jest.fn(),
   })
 );
 
 const controller = await import(
-  '../../../src/modules/organizations/organization-request.controller.js'
+  '../../../src/modules/organizations/request.controller.js'
 );
 
-const { default: orgService } = await import(
-  '../../../src/modules/organizations/organization.service.js'
+const requestService = await import(
+  '../../../src/modules/organizations/request.service.js'
+);
+
+const approvalService = await import(
+  '../../../src/modules/organizations/approval.service.js'
 );
 
 describe('Organization Request Controller Unit Tests', () => {
-  let req, res, next;
+  let req, res;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -30,7 +39,9 @@ describe('Organization Request Controller Unit Tests', () => {
       params: {},
       body: {},
       query: {},
-      user: { id: 'admin-uuid' },
+      user: {
+        id: 'admin-uuid',
+      },
       requestId: 'req-1',
     };
 
@@ -38,11 +49,9 @@ describe('Organization Request Controller Unit Tests', () => {
       status: jest.fn().mockReturnThis(),
       json: jest.fn().mockReturnThis(),
     };
-
-    next = jest.fn();
   });
 
-  describe('createOrganizationRequest', () => {
+  describe('createRequest', () => {
     it('debe registrar la solicitud con status 201', async () => {
       req.body = {
         institution_name: 'Colegio Demo',
@@ -53,16 +62,17 @@ describe('Organization Request Controller Unit Tests', () => {
         status: 'PENDING',
       };
 
-      orgService.createRequest.mockResolvedValue(mockResult);
+      requestService.createRequest.mockResolvedValue(mockResult);
 
-      await controller.createOrganizationRequest(req, res, next);
+      await controller.createRequest(req, res);
 
-      expect(orgService.createRequest).toHaveBeenCalledWith(req.body);
+      expect(requestService.createRequest).toHaveBeenCalledWith(req.body);
+
       expect(res.status).toHaveBeenCalledWith(201);
     });
   });
 
-  describe('approveOrganizationRequest', () => {
+  describe('approveRequest', () => {
     it('debe aprobar la solicitud', async () => {
       req.params.id = 'req-1';
 
@@ -70,11 +80,11 @@ describe('Organization Request Controller Unit Tests', () => {
         id: 'org-1',
       };
 
-      orgService.approveRequest.mockResolvedValue(mockResult);
+      approvalService.approveRequest.mockResolvedValue(mockResult);
 
-      await controller.approveOrganizationRequest(req, res, next);
+      await controller.approveRequest(req, res);
 
-      expect(orgService.approveRequest).toHaveBeenCalledWith(
+      expect(approvalService.approveRequest).toHaveBeenCalledWith(
         'req-1',
         'admin-uuid'
       );
@@ -83,7 +93,7 @@ describe('Organization Request Controller Unit Tests', () => {
     });
   });
 
-  describe('rejectOrganizationRequest', () => {
+  describe('rejectRequest', () => {
     it('debe rechazar la solicitud', async () => {
       req.params.id = 'req-1';
 
@@ -96,11 +106,11 @@ describe('Organization Request Controller Unit Tests', () => {
         status: 'REJECTED',
       };
 
-      orgService.rejectRequest.mockResolvedValue(mockResult);
+      approvalService.rejectRequest.mockResolvedValue(mockResult);
 
-      await controller.rejectOrganizationRequest(req, res, next);
+      await controller.rejectRequest(req, res);
 
-      expect(orgService.rejectRequest).toHaveBeenCalledWith(
+      expect(approvalService.rejectRequest).toHaveBeenCalledWith(
         'req-1',
         'admin-uuid',
         'Datos no válidos'
