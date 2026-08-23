@@ -15,10 +15,10 @@ DECLARE
     v_used_at TIMESTAMPTZ;
     v_expires_at TIMESTAMPTZ;
 BEGIN
-    -- 1. Calcular hash SHA-256 del token plano entrante
-    v_token_hash := encode(digest(p_raw_token, 'sha256'), 'hex');
+    -- 1. Hash SHA-256 nativo (sin depender de pgcrypto)
+    v_token_hash := encode(sha256(p_raw_token::bytea), 'hex');
 
-    -- 2. Bloqueo pesimista sobre el token hasheado
+    -- 2. Bloqueo pesimista
     SELECT user_id, used_at, expires_at
     INTO v_user_id, v_used_at, v_expires_at
     FROM one_time_tokens
@@ -26,21 +26,16 @@ BEGIN
       AND election_id = p_election_id
     FOR UPDATE;
 
+    -- 3. Validaciones encadenadas
     IF NOT FOUND THEN
         RAISE EXCEPTION 'Token inválido o no pertenece a esta elección.';
-    END IF;
-
-    -- 3. Verificación de estado de uso
-    IF v_used_at IS NOT NULL THEN
+    ELSIF v_used_at IS NOT NULL THEN
         RAISE EXCEPTION 'El token ya ha sido utilizado.';
-    END IF;
-
-    -- 4. Verificación de vigencia
-    IF v_expires_at <= CURRENT_TIMESTAMP THEN
+    ELSIF v_expires_at <= CURRENT_TIMESTAMP THEN
         RAISE EXCEPTION 'El token ha expirado.';
     END IF;
 
-    -- 5. Consumo atómico
+    -- 4. Consumo atómico
     UPDATE one_time_tokens
     SET used_at = CURRENT_TIMESTAMP
     WHERE token_hash = v_token_hash AND election_id = p_election_id;

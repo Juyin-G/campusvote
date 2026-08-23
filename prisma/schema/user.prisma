@@ -1,38 +1,39 @@
 // src/database/schema/user.prisma
 
 model User {
-  id                    String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  password              String?
-  authProvider          AuthProviderType  @default(LOCAL) @map("auth_provider")
-  googleId              String?           @unique @map("google_id")
-  lastLogin             DateTime?         @map("last_login") @db.Timestamptz
-  isSuperuser           Boolean           @default(false) @map("is_superuser")
-  username              String            @unique
-  firstName             String            @default("") @map("first_name")
-  lastName              String            @default("") @map("last_name")
-  email                 String            @unique
-  isStaff               Boolean           @default(false) @map("is_staff")
-  isActive              Boolean           @default(true) @map("is_active")
-  dateJoined            DateTime          @default(now()) @map("date_joined") @db.Timestamptz
-  institutionalId       String            @unique @map("institutional_id")
-  role                  UserRole          @default(STUDENT)
-  isVerified            Boolean           @default(false) @map("is_verified")
-  
+  id                  String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  password            String?
+  authProvider        AuthProviderType @default(LOCAL) @map("auth_provider")
+  googleId            String?          @unique @map("google_id")
+  lastLogin           DateTime?        @map("last_login") @db.Timestamptz
+  isSuperuser         Boolean          @default(false) @map("is_superuser")
+  username            String           @unique
+  firstName           String           @default("") @map("first_name")
+  lastName            String           @default("") @map("last_name")
+  email               String           @unique
+  isStaff             Boolean          @default(false) @map("is_staff")
+  isActive            Boolean          @default(true) @map("is_active")
+  dateJoined          DateTime         @default(now()) @map("date_joined") @db.Timestamptz
+  institutionalId     String           @unique @map("institutional_id")
+  role                UserRole         @default(STUDENT)
+  isVerified          Boolean          @default(false) @map("is_verified")
+  isBiometricVerified Boolean          @default(false) @map("is_biometric_verified")
+
   // Relación alineada con model organizations
-  organizationId        String?           @map("organization_id") @db.Uuid
-  organization          organizations?    @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  organizationId String?        @map("organization_id") @db.Uuid
+  organization   organizations? @relation(fields: [organizationId], references: [id], onDelete: Restrict)
 
   // 2FA
-  twoFactorEnabled      Boolean           @default(false) @map("two_factor_enabled")
-  twoFactorSecret       String?           @map("two_factor_secret")
-  twoFactorBackupCodes  Json              @default("[]") @map("two_factor_backup_codes") @db.JsonB
+  twoFactorEnabled     Boolean @default(false) @map("two_factor_enabled")
+  twoFactorSecret      String? @map("two_factor_secret")
+  twoFactorBackupCodes Json    @default("[]") @map("two_factor_backup_codes") @db.JsonB
 
   // Password Policy
-  mustChangePassword    Boolean           @default(true) @map("must_change_password")
-  failedLoginAttempts   Int               @default(0) @map("failed_login_attempts")
-  lockedUntil           DateTime?         @map("locked_until") @db.Timestamptz
-  passwordChangedAt     DateTime          @default(now()) @map("password_changed_at") @db.Timestamptz
-  updatedAt             DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  mustChangePassword  Boolean   @default(true) @map("must_change_password")
+  failedLoginAttempts Int       @default(0) @map("failed_login_attempts")
+  lockedUntil         DateTime? @map("locked_until") @db.Timestamptz
+  passwordChangedAt   DateTime  @default(now()) @map("password_changed_at") @db.Timestamptz
+  updatedAt           DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
   // Relaciones alineadas a los nombres de tus modelos
   audit_logs              audit_logs[]
@@ -43,8 +44,8 @@ model User {
   passwordResetTokens     PasswordResetToken[]
   voter_registries        voter_registries[]
   voting_sessions         voting_sessions[]
-  votes                   votes[]
   one_time_tokens         one_time_tokens[]
+  devices                 UserDevice[]
 
   @@map("users")
 }
@@ -90,4 +91,17 @@ enum AuthProviderType {
   GOOGLE
 
   @@map("auth_provider_type")
+}
+
+model UserDevice {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  fcmToken  String   @unique @map("fcm_token")
+  deviceOs  String?  @map("device_os")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([userId])
+  @@map("user_devices")
 }

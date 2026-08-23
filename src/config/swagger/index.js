@@ -1,9 +1,3 @@
-/**
- * @file index.js
- * @description Configuración centralizada e inicialización de OpenAPI / Swagger UI.
- * @module config/swagger
- */
-
 import swaggerJsdoc from 'swagger-jsdoc';
 import swaggerUi from 'swagger-ui-express';
 import env from '../env.js';
@@ -74,6 +68,7 @@ const tags = [
   { name: 'Voting', description: 'Registro y validación de votos criptográficos' },
   { name: 'Ballots', description: 'Gestión de cédulas y configuraciones de votación' },
   { name: 'Results', description: 'Escrutinio automatizado y análisis métrico' },
+  { name: 'Audit', description: 'Trazabilidad de logs de auditoría y gestión de tokens de un solo uso' },
 ];
 
 const options = {
@@ -109,7 +104,6 @@ export const swaggerSpec = swaggerJsdoc(options);
  * @param {import('express').Application} app - Instancia principal de Express.
  */
 export const swaggerSetup = (app) => {
-  // Opcional: Desactivar en entornos donde no se requiera la UI
   if (env.SWAGGER_ENABLED === false) {
     return;
   }
@@ -133,10 +127,8 @@ export const swaggerSetup = (app) => {
     },
   };
 
-  // UI Interactive Documentation
   app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, swaggerUiOptions));
 
-  // JSON Raw Specification Endpoint
   app.get('/api-docs.json', (req, res) => {
     res.setHeader('Content-Type', 'application/json');
     res.setHeader('Cache-Control', 'public, max-age=3600');
