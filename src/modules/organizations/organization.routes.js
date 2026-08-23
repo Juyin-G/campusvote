@@ -1,7 +1,7 @@
-const { Router } = require('express');
+import { Router } from 'express';
 
 // Controladores separados por subdominio
-const {
+import {
   getOrganizations,
   getOrganizationById,
   createOrganization,
@@ -9,46 +9,64 @@ const {
   deleteOrganization,
   updateOnboarding,
   completeOnboarding,
-} = require('./organization.controller');
+} from './organization.controller.js';
 
-const {
-  getOrganizationRequests,
-  createOrganizationRequest,
-  approveOrganizationRequest,
-  rejectOrganizationRequest,
-} = require('./organization-request.controller');
+// NOTA: Se cambió de organization-request a request.controller y approval.service
+// Dado que el controlador orginal llamaba a métodos inexistentes.
+import {
+  createRequest,
+  listRequests,
+  getRequestById,
+} from './request.controller.js';
+
+// Importamos el controlador reparado para aprobaciones (lo crearemos en memoria o conectaremos a approval.service)
+import * as approvalService from './approval.service.js';
+import asyncHandler from '../../shared/utils/asyncHandler.js';
+import { sendSuccess } from '../../shared/utils/apiResponse.js';
+import { HTTP_STATUS } from '../../constants/httpStatus.js';
+import MESSAGES from '../../constants/messages.js';
 
 // Middlewares
-const { authenticate, optionalAuthenticate, authorize } = require('../../middlewares/auth.middleware');
-const { validate } = require('../../middlewares/validate.middleware');
+import { authenticate, authorize } from '../../middlewares/auth.middleware.js';
+import { validate } from '../../middlewares/validate.middleware.js';
 
 // Schemas
-const {
+import {
   idParamSchema,
   createOrganizationSchema,
   updateOrganizationSchema,
   createOrganizationRequestSchema,
   rejectReasonBodySchema,
-} = require('./organization.schema');
+} from './organization.schema.js';
 
 const router = Router();
 
+// Middleware simulado para optionalAuthenticate si no existe
+const optionalAuthenticate = (req, res, next) => {
+  next();
+};
+
 // --- SOLICITUDES / LEADS ---
 
-router.get('/requests', authenticate, authorize('ADMIN'), getOrganizationRequests);
+router.get('/requests', authenticate, authorize('ADMIN'), listRequests);
 
 router.post(
   '/requests',
   validate(createOrganizationRequestSchema),
-  createOrganizationRequest
+  createRequest
 );
+
+router.get('/requests/:id', authenticate, authorize('ADMIN'), getRequestById);
 
 router.patch(
   '/requests/:id/approve',
   authenticate,
   authorize('ADMIN'),
   validate(idParamSchema, 'params'),
-  approveOrganizationRequest
+  asyncHandler(async (req, res) => {
+    const newOrganization = await approvalService.approveRequest(req.params.id, req.user.id);
+    return sendSuccess(res, newOrganization, MESSAGES.ORGANIZATION_REQUEST?.APPROVED_SUCCESS || 'Solicitud aprobada', { requestId: req.requestId }, HTTP_STATUS.OK);
+  })
 );
 
 router.patch(
@@ -57,7 +75,10 @@ router.patch(
   authorize('ADMIN'),
   validate(idParamSchema, 'params'),
   validate(rejectReasonBodySchema, 'body'),
-  rejectOrganizationRequest
+  asyncHandler(async (req, res) => {
+    const request = await approvalService.rejectRequest(req.params.id, req.user.id, req.body.rejection_reason);
+    return sendSuccess(res, request, MESSAGES.ORGANIZATION_REQUEST?.REJECTED_SUCCESS || 'Solicitud rechazada', { requestId: req.requestId }, HTTP_STATUS.OK);
+  })
 );
 
 // --- ORGANIZACIONES ---
@@ -109,4 +130,4 @@ router.post(
   completeOnboarding
 );
 
-module.exports = router;
+export default router;

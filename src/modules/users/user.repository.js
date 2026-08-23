@@ -1,35 +1,36 @@
-import prisma from '../../config/prisma.js';
+import { prisma } from '../../database/prisma.js';
 
 export const USER_PUBLIC_SELECT = {
   id: true,
   username: true,
   email: true,
-  first_name: true,
-  last_name: true,
-  institutional_id: true,
+  firstName: true,
+  lastName: true,
+  institutionalId: true,
   role: true,
-  is_active: true,
-  is_verified: true,
-  is_staff: true,
-  is_superuser: true,
-  organization_id: true,
-  two_factor_enabled: true,
-  must_change_password: true,
-  last_login: true,
-  date_joined: true,
+  isActive: true,
+  isVerified: true,
+  isStaff: true,
+  isSuperuser: true,
+  organizationId: true,
+  twoFactorEnabled: true,
+  mustChangePassword: true,
+  lastLogin: true,
+  dateJoined: true,
 };
 
-const buildWhere = ({ organization_id, role, search } = {}) => {
+const buildWhere = ({ organizationId, role, search, isActive } = {}) => {
   const where = {};
-  if (organization_id) where.organization_id = organization_id;
+  if (organizationId) where.organizationId = organizationId;
   if (role) where.role = role;
+  if (isActive !== undefined) where.isActive = isActive === 'true' || isActive === true;
   if (search) {
     where.OR = [
       { username: { contains: search, mode: 'insensitive' } },
       { email: { contains: search, mode: 'insensitive' } },
-      { first_name: { contains: search, mode: 'insensitive' } },
-      { last_name: { contains: search, mode: 'insensitive' } },
-      { institutional_id: { contains: search, mode: 'insensitive' } },
+      { firstName: { contains: search, mode: 'insensitive' } },
+      { lastName: { contains: search, mode: 'insensitive' } },
+      { institutionalId: { contains: search, mode: 'insensitive' } },
     ];
   }
   return where;
@@ -53,23 +54,24 @@ export const findByUsername = (username) =>
     select: USER_PUBLIC_SELECT,
   });
 
-export const findByInstitutionalId = (institutional_id) =>
+export const findByInstitutionalId = (institutionalId) =>
   prisma.user.findUnique({
-    where: { institutional_id },
+    where: { institutionalId },
     select: USER_PUBLIC_SELECT,
   });
 
-export const list = ({ organization_id, role, search, skip = 0, take = 10 } = {}) =>
+export const list = ({ organizationId, role, search, isActive, skip = 0, take = 10 } = {}) =>
   prisma.user.findMany({
-    where: buildWhere({ organization_id, role, search }),
+    where: buildWhere({ organizationId, role, search, isActive }),
     select: USER_PUBLIC_SELECT,
+    orderBy: { dateJoined: 'desc' },
     skip,
     take,
   });
 
-export const count = ({ organization_id, role, search } = {}) =>
+export const count = ({ organizationId, role, search, isActive } = {}) =>
   prisma.user.count({
-    where: buildWhere({ organization_id, role, search }),
+    where: buildWhere({ organizationId, role, search, isActive }),
   });
 
 export const create = (data) =>
@@ -92,10 +94,10 @@ export const updateRole = (id, role) =>
     select: USER_PUBLIC_SELECT,
   });
 
-export const setActive = (id, is_active) =>
+export const setActive = (id, isActive) =>
   prisma.user.update({
     where: { id },
-    data: { is_active },
+    data: { isActive },
     select: USER_PUBLIC_SELECT,
   });
 
@@ -103,9 +105,9 @@ export const resetSecurityFlags = (id) =>
   prisma.user.update({
     where: { id },
     data: {
-      failed_login_attempts: 0,
-      must_change_password: false,
-      two_factor_enabled: false,
+      failedLoginAttempts: 0,
+      mustChangePassword: false,
+      twoFactorEnabled: false,
     },
     select: USER_PUBLIC_SELECT,
   });
@@ -123,9 +125,9 @@ export const updatePassword = (id, password) =>
     select: USER_PUBLIC_SELECT,
   });
 
-export const updateTwoFactorEnabled = (id, two_factor_enabled) =>
+export const updateTwoFactorEnabled = (id, twoFactorEnabled) =>
   prisma.user.update({
     where: { id },
-    data: { two_factor_enabled },
+    data: { twoFactorEnabled },
     select: USER_PUBLIC_SELECT,
   });

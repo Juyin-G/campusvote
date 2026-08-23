@@ -1,62 +1,39 @@
 import bcrypt from 'bcryptjs';
-import { prisma } from '../../database/prisma.js';
+import * as userRepository from './user.repository.js';
 import { ApiError } from '../../shared/errors/ApiError.js';
 import { isValidRole, ADMIN_ROLES } from '../../constants/roles.js';
-import { prismaPagination, parsePagination } from '../../shared/utils/pagination.js';
+import { parsePagination } from '../../shared/utils/pagination.js';
 import { formatUserResponse } from '../../shared/utils/formatUserResponse.js';
 import MESSAGES from '../../constants/messages.js';
-
-const userSelect = {
-  id: true,
-  username: true,
-  email: true,
-  institutionalId: true,
-  firstName: true,
-  lastName: true,
-  role: true,
-  organizationId: true,
-  isActive: true,
-  isVerified: true,
-  isStaff: true,
-  isSuperuser: true,
-  mustChangePassword: true,
-  twoFactorEnabled: true,
-  dateJoined: true,
-  lastLogin: true,
-};
+import { prisma } from '../../database/prisma.js'; // Solo para transacciones o accesos crudos específicos si fuera necesario
 
 const notFoundIfMissing = (err) => {
-  if (err.code === 'P2025') throw ApiError.notFound(MESSAGES.USER.NOT_FOUND);
+  if (err.code === 'P2025' || err.message.includes('not found')) throw ApiError.notFound(MESSAGES.USER.NOT_FOUND);
   throw err;
 };
 
 export const listUsers = async (query = {}) => {
   const { page, limit } = parsePagination(query);
-  const where = {};
+  const skip = (page - 1) * limit;
 
-  if (query.role) {
-    if (!isValidRole(query.role)) throw ApiError.badRequest(MESSAGES.USER.INVALID_ROLE);
-    where.role = query.role;
-  }
-
-  if (query.isActive !== undefined) {
-    where.isActive = query.isActive === 'true' || query.isActive === true;
-  }
-
-  if (query.search) {
-    const term = query.search.trim();
-    where.OR = ['firstName', 'lastName', 'email', 'username'].map((f) => ({
-      [f]: { contains: term, mode: 'insensitive' },
-    }));
+  if (query.role && !isValidRole(query.role)) {
+    throw ApiError.badRequest(MESSAGES.USER.INVALID_ROLE);
   }
 
   const [total, users] = await Promise.all([
-    prisma.user.count({ where }),
-    prisma.user.findMany({
-      where,
-      select: userSelect,
-      orderBy: { dateJoined: 'desc' },
-      ...prismaPagination({ page, limit }),
+    userRepository.count({
+      organizationId: query.organizationId,
+      role: query.role,
+      search: query.search,
+      isActive: query.isActive,
+    }),
+    userRepository.list({
+      organizationId: query.organizationId,
+      role: query.role,
+      search: query.search,
+      isActive: query.isActive,
+      skip,
+      take: limit,
     }),
   ]);
 
@@ -72,13 +49,13 @@ export const listUsers = async (query = {}) => {
 };
 
 export const getMe = async (userId) => {
-  const user = await prisma.user.findUnique({ where: { id: userId }, select: userSelect });
+  const user = await userRepository.findById(userId);
   if (!user) throw ApiError.notFound(MESSAGES.USER.NOT_FOUND);
   return formatUserResponse(user);
 };
 
 export const getUserById = async (id, actor) => {
-  const user = await prisma.user.findUnique({ where: { id }, select: userSelect });
+  const user = await userRepository.findById(id);
   if (!user) throw ApiError.notFound(MESSAGES.USER.NOT_FOUND);
 
   const actorId = actor?.id || actor?.userId;
@@ -103,19 +80,18 @@ export const createUser = async (body = {}) => {
 
   const hashedPassword = await bcrypt.hash(password, 12);
 
-  return prisma.user.create({
-    data: {
-      username,
-      email,
-      password: hashedPassword,
-      firstName: first_name,
-      lastName: last_name,
-      institutionalId: institutional_id,
-      role,
-      organizationId: organization_id,
-    },
-    select: userSelect,
-  }).then(formatUserResponse);
+  const newUser = await userRepository.create({
+    username,
+    email,
+    password: hashedPassword,
+    firstName: first_name,
+    lastName: last_name,
+    institutionalId: institutional_id,
+    role,
+    organizationId: organization_id,
+  });
+
+  return formatUserResponse(newUser);
 };
 
 export const updateUser = async (id, body = {}) => {
@@ -129,7 +105,7 @@ export const updateUser = async (id, body = {}) => {
   }
 
   try {
-    const updated = await prisma.user.update({ where: { id }, data, select: userSelect });
+    const updated = await userRepository.update(id, data);
     return formatUserResponse(updated);
   } catch (err) {
     notFoundIfMissing(err);
@@ -143,11 +119,7 @@ export const setActiveStatus = async (id, isActive, actor) => {
   }
 
   try {
-    const updated = await prisma.user.update({
-      where: { id },
-      data: { isActive },
-      select: userSelect,
-    });
+    const updated = await userRepository.setActive(id, isActive);
     return formatUserResponse(updated);
   } catch (err) {
     notFoundIfMissing(err);
@@ -156,11 +128,7 @@ export const setActiveStatus = async (id, isActive, actor) => {
 
 export const unlockUser = async (id) => {
   try {
-    const updated = await prisma.user.update({
-      where: { id },
-      data: { failedLoginAttempts: 0, lockedUntil: null },
-      select: userSelect,
-    });
+    const updated = await userRepository.resetSecurityFlags(id);
     return formatUserResponse(updated);
   } catch (err) {
     notFoundIfMissing(err);
@@ -170,6 +138,7 @@ export const unlockUser = async (id) => {
 export const updateUserRole = async (id, role) => {
   if (!isValidRole(role)) throw ApiError.badRequest(MESSAGES.USER.INVALID_ROLE);
 
+  // Usamos prisma directo solo para esta validación de superusers ya que repository devuelve select fijo
   const existing = await prisma.user.findUnique({
     where: { id },
     select: { isSuperuser: true },
@@ -187,7 +156,7 @@ export const updateUserRole = async (id, role) => {
     }
   }
 
-  const updated = await prisma.user.update({ where: { id }, data: { role }, select: userSelect });
+  const updated = await userRepository.updateRole(id, role);
   return formatUserResponse(updated);
 };
 
@@ -200,7 +169,7 @@ export const updateMyProfile = async (userId, body = {}) => {
     throw ApiError.badRequest(MESSAGES.COMMON.BAD_REQUEST);
   }
 
-  const updated = await prisma.user.update({ where: { id: userId }, data, select: userSelect });
+  const updated = await userRepository.update(userId, data);
   return formatUserResponse(updated);
 };
 
