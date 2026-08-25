@@ -9,15 +9,49 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 /**
- * Valida que las variables críticas estén presentes
+ * Lista de valores inseguros conocidos que no deben usarse como JWT_SECRET
+ */
+const INSECURE_JWT_SECRETS = [
+  'dev-secret-change-me-in-production',
+  'your-super-secret-jwt-key-change-this-in-production',
+  'secret',
+  'test-secret',
+  'change-me',
+  'jwt-secret',
+];
+
+/**
+ * Valida que las variables críticas estén presentes y sean seguras
  */
 const validateEnv = () => {
-  const required = ['DATABASE_URL', 'JWT_SECRET'];
-  const missing = required.filter((key) => !process.env[key]);
-
-  if (missing.length > 0 && process.env.NODE_ENV === 'production') {
+  // Validar que JWT_SECRET esté presente en TODOS los entornos
+  if (!process.env.JWT_SECRET) {
     throw new Error(
-      `Variables de entorno faltantes en producción: ${missing.join(', ')}`
+      'FATAL: JWT_SECRET es obligatorio en todos los entornos. ' +
+      'Configure una clave secreta criptográficamente segura de al menos 32 caracteres.'
+    );
+  }
+
+  // Validar que JWT_SECRET no sea un valor inseguro conocido
+  if (INSECURE_JWT_SECRETS.includes(process.env.JWT_SECRET)) {
+    throw new Error(
+      'FATAL: JWT_SECRET contiene un valor inseguro conocido. ' +
+      'Debe configurar una clave secreta única y criptográficamente segura.'
+    );
+  }
+
+  // Validar longitud mínima de JWT_SECRET
+  if (process.env.JWT_SECRET.length < 32) {
+    throw new Error(
+      'FATAL: JWT_SECRET debe tener al menos 32 caracteres para garantizar seguridad criptográfica. ' +
+      `Longitud actual: ${process.env.JWT_SECRET.length} caracteres.`
+    );
+  }
+
+  // Validar DATABASE_URL en producción
+  if (!process.env.DATABASE_URL && process.env.NODE_ENV === 'production') {
+    throw new Error(
+      'FATAL: DATABASE_URL es obligatorio en producción.'
     );
   }
 };
@@ -34,8 +68,8 @@ export default {
   // Database
   DATABASE_URL: process.env.DATABASE_URL,
 
-  // JWT
-  JWT_SECRET: process.env.JWT_SECRET || 'dev-secret-change-me-in-production',
+  // JWT - Sin fallback inseguro, debe estar configurado explícitamente
+  JWT_SECRET: process.env.JWT_SECRET,
   JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || '24h',
   JWT_REFRESH_EXPIRES_IN: process.env.JWT_REFRESH_EXPIRES_IN || '7d',
 
