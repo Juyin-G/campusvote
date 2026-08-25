@@ -15,6 +15,9 @@ export { setupTotp, verifyTotp, verifyLoginTotp } from './auth.totp.service.js';
 
 const SALT_ROUNDS = 12;
 
+// Sanitizador universal para prevenir Log Injection
+const safe = (input) => String(input ?? '').replace(/[\r\n]/g, '');
+
 export const login = async ({ email, password }) => {
   const cleanEmail = email.toLowerCase().trim();
 
@@ -74,8 +77,7 @@ export const login = async ({ email, password }) => {
 };
 
 export const register = async (userData) => {
-  const { email, username, password, institutionalId, firstName, lastName } =
-    userData;
+  const { email, username, password, institutionalId, firstName, lastName } = userData;
   const cleanEmail = email.toLowerCase().trim();
   const cleanUsername = username.toLowerCase().trim();
 
@@ -115,9 +117,9 @@ export const register = async (userData) => {
       });
     } catch (error) {
       logger.error('Registro OK pero falló envío de verificación', {
-        email: cleanEmail,
+        email: safe(cleanEmail),
         userId: newUser.id,
-        error: error.message,
+        error: safe(error.message),
       });
       throw ApiError.serviceUnavailable(
         MESSAGES.AUTH.REGISTER_EMAIL_FAILED,
@@ -126,16 +128,16 @@ export const register = async (userData) => {
       );
     }
   } else {
-    logger.warn(`No se pudo generar token de verificación para: ${cleanEmail}`);
+    logger.warn(`No se pudo generar token de verificación para: ${safe(cleanEmail)}`);
   }
 
-  logger.info(`Usuario registrado exitosamente: ${cleanEmail}`);
+  logger.info(`Usuario registrado exitosamente: ${safe(cleanEmail)}`);
 
   return { user: newUser };
 };
 
 export const logout = async ({ email }) => {
-  logger.info(`Logout efectuado: ${email}`);
+  logger.info(`Logout efectuado: ${safe(email)}`);
   return { loggedOut: true };
 };
 
@@ -155,11 +157,11 @@ export const requestPasswordReset = async (email) => {
   if (token) {
     try {
       await sendReset({ email: cleanEmail, token });
-      logger.info(`Correo de reset enviado para: ${cleanEmail}`);
+      logger.info(`Correo de reset enviado para: ${safe(cleanEmail)}`);
     } catch (error) {
       logger.error('Token generado pero falló envío de reset', {
-        email: cleanEmail,
-        error: error.message,
+        email: safe(cleanEmail),
+        error: safe(error.message),
       });
       throw ApiError.serviceUnavailable(
         MESSAGES.AUTH.EMAIL_SEND_FAILED,
@@ -168,7 +170,7 @@ export const requestPasswordReset = async (email) => {
       );
     }
   } else {
-    logger.info(`Password reset solicitado (sin envío): ${cleanEmail}`);
+    logger.info(`Password reset solicitado (sin envío): ${safe(cleanEmail)}`);
   }
 
   return {

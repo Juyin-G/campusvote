@@ -1,8 +1,8 @@
 // src/app.js
 import express from 'express';
-import path from 'path';
-import { fileURLToPath } from 'url';
-import { randomUUID } from 'crypto';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { randomUUID } from 'node:crypto';
 import helmet from 'helmet';
 import compression from 'compression'; // OPCIONAL: npm i compression
 import rateLimit from 'express-rate-limit'; // OPCIONAL: npm i express-rate-limit
@@ -33,10 +33,25 @@ const limiter = rateLimit({
 });
 
 // Seguridad y Optimización
-app.use(helmet({ contentSecurityPolicy: false }));
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'"],
+        styleSrc: ["'self'"],
+        imgSrc: ["'self'", "data:"],
+        connectSrc: ["'self'"],
+        fontSrc: ["'self'"],
+        objectSrc: ["'none'"],
+        upgradeInsecureRequests: [],
+      },
+    },
+  })
+);
 app.use(compression());
 app.use(cors);
-app.use('/api', limiter); // Aplica limitador solo a la API
+app.use('/api', limiter); 
 
 // Body parsers
 app.use(express.json({ limit: '10mb' }));
