@@ -1,13 +1,10 @@
 import { Router } from 'express';
 import * as otpController from '../controllers/otp.controller.js';
 import { verifyTotpSchema, verifyLoginSchema, disableTotpSchema } from '../schemas/otp.schema.js';
-import { authenticate } from '../../../middlewares/auth.middleware.js';
+import { authenticate, authenticateAllowPending, requireTotpPending } from '../../../middlewares/auth.middleware.js';
 import { validate } from '../../../middlewares/validate.middleware.js';
 
 const router = Router();
-
-// Todas las rutas OTP requieren autenticación previa
-router.use(authenticate);
 
 /**
  * @openapi
@@ -26,7 +23,7 @@ router.use(authenticate);
  *       409:
  *         description: El usuario ya tiene 2FA activado.
  */
-router.post('/setup', otpController.setupTotp);
+router.post('/setup', authenticate, otpController.setupTotp);
 
 /**
  * @openapi
@@ -58,7 +55,7 @@ router.post('/setup', otpController.setupTotp);
  *       401:
  *         description: Token no provisto o inválido.
  */
-router.post('/verify', validate(verifyTotpSchema), otpController.verifyTotp);
+router.post('/verify', authenticate, validate(verifyTotpSchema), otpController.verifyTotp);
 
 /**
  * @openapi
@@ -92,6 +89,8 @@ router.post('/verify', validate(verifyTotpSchema), otpController.verifyTotp);
  */
 router.post(
   '/verify-login',
+  authenticateAllowPending,
+  requireTotpPending,
   validate(verifyLoginSchema),
   otpController.verifyLoginTotp
 );
@@ -125,6 +124,7 @@ router.post(
  */
 router.post(
   '/disable',
+  authenticate,
   validate(disableTotpSchema),
   otpController.disableTotp
 );
