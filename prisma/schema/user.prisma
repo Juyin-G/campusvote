@@ -46,6 +46,7 @@ model User {
   voting_sessions         voting_sessions[]
   one_time_tokens         one_time_tokens[]
   devices                 UserDevice[]
+  course_sections         course_sections[]
 
   @@map("users")
 }

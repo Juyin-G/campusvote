@@ -1,4 +1,3 @@
-// TODO: Implementar documentacion de usuarios
 /**
  * @swagger
  * tags:

@@ -114,7 +114,8 @@ export const isValidSha256Hash = (hash) => {
 
 export const isValidHexToken = (token, bytesLength = TOKEN_BYTES_LENGTH) => {
   if (typeof token !== 'string') return false;
-  return new RegExp(`^[a-f0-9]{${bytesLength * 2}}$`, 'i').test(token);
+  const expectedLength = bytesLength * 2;
+  return token.length === expectedLength && /^[a-f0-9]+$/i.test(token);
 };
 
 export default {

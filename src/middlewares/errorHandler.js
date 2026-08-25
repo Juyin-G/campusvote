@@ -57,9 +57,9 @@ export const notFoundHandler = (req, res, next) => {
 };
 
 export const errorHandler = (err, req, res, next) => {
-  let statusCode = 500;
-  let message = MESSAGES.COMMON.INTERNAL_SERVER_ERROR;
-  let code = 'INTERNAL_SERVER_ERROR';
+  let statusCode;
+  let message;
+  let code;
   let details = null;
 
   // 1. ERRORES CONOCIDOS (ApiError)
@@ -150,7 +150,7 @@ export const errorHandler = (err, req, res, next) => {
     err.name === 'JsonWebTokenError' ||
     err.name === 'NotBeforeError'
   ) {
-    statusCode = getJwtErrorStatus(err);
+    statusCode = getJwtErrorStatus();
     message = err.name === 'TokenExpiredError' 
       ? MESSAGES.AUTH.TOKEN_EXPIRED 
       : MESSAGES.AUTH.TOKEN_INVALID;

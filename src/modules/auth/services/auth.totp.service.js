@@ -75,9 +75,9 @@ export const verifyLoginTotp = async (userId, code) => {
     throw ApiError.badRequest(MESSAGES.AUTH.TWO_FACTOR_NOT_CONFIGURED);
   }
 
-  let isValid = otpUtil.verifyTotp(code, user.twoFactorSecret);
+  const isTotpValid = otpUtil.verifyTotp(code, user.twoFactorSecret);
 
-  if (!isValid) {
+  if (!isTotpValid) {
     const backupResult = otpUtil.verifyBackupCode(
       code,
       user.twoFactorBackupCodes || [],
@@ -90,7 +90,6 @@ export const verifyLoginTotp = async (userId, code) => {
     const updatedCodes = [...(user.twoFactorBackupCodes || [])];
     updatedCodes.splice(backupResult.index, 1);
     await authRepository.updateBackupCodes(userId, updatedCodes);
-    isValid = true;
   }
 
   await authRepository.registerSuccessfulLogin(user.email);

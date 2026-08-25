@@ -1,5 +1,4 @@
 import auditService from './audit.service.js';
-import { ApiError } from '../../shared/errors/ApiError.js';
 import { 
   auditLogsQuerySchema, 
   createAuditLogSchema,
