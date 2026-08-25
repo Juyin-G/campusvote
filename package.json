@@ -46,6 +46,7 @@
   },
   "overrides": {
     "raw-body@<4.0.0": "4.0.0",
-    "got@<11.8.5": "11.8.5"
+    "got@<11.8.5": "11.8.5",
+    "@apidevtools/json-schema-ref-parser@<15.5.1": "15.5.1"
   }
 }
