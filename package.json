@@ -49,5 +49,11 @@
     "prettier": "^3.9.6",
     "prisma": "^6.19.3",
     "supertest": "^7.2.2"
+  },
+  "overrides": {
+    "raw-body@<4.0.0": "4.0.0",
+    "got@<11.8.5": "11.8.5",
+    "@apidevtools/json-schema-ref-parser@<15.5.1": "15.5.1",
+    "deepmerge-ts@<8.0.0": "8.0.0"
   }
 }
