@@ -10,25 +10,42 @@ dotenv.config();
 const INSECURE_DEFAULT_SECRETS = [
   'dev-secret-change-me-in-production',
   'your-super-secret-jwt-key-change-this-in-production',
+  'your-super-secret-jwt-key-change-this-in-production-must-be-at-least-32-chars',
   'tu-refresh-secret-key-diferente',
   'secret',
   'secret123',
+  'supersecret',
+  '12345678901234567890123456789012'
 ];
 
-const validateEnv = () => {
-  const jwtSecret = process.env.JWT_SECRET;
-  const jwtRefreshSecret = process.env.JWT_REFRESH_SECRET;
-
-  if (!jwtSecret || INSECURE_DEFAULT_SECRETS.includes(jwtSecret)) {
-    throw new Error(
-      'FATAL: JWT_SECRET no está configurado o utiliza una clave insegura por defecto.'
-    );
+const validateSecret = (secret, secretName) => {
+  if (!secret) {
+    throw new Error(`FATAL: ${secretName} no está configurado.`);
   }
 
-  if (jwtRefreshSecret && INSECURE_DEFAULT_SECRETS.includes(jwtRefreshSecret)) {
+  // Validación de longitud mínima (Requisito de seguridad crítico)
+  if (secret.length < 32) {
+    throw new Error(`FATAL: ${secretName} debe tener al menos 32 caracteres.`);
+  }
+
+  // Normalización para evitar evadir la lista con mayúsculas o espacios
+  const normalizedSecret = secret.trim().toLowerCase();
+  const isBlacklisted = INSECURE_DEFAULT_SECRETS.some((insecure) =>
+    normalizedSecret.includes(insecure.toLowerCase())
+  );
+
+  if (isBlacklisted) {
     throw new Error(
-      'FATAL: JWT_REFRESH_SECRET utiliza una clave insegura por defecto.'
+      `FATAL: ${secretName} utiliza una clave insegura, predecible o de ejemplo.`
     );
+  }
+};
+
+const validateEnv = () => {
+  validateSecret(process.env.JWT_SECRET, 'JWT_SECRET');
+
+  if (process.env.JWT_REFRESH_SECRET) {
+    validateSecret(process.env.JWT_REFRESH_SECRET, 'JWT_REFRESH_SECRET');
   }
 };
 
@@ -51,7 +68,7 @@ export default {
   JWT_REFRESH_EXPIRES_IN: process.env.JWT_REFRESH_EXPIRES_IN || '7d',
 
   // CORS
-  CORS_ORIGIN: process.env.CORS_ORIGIN || '*',
+  CORS_ORIGIN: process.env.CORS_ORIGIN || 'http://localhost:5173',
 
   // Security
   BCRYPT_ROUNDS: parseInt(process.env.BCRYPT_ROUNDS, 10) || 12,
