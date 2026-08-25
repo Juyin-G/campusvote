@@ -91,6 +91,10 @@ BEGIN
 END;
 $$;
 
+-- ACL: Revoke default PUBLIC EXECUTE and grant only to application role
+REVOKE ALL ON FUNCTION generate_password_reset_token(CITEXT) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION generate_password_reset_token(CITEXT) TO postgres;
+
 -- FUNCIÓN: RESET PASSWORD CON TOKEN
 
 CREATE OR REPLACE FUNCTION reset_password_with_token(
@@ -142,5 +146,9 @@ BEGIN
     RETURN TRUE;
 END;
 $$;
+
+-- ACL: Revoke default PUBLIC EXECUTE and grant only to application role
+REVOKE ALL ON FUNCTION reset_password_with_token(TEXT, TEXT) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION reset_password_with_token(TEXT, TEXT) TO postgres;
 
 COMMIT;

@@ -17,5 +17,9 @@ BEGIN
 END;
 $$;
 
+-- ACL: Revoke default PUBLIC EXECUTE and grant only to application role
+REVOKE ALL ON FUNCTION cleanup_expired_tokens() FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION cleanup_expired_tokens() TO postgres;
+
 COMMIT;
 

@@ -26,6 +26,10 @@ AS $$
     );
 $$;
 
+-- ACL: Revoke default PUBLIC EXECUTE and grant only to application role
+REVOKE ALL ON FUNCTION login_is_allowed(CITEXT) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION login_is_allowed(CITEXT) TO postgres;
+
 
 -- FUNCIÓN: REGISTRAR INTENTO FALLIDO
 
@@ -60,6 +64,10 @@ BEGIN
 END;
 $$;
 
+-- ACL: Revoke default PUBLIC EXECUTE and grant only to application role
+REVOKE ALL ON FUNCTION register_failed_login(CITEXT) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION register_failed_login(CITEXT) TO postgres;
+
 -- FUNCIÓN: REGISTRAR LOGIN EXITOSO
 
 CREATE OR REPLACE FUNCTION register_successful_login(
@@ -84,5 +92,9 @@ BEGIN
       );
 END;
 $$;
+
+-- ACL: Revoke default PUBLIC EXECUTE and grant only to application role
+REVOKE ALL ON FUNCTION register_successful_login(CITEXT) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION register_successful_login(CITEXT) TO postgres;
 
 COMMIT;
