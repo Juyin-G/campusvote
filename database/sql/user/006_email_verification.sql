@@ -90,6 +90,10 @@ BEGIN
 END;
 $$;
 
+-- ACL: Revoke default PUBLIC EXECUTE and grant only to application role
+REVOKE ALL ON FUNCTION generate_email_verification_token(UUID) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION generate_email_verification_token(UUID) TO postgres;
+
 -- FUNCIÓN: VERIFICAR EMAIL CON TOKEN
 
 CREATE OR REPLACE FUNCTION verify_email_with_token(
@@ -134,5 +138,9 @@ BEGIN
     RETURN TRUE;
 END;
 $$;
+
+-- ACL: Revoke default PUBLIC EXECUTE and grant only to application role
+REVOKE ALL ON FUNCTION verify_email_with_token(TEXT) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION verify_email_with_token(TEXT) TO postgres;
 
 COMMIT;
