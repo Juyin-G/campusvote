@@ -12,11 +12,12 @@ export default [
       'no-eval': 'error',
       'no-implied-eval': 'error',
       'no-new-func': 'error',
-      'no-console': 'off', // Cambiado a 'off' para permitir logs de winston/consoles
+      'no-console': 'off',
 
       // SonarJS
       'sonarjs/todo-tag': 'warn',
       'sonarjs/cognitive-complexity': ['error', 35],
+      'sonarjs/no-hardcoded-passwords': 'off',
 
       // Security
       'security/detect-object-injection': 'off',

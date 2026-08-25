@@ -6,7 +6,7 @@ import { isValidRole, ADMIN_ROLES } from '../../constants/roles.js';
 import { parsePagination } from '../../shared/utils/pagination.js';
 import { formatUserResponse } from '../../shared/utils/formatUserResponse.js';
 import MESSAGES from '../../constants/messages.js';
-import { prisma } from '../../database/prisma.js'; // Solo para transacciones o accesos crudos específicos si fuera necesario
+import { prisma } from '../../database/prisma.js'; 
 
 const notFoundIfMissing = (err) => {
   if (err.code === 'P2025' || err.message.includes('not found')) throw ApiError.notFound(MESSAGES.USER.NOT_FOUND);
@@ -139,7 +139,6 @@ export const unlockUser = async (id) => {
 export const updateUserRole = async (id, role) => {
   if (!isValidRole(role)) throw ApiError.badRequest(MESSAGES.USER.INVALID_ROLE);
 
-  // Usamos prisma directo solo para esta validación de superusers ya que repository devuelve select fijo
   const existing = await prisma.user.findUnique({
     where: { id },
     select: { isSuperuser: true },
@@ -198,9 +197,11 @@ export const changeMyPassword = async (userId, body = {}) => {
     throw ApiError.badRequest('La contraseña actual es incorrecta');
   }
 
-  const actual = crypto.createHash('sha256').update(currentPassword).digest();
-  const expected = crypto.createHash('sha256').update(newPassword).digest();
-  if (crypto.timingSafeEqual(actual, expected)) {
+  // Comparación segura contra ataques de tiempo (Timing Attack Prevention)
+  const currentBuf = crypto.createHash('sha256').update(currentPassword).digest();
+  const newBuf = crypto.createHash('sha256').update(newPassword).digest();
+
+  if (crypto.timingSafeEqual(currentBuf, newBuf)) {
     throw ApiError.badRequest(MESSAGES.USER.PASSWORD_SAME_AS_OLD);
   }
 
