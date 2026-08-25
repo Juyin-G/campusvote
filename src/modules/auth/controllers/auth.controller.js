@@ -9,10 +9,13 @@ import { HTTP_STATUS } from '../../../constants/httpStatus.js';
 import MESSAGES from '../../../constants/messages.js';
 import logger from '../../../config/logger.js';
 
+// Helper para sanitizar logs y prevenir Log Injection
+const safe = (input) => String(input ?? '').replace(/[\r\n]/g, '');
+
 export const login = asyncHandler(async (req, res) => {
   const result = await authService.login(req.body);
 
-  logger.info(`Intento de login: ${req.body?.email || 'N/A'}`, {
+  logger.info(`Intento de login: ${safe(req.body?.email || 'N/A')}`, {
     requestId: req.requestId,
   });
 
@@ -32,7 +35,7 @@ export const login = asyncHandler(async (req, res) => {
 export const register = asyncHandler(async (req, res) => {
   const result = await authService.register(req.body);
 
-  logger.info(`Registro exitoso: ${req.body?.email || 'N/A'}`, {
+  logger.info(`Registro exitoso: ${safe(req.body?.email || 'N/A')}`, {
     requestId: req.requestId,
   });
 

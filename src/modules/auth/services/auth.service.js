@@ -15,9 +15,6 @@ export { setupTotp, verifyTotp, verifyLoginTotp } from './auth.totp.service.js';
 
 const SALT_ROUNDS = 12;
 
-// Sanitizador universal para prevenir Log Injection
-const safe = (input) => String(input ?? '').replace(/[\r\n]/g, '');
-
 export const login = async ({ email, password }) => {
   const cleanEmail = email.toLowerCase().trim();
 
@@ -116,11 +113,7 @@ export const register = async (userData) => {
         firstName,
       });
     } catch (error) {
-      logger.error('Registro OK pero falló envío de verificación', {
-        email: safe(cleanEmail),
-        userId: newUser.id,
-        error: safe(error.message),
-      });
+      logger.error('Registro OK pero falló envío de verificación', { userId: newUser.id, error: error.message });
       throw ApiError.serviceUnavailable(
         MESSAGES.AUTH.REGISTER_EMAIL_FAILED,
         { userId: newUser.id },
@@ -128,16 +121,17 @@ export const register = async (userData) => {
       );
     }
   } else {
-    logger.warn(`No se pudo generar token de verificación para: ${safe(cleanEmail)}`);
+    logger.warn('No se pudo generar token de verificación para el usuario', { userId: newUser.id });
+    
   }
 
-  logger.info(`Usuario registrado exitosamente: ${safe(cleanEmail)}`);
+  logger.info('Usuario registrado exitosamente', { userId: newUser.id });
 
   return { user: newUser };
 };
 
 export const logout = async ({ email }) => {
-  logger.info(`Logout efectuado: ${safe(email)}`);
+  logger.info('Logout efectuado correctamente');
   return { loggedOut: true };
 };
 
@@ -157,11 +151,10 @@ export const requestPasswordReset = async (email) => {
   if (token) {
     try {
       await sendReset({ email: cleanEmail, token });
-      logger.info(`Correo de reset enviado para: ${safe(cleanEmail)}`);
+      logger.info('Correo de restablecimiento enviado exitosamente');
     } catch (error) {
-      logger.error('Token generado pero falló envío de reset', {
-        email: safe(cleanEmail),
-        error: safe(error.message),
+      logger.error('Token de restablecimiento generado pero falló el envío del correo', {
+        error: error.message,
       });
       throw ApiError.serviceUnavailable(
         MESSAGES.AUTH.EMAIL_SEND_FAILED,
@@ -170,7 +163,7 @@ export const requestPasswordReset = async (email) => {
       );
     }
   } else {
-    logger.info(`Password reset solicitado (sin envío): ${safe(cleanEmail)}`);
+    logger.info('Solicitud de restablecimiento procesada');
   }
 
   return {
@@ -186,7 +179,7 @@ export const resetPassword = async (token, newPassword) => {
     throw ApiError.badRequest(MESSAGES.AUTH.PASSWORD_RESET_INVALID_TOKEN);
   }
 
-  logger.info('Password restablecido exitosamente');
+  logger.info('Contraseña restablecida exitosamente');
 
   return { message: MESSAGES.AUTH.PASSWORD_RESET_SUCCESS };
 };
@@ -197,6 +190,8 @@ export const verifyEmail = async (token) => {
   if (!success) {
     throw ApiError.badRequest(MESSAGES.AUTH.EMAIL_VERIFICATION_INVALID);
   }
+
+  logger.info('Correo verificado exitosamente');
 
   return { message: MESSAGES.AUTH.EMAIL_VERIFIED_SUCCESS };
 };

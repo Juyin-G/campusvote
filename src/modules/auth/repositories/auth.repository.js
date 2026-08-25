@@ -106,21 +106,21 @@ export const createUser = async (data) => {
 
 export const loginIsAllowed = async (email) => {
   const result = await prisma.$queryRaw`
-    SELECT login_is_allowed(${email}::citext) AS allowed
+    SELECT login_is_allowed(${email}::text::citext) AS allowed
   `;
 
   return result[0]?.allowed ?? false;
 };
 
 export const registerFailedLogin = async (email) => {
-  await prisma.$executeRaw`
-    SELECT register_failed_login(${email}::citext)
+  await prisma.$queryRaw`
+    SELECT register_failed_login(${email}::text::citext)
   `;
 };
 
 export const registerSuccessfulLogin = async (email) => {
-  await prisma.$executeRaw`
-    SELECT register_successful_login(${email}::citext)
+  await prisma.$queryRaw`
+    SELECT register_successful_login(${email}::text::citext)
   `;
 };
 
@@ -128,7 +128,7 @@ export const registerSuccessfulLogin = async (email) => {
 
 export const generatePasswordResetToken = async (email) => {
   const result = await prisma.$queryRaw`
-    SELECT generate_password_reset_token(${email}::citext) AS token
+    SELECT generate_password_reset_token(${email}::text::citext) AS token
   `;
 
   return result[0]?.token;
@@ -136,7 +136,7 @@ export const generatePasswordResetToken = async (email) => {
 
 export const resetPasswordWithToken = async (token, newPasswordHash) => {
   const result = await prisma.$queryRaw`
-    SELECT reset_password_with_token(${token}, ${newPasswordHash}) AS success
+    SELECT reset_password_with_token(${token}::text, ${newPasswordHash}::text) AS success
   `;
 
   return result[0]?.success ?? false;
@@ -146,7 +146,7 @@ export const resetPasswordWithToken = async (token, newPasswordHash) => {
 
 export const generateEmailVerificationToken = async (userId) => {
   const result = await prisma.$queryRaw`
-    SELECT generate_email_verification_token(${userId}::uuid) AS token
+    SELECT generate_email_verification_token(${userId}::text::uuid) AS token
   `;
 
   return result[0]?.token;
@@ -154,7 +154,7 @@ export const generateEmailVerificationToken = async (userId) => {
 
 export const verifyEmailWithToken = async (token) => {
   const result = await prisma.$queryRaw`
-    SELECT verify_email_with_token(${token}) AS success
+    SELECT verify_email_with_token(${token}::text) AS success
   `;
 
   return result[0]?.success ?? false;
