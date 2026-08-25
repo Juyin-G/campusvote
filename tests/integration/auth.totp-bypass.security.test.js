@@ -1,15 +1,5 @@
 /**
  * Security Test: TOTP-pending JWT bypass vulnerability
- * 
- * This test suite verifies that the MFA bypass vulnerability is properly mitigated.
- * The vulnerability allowed users with 2FA enabled to use a TOTP_PENDING token
- * (issued after password validation but before TOTP verification) to access
- * ordinary authenticated routes like /api/users/me and /api/users/me/password.
- * 
- * The fix ensures that:
- * 1. The standard `authenticate` middleware rejects TOTP_PENDING tokens
- * 2. Only the TOTP verification route accepts TOTP_PENDING tokens via `authenticateAllowPending`
- * 3. State-changing operations (password change, profile update) require completed MFA
  */
 import { jest } from '@jest/globals';
 import bcrypt from 'bcryptjs';
@@ -32,38 +22,21 @@ const app = (await import('../../src/app.js')).default;
 const { prisma } = await import('../../src/database/prisma.js');
 const env = (await import('../../src/config/env.js')).default;
 
-const TEST_PASSWORD = 'TotpBypass123!';
-const runId = Date.now();
-
-let userWith2FA;
-let userWithout2FA;
-let totpPendingToken;
-let validToken;
-
 describe('Security: TOTP-pending JWT bypass mitigation', () => {
+  const TEST_PASSWORD = 'TotpBypass123!';
+  const runId = Date.now();
+
+  let userWith2FA;
+  let userWithout2FA;
+  let totpPendingToken;
+  let validToken;
+  let userWithout2FAPassword = TEST_PASSWORD;
+
   beforeAll(async () => {
+    // 1. Hash de la contraseña
     const passwordHash = await bcrypt.hash(TEST_PASSWORD, 12);
 
-    // Create user WITH 2FA enabled
-    userWith2FA = await prisma.user.create({
-      data: {
-        username: `totp.bypass.2fa.${runId}`,
-        email: `totp.bypass.2fa.${runId}@campusvote.edu.pe`,
-        password: passwordHash,
-        firstName: 'TOTP',
-        lastName: 'Enabled',
-        institutionalId: `TOTP2FA${runId}`,
-        role: 'STUDENT',
-        authProvider: 'LOCAL',
-        isVerified: true,
-        isActive: true,
-        mustChangePassword: false,
-        twoFactorEnabled: true,
-        twoFactorSecret: 'JBSWY3DPEHPK3PXP', // Test TOTP secret
-      },
-    });
-
-    // Create user WITHOUT 2FA for comparison
+    // 2. Crear usuario SIN 2FA
     userWithout2FA = await prisma.user.create({
       data: {
         username: `totp.bypass.no2fa.${runId}`,
@@ -78,10 +51,33 @@ describe('Security: TOTP-pending JWT bypass mitigation', () => {
         isActive: true,
         mustChangePassword: false,
         twoFactorEnabled: false,
+        failedLoginAttempts: 0,
+        lockedUntil: null,
       },
     });
 
-    // Generate a TOTP_PENDING token (simulating what login returns for 2FA users)
+    // 3. Crear usuario CON 2FA
+    userWith2FA = await prisma.user.create({
+      data: {
+        username: `totp.bypass.2fa.${runId}`,
+        email: `totp.bypass.2fa.${runId}@campusvote.edu.pe`,
+        password: passwordHash,
+        firstName: 'With',
+        lastName: 'TOTP',
+        institutionalId: `WITH2FA${runId}`,
+        role: 'STUDENT',
+        authProvider: 'LOCAL',
+        isVerified: true,
+        isActive: true,
+        mustChangePassword: false,
+        twoFactorEnabled: true,
+        twoFactorSecret: 'JBSWY3DPEHPK3PXP',
+        failedLoginAttempts: 0,
+        lockedUntil: null,
+      },
+    });
+
+    // 4. Generar el token TOTP_PENDING para el usuario con 2FA
     totpPendingToken = jwt.sign(
       { 
         userId: userWith2FA.id, 
@@ -92,7 +88,7 @@ describe('Security: TOTP-pending JWT bypass mitigation', () => {
       { expiresIn: '5m' }
     );
 
-    // Get a valid token for the user without 2FA
+    // 5. Iniciar sesión con el usuario SIN 2FA para obtener un token válido de referencia
     const loginRes = await request(app)
       .post('/api/auth/login')
       .send({ 
@@ -100,7 +96,7 @@ describe('Security: TOTP-pending JWT bypass mitigation', () => {
         password: TEST_PASSWORD 
       });
     
-    validToken = loginRes.body.data.token;
+    validToken = loginRes.body.data?.token;
   });
 
   afterAll(async () => {
@@ -192,16 +188,21 @@ describe('Security: TOTP-pending JWT bypass mitigation', () => {
     });
 
     it('should allow valid token on POST /api/users/me/password', async () => {
+      const newPassword = 'NewValidPassword123!';
+      
       const res = await request(app)
         .post('/api/users/me/password')
         .set('Authorization', `Bearer ${validToken}`)
         .send({ 
-          current_password: TEST_PASSWORD,
-          new_password: 'NewValidPassword123!' 
+          current_password: userWithout2FAPassword,
+          new_password: newPassword 
         });
 
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);
+
+      // Actualizamos la variable para el test de login posterior
+      userWithout2FAPassword = newPassword; 
     });
   });
 
@@ -220,7 +221,6 @@ describe('Security: TOTP-pending JWT bypass mitigation', () => {
       expect(res.body.data.tempToken).toBeDefined();
       expect(res.body.data.token).toBeUndefined();
       
-      // Verify the tempToken has TOTP_PENDING purpose
       const decoded = jwt.verify(res.body.data.tempToken, env.JWT_SECRET);
       expect(decoded.purpose).toBe('TOTP_PENDING');
       expect(decoded.userId).toBe(userWith2FA.id);
@@ -231,7 +231,7 @@ describe('Security: TOTP-pending JWT bypass mitigation', () => {
         .post('/api/auth/login')
         .send({ 
           email: userWithout2FA.email, 
-          password: TEST_PASSWORD 
+          password: userWithout2FAPassword 
         });
 
       expect(res.status).toBe(200);
@@ -240,7 +240,6 @@ describe('Security: TOTP-pending JWT bypass mitigation', () => {
       expect(res.body.data.token).toBeDefined();
       expect(res.body.data.tempToken).toBeUndefined();
       
-      // Verify the token does NOT have TOTP_PENDING purpose
       const decoded = jwt.verify(res.body.data.token, env.JWT_SECRET);
       expect(decoded.purpose).toBeUndefined();
       expect(decoded.userId).toBe(userWithout2FA.id);
@@ -249,14 +248,11 @@ describe('Security: TOTP-pending JWT bypass mitigation', () => {
 
   describe('TOTP verification route (should accept TOTP_PENDING)', () => {
     it('should accept TOTP_PENDING token on POST /api/auth/totp/login-verify', async () => {
-      // This should accept the token but fail on TOTP validation (expected)
       const res = await request(app)
         .post('/api/auth/totp/login-verify')
         .set('Authorization', `Bearer ${totpPendingToken}`)
-        .send({ totp_code: '000000' }); // Invalid code
+        .send({ totp_code: '000000' });
 
-      // Should NOT be 403 (forbidden due to token type)
-      // Should be 400 or 401 (invalid TOTP code)
       expect(res.status).not.toBe(403);
       expect([400, 401]).toContain(res.status);
     });
@@ -284,7 +280,7 @@ describe('Security: TOTP-pending JWT bypass mitigation', () => {
     it('should reject token with invalid Bearer format', async () => {
       const res = await request(app)
         .get('/api/users/me')
-        .set('Authorization', totpPendingToken); // Missing "Bearer "
+        .set('Authorization', totpPendingToken);
 
       expect(res.status).toBe(401);
       expect(res.body.error.code).toBe('UNAUTHORIZED');
@@ -298,7 +294,7 @@ describe('Security: TOTP-pending JWT bypass mitigation', () => {
           purpose: 'TOTP_PENDING' 
         },
         env.JWT_SECRET,
-        { expiresIn: '-1s' } // Already expired
+        { expiresIn: '-1s' }
       );
 
       const res = await request(app)
@@ -348,7 +344,6 @@ describe('Security: TOTP-pending JWT bypass mitigation', () => {
 
   describe('Security property: MFA completion required', () => {
     it('should enforce that TOTP_PENDING tokens cannot perform state-changing operations', async () => {
-      // Attempt multiple state-changing operations with TOTP_PENDING token
       const operations = [
         request(app)
           .put('/api/users/me')
@@ -363,26 +358,22 @@ describe('Security: TOTP-pending JWT bypass mitigation', () => {
 
       const results = await Promise.all(operations);
 
-      // All should be rejected with 403
       results.forEach(res => {
         expect(res.status).toBe(403);
         expect(res.body.error.code).toBe('FORBIDDEN');
       });
 
-      // Verify user data was NOT modified
       const user = await prisma.user.findUnique({
         where: { id: userWith2FA.id },
       });
 
-      expect(user.firstName).toBe('TOTP'); // Original value
+      expect(user.firstName).toBe('With');
       
-      // Verify password was NOT changed
       const passwordValid = await bcrypt.compare(TEST_PASSWORD, user.password);
       expect(passwordValid).toBe(true);
     });
 
     it('should enforce that only completed MFA sessions can access protected resources', async () => {
-      // TOTP_PENDING token should not be able to read sensitive data
       const res = await request(app)
         .get('/api/users/me')
         .set('Authorization', `Bearer ${totpPendingToken}`);
@@ -390,7 +381,6 @@ describe('Security: TOTP-pending JWT bypass mitigation', () => {
       expect(res.status).toBe(403);
       expect(res.body.data).toBeUndefined();
       
-      // Verify no user data was leaked
       expect(res.body).not.toHaveProperty('data.email');
       expect(res.body).not.toHaveProperty('data.id');
     });
@@ -398,7 +388,6 @@ describe('Security: TOTP-pending JWT bypass mitigation', () => {
 
   describe('Middleware behavior verification', () => {
     it('should verify authenticate middleware rejects TOTP_PENDING by default', async () => {
-      // Test that the standard authenticate middleware is being used
       const res = await request(app)
         .get('/api/users/me')
         .set('Authorization', `Bearer ${totpPendingToken}`);
@@ -408,16 +397,13 @@ describe('Security: TOTP-pending JWT bypass mitigation', () => {
     });
 
     it('should verify authenticateAllowPending is only used on TOTP verification route', async () => {
-      // TOTP verification route should accept TOTP_PENDING
       const totpRes = await request(app)
         .post('/api/auth/totp/login-verify')
         .set('Authorization', `Bearer ${totpPendingToken}`)
         .send({ totp_code: '000000' });
 
-      // Should not be 403 (token type rejection)
       expect(totpRes.status).not.toBe(403);
 
-      // Other routes should reject TOTP_PENDING
       const otherRes = await request(app)
         .get('/api/users/me')
         .set('Authorization', `Bearer ${totpPendingToken}`);

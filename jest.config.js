@@ -5,6 +5,9 @@ export default {
     '**/tests/**/*.test.js',
     '**/tests/**/*.spec.js'
   ],
+  transformIgnorePatterns: [
+    'node_modules/(?!(@apidevtools|swagger-jsdoc)/)'
+  ],
   collectCoverageFrom: [
     'src/**/*.js',
     '!src/server.js',
@@ -14,4 +17,6 @@ export default {
   verbose: true,
   testTimeout: 30000,
   globalSetup: '<rootDir>/tests/setup-db.js',
+  forceExit: true,
+  detectOpenHandles: true
 };

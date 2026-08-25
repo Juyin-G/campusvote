@@ -1,13 +1,14 @@
 /**
  * @file env.js
- * @description Configuración centralizada de variables de entorno
+ * @description Configuración centralizada y validada de variables de entorno
  */
 
 import dotenv from 'dotenv';
 
 dotenv.config();
 
-const INSECURE_DEFAULT_SECRETS = [
+// Lista negra de claves inseguras conocidas (valores exactos)
+const INSECURE_DEFAULT_SECRETS = new Set([
   'dev-secret-change-me-in-production',
   'your-super-secret-jwt-key-change-this-in-production',
   'your-super-secret-jwt-key-change-this-in-production-must-be-at-least-32-chars',
@@ -15,26 +16,24 @@ const INSECURE_DEFAULT_SECRETS = [
   'secret',
   'secret123',
   'supersecret',
-  '12345678901234567890123456789012'
-];
+  '12345678901234567890123456789012',
+  'change_me',
+  'jwt_secret'
+]);
 
 const validateSecret = (secret, secretName) => {
-  if (!secret) {
+  if (!secret || secret.trim() === '') {
     throw new Error(`FATAL: ${secretName} no está configurado.`);
   }
 
-  // Validación de longitud mínima (Requisito de seguridad crítico)
+  // 1. Longitud mínima de 32 caracteres (fuerza la entropía)
   if (secret.length < 32) {
     throw new Error(`FATAL: ${secretName} debe tener al menos 32 caracteres.`);
   }
 
-  // Normalización para evitar evadir la lista con mayúsculas o espacios
+  // 2. Coincidencia exacta con la lista negra
   const normalizedSecret = secret.trim().toLowerCase();
-  const isBlacklisted = INSECURE_DEFAULT_SECRETS.some((insecure) =>
-    normalizedSecret.includes(insecure.toLowerCase())
-  );
-
-  if (isBlacklisted) {
+  if (INSECURE_DEFAULT_SECRETS.has(normalizedSecret)) {
     throw new Error(
       `FATAL: ${secretName} utiliza una clave insegura, predecible o de ejemplo.`
     );
@@ -42,6 +41,12 @@ const validateSecret = (secret, secretName) => {
 };
 
 const validateEnv = () => {
+  // Validar base de datos en todos los entornos
+  if (!process.env.DATABASE_URL || process.env.DATABASE_URL.trim() === '') {
+    throw new Error('FATAL: DATABASE_URL no está configurada.');
+  }
+
+  // Validar secretos JWT en todos los entornos
   validateSecret(process.env.JWT_SECRET, 'JWT_SECRET');
 
   if (process.env.JWT_REFRESH_SECRET) {
@@ -53,7 +58,7 @@ validateEnv();
 
 export default {
   // Server
-  NODE_ENV: process.env.NODE_ENV || 'development',
+  NODE_ENV: (process.env.NODE_ENV || 'development').toLowerCase().trim(),
   PORT: parseInt(process.env.PORT, 10) || 3000,
   APP_NAME: process.env.APP_NAME || 'CampusVote',
   APP_VERSION: process.env.APP_VERSION || '1.0.0',

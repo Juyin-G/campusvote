@@ -4,8 +4,8 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { randomUUID } from 'crypto';
 import helmet from 'helmet';
-import compression from 'compression'; // OPCIONAL: npm i compression
-import rateLimit from 'express-rate-limit'; // OPCIONAL: npm i express-rate-limit
+import compression from 'compression';
+import rateLimit from 'express-rate-limit';
 
 import cors from './config/cors.js';
 import logger from './config/logger.js';
@@ -74,8 +74,10 @@ app.get('/health', (req, res) => {
   });
 });
 
-// Documentación Swagger
-swaggerSetup(app);
+// Documentación Swagger (Se espera a que carguen los módulos asíncronos antes de registrar rutas)
+if (process.env.NODE_ENV !== 'test') {
+  await swaggerSetup(app);
+}
 
 // Archivos estáticos
 app.use(express.static(path.join(__dirname, '../public')));

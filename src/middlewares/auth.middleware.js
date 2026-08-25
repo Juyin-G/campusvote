@@ -22,7 +22,10 @@ const createAuthenticateMiddleware = (options = {}) => (req, res, next) => {
   const token = authHeader.substring(7);
 
   try {
-    const decoded = jwt.verify(token, env.JWT_SECRET);
+    // Se restringe explícitamente el algoritmo a HS256 por seguridad
+    const decoded = jwt.verify(token, env.JWT_SECRET, {
+      algorithms: ['HS256'],
+    });
     
     // Rechazar tokens TOTP_PENDING en rutas ordinarias (a menos que allowPending=true)
     if (decoded.purpose === 'TOTP_PENDING' && !options.allowPending) {

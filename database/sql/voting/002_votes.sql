@@ -1,16 +1,12 @@
 BEGIN;
 
--- TABLA: VOTES (VOTOS CIFRADOS)
-
+-- 1. TABLA: VOTES (VOTOS CIFRADOS)
 CREATE TABLE IF NOT EXISTS votes (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-
     election_id UUID NOT NULL REFERENCES elections(id) ON DELETE RESTRICT,
     voter_id UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
     session_id UUID NOT NULL UNIQUE REFERENCES voting_sessions(id) ON DELETE RESTRICT,
-
     cast_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
     receipt_code VARCHAR(64) NOT NULL UNIQUE,
     encrypted_payload TEXT NOT NULL,
     payload_hash VARCHAR(128) NOT NULL,
@@ -21,22 +17,22 @@ CREATE TABLE IF NOT EXISTS votes (
     CONSTRAINT chk_votes_payload_hash_length CHECK (length(payload_hash) = 128)
 );
 
--- ÍNDICES: VOTES
+-- 2. ASEGURAR COLUMNAS EN CASO DE QUE LA TABLA YA EXISTIERA
+ALTER TABLE votes ADD COLUMN IF NOT EXISTS election_id UUID REFERENCES elections(id) ON DELETE RESTRICT;
+ALTER TABLE votes ADD COLUMN IF NOT EXISTS voter_id UUID REFERENCES users(id) ON DELETE RESTRICT;
+ALTER TABLE votes ADD COLUMN IF NOT EXISTS session_id UUID REFERENCES voting_sessions(id) ON DELETE RESTRICT;
+ALTER TABLE votes ADD COLUMN IF NOT EXISTS cast_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP;
+ALTER TABLE votes ADD COLUMN IF NOT EXISTS receipt_code VARCHAR(64);
+ALTER TABLE votes ADD COLUMN IF NOT EXISTS encrypted_payload TEXT;
+ALTER TABLE votes ADD COLUMN IF NOT EXISTS payload_hash VARCHAR(128);
 
-CREATE INDEX IF NOT EXISTS idx_votes_election
-    ON votes (election_id);
+-- 3. ÍNDICES: VOTES
+CREATE INDEX IF NOT EXISTS idx_votes_election ON votes (election_id);
+CREATE INDEX IF NOT EXISTS idx_votes_voter ON votes (voter_id);
+CREATE INDEX IF NOT EXISTS idx_votes_payload_hash ON votes (payload_hash);
+CREATE INDEX IF NOT EXISTS idx_votes_cast_at ON votes (cast_at DESC);
 
-CREATE INDEX IF NOT EXISTS idx_votes_voter
-    ON votes (voter_id);
-
-CREATE INDEX IF NOT EXISTS idx_votes_payload_hash
-    ON votes (payload_hash);
-
-CREATE INDEX IF NOT EXISTS idx_votes_cast_at
-    ON votes (cast_at DESC);
-
--- FUNCIÓN: VALIDAR INTEGRIDAD DEL VOTO
-
+-- 4. FUNCIÓN: VALIDAR INTEGRIDAD DEL VOTO
 CREATE OR REPLACE FUNCTION validate_vote_integrity()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -78,8 +74,7 @@ BEGIN
 END;
 $$;
 
--- TRIGGER: VALIDAR INTEGRIDAD EN INSERT
-
+-- 5. TRIGGER: VALIDAR INTEGRIDAD EN INSERT
 DROP TRIGGER IF EXISTS trg_validate_vote_integrity ON votes;
 
 CREATE TRIGGER trg_validate_vote_integrity

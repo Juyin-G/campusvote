@@ -17,7 +17,7 @@ import jwt from 'jsonwebtoken';
 // Mock dependencies
 jest.unstable_mockModule('../../src/config/env.js', () => ({
   default: {
-    JWT_SECRET: 'test-secret-key-for-unit-tests',
+    JWT_SECRET: 'babe7e2dee298b0fb7fe42b65381c4a3309f0246be68c2f715577fcd5c92d14b',
     JWT_EXPIRES_IN: '24h',
   },
 }));
