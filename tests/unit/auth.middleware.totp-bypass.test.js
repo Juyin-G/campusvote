@@ -1,3 +1,4 @@
+/* eslint-disable sonarjs/hardcoded-secret-signatures */
 /**
  * Unit Test: auth.middleware TOTP-pending token rejection
  * 
@@ -74,7 +75,7 @@ describe('Unit: auth.middleware TOTP-pending security', () => {
       authenticate(req, res, next);
 
       expect(next).toHaveBeenCalledTimes(1);
-      expect(next).toHaveBeenCalledWith(); // Called without error
+      expect(next).toHaveBeenCalledWith();
       expect(req.user).toBeDefined();
       expect(req.user.userId).toBe('user-123');
       expect(req.user.purpose).toBeUndefined();
@@ -85,7 +86,7 @@ describe('Unit: auth.middleware TOTP-pending security', () => {
         { 
           userId: 'user-123', 
           email: 'test@example.com',
-          purpose: 'PASSWORD_RESET', // Different purpose
+          purpose: 'PASSWORD_RESET',
         },
         env.JWT_SECRET,
         { expiresIn: '1h' }
@@ -96,7 +97,7 @@ describe('Unit: auth.middleware TOTP-pending security', () => {
       authenticate(req, res, next);
 
       expect(next).toHaveBeenCalledTimes(1);
-      expect(next).toHaveBeenCalledWith(); // Called without error
+      expect(next).toHaveBeenCalledWith();
       expect(req.user).toBeDefined();
       expect(req.user.purpose).toBe('PASSWORD_RESET');
     });
@@ -183,7 +184,7 @@ describe('Unit: auth.middleware TOTP-pending security', () => {
       authenticateAllowPending(req, res, next);
 
       expect(next).toHaveBeenCalledTimes(1);
-      expect(next).toHaveBeenCalledWith(); // Called without error
+      expect(next).toHaveBeenCalledWith();
       expect(req.user).toBeDefined();
       expect(req.user.userId).toBe('user-123');
       expect(req.user.purpose).toBe('TOTP_PENDING');
@@ -201,7 +202,7 @@ describe('Unit: auth.middleware TOTP-pending security', () => {
       authenticateAllowPending(req, res, next);
 
       expect(next).toHaveBeenCalledTimes(1);
-      expect(next).toHaveBeenCalledWith(); // Called without error
+      expect(next).toHaveBeenCalledWith();
       expect(req.user).toBeDefined();
       expect(req.user.userId).toBe('user-123');
     });
@@ -246,7 +247,7 @@ describe('Unit: auth.middleware TOTP-pending security', () => {
       requireTotpPending(req, res, next);
 
       expect(next).toHaveBeenCalledTimes(1);
-      expect(next).toHaveBeenCalledWith(); // Called without error
+      expect(next).toHaveBeenCalledWith();
     });
 
     it('should reject request without user (not authenticated)', () => {
@@ -266,7 +267,6 @@ describe('Unit: auth.middleware TOTP-pending security', () => {
         userId: 'user-123',
         email: 'test@example.com',
         role: 'STUDENT',
-        // No purpose field
       };
 
       requireTotpPending(req, res, next);
@@ -304,7 +304,6 @@ describe('Unit: auth.middleware TOTP-pending security', () => {
 
       req.headers.authorization = `Bearer ${totpPendingToken}`;
 
-      // First middleware: authenticate (should reject)
       authenticate(req, res, next);
 
       expect(next).toHaveBeenCalledTimes(1);
@@ -312,7 +311,6 @@ describe('Unit: auth.middleware TOTP-pending security', () => {
       expect(error).toBeInstanceOf(ApiError);
       expect(error.statusCode).toBe(403);
       
-      // requireTotpPending should never be reached
       expect(req.user).toBeNull();
     });
 
@@ -325,22 +323,19 @@ describe('Unit: auth.middleware TOTP-pending security', () => {
 
       req.headers.authorization = `Bearer ${totpPendingToken}`;
 
-      // First middleware: authenticateAllowPending (should accept)
       authenticateAllowPending(req, res, next);
 
       expect(next).toHaveBeenCalledTimes(1);
-      expect(next).toHaveBeenCalledWith(); // No error
+      expect(next).toHaveBeenCalledWith();
       expect(req.user).toBeDefined();
       expect(req.user.purpose).toBe('TOTP_PENDING');
 
-      // Reset next mock
       next.mockClear();
 
-      // Second middleware: requireTotpPending (should accept)
       requireTotpPending(req, res, next);
 
       expect(next).toHaveBeenCalledTimes(1);
-      expect(next).toHaveBeenCalledWith(); // No error
+      expect(next).toHaveBeenCalledWith();
     });
 
     it('should enforce that authenticateAllowPending + requireTotpPending rejects normal token', () => {
@@ -352,18 +347,15 @@ describe('Unit: auth.middleware TOTP-pending security', () => {
 
       req.headers.authorization = `Bearer ${normalToken}`;
 
-      // First middleware: authenticateAllowPending (should accept)
       authenticateAllowPending(req, res, next);
 
       expect(next).toHaveBeenCalledTimes(1);
-      expect(next).toHaveBeenCalledWith(); // No error
+      expect(next).toHaveBeenCalledWith();
       expect(req.user).toBeDefined();
       expect(req.user.purpose).toBeUndefined();
 
-      // Reset next mock
       next.mockClear();
 
-      // Second middleware: requireTotpPending (should reject)
       requireTotpPending(req, res, next);
 
       expect(next).toHaveBeenCalledTimes(1);
@@ -386,7 +378,7 @@ describe('Unit: auth.middleware TOTP-pending security', () => {
       authenticate(req, res, next);
 
       expect(next).toHaveBeenCalledTimes(1);
-      expect(next).toHaveBeenCalledWith(); // Should accept (empty string !== 'TOTP_PENDING')
+      expect(next).toHaveBeenCalledWith();
       expect(req.user).toBeDefined();
     });
 
@@ -402,7 +394,7 @@ describe('Unit: auth.middleware TOTP-pending security', () => {
       authenticate(req, res, next);
 
       expect(next).toHaveBeenCalledTimes(1);
-      expect(next).toHaveBeenCalledWith(); // Should accept (null !== 'TOTP_PENDING')
+      expect(next).toHaveBeenCalledWith();
       expect(req.user).toBeDefined();
     });
 
@@ -418,7 +410,7 @@ describe('Unit: auth.middleware TOTP-pending security', () => {
       authenticate(req, res, next);
 
       expect(next).toHaveBeenCalledTimes(1);
-      expect(next).toHaveBeenCalledWith(); // Should accept (case-sensitive)
+      expect(next).toHaveBeenCalledWith();
       expect(req.user).toBeDefined();
       expect(req.user.purpose).toBe('totp_pending');
     });
@@ -428,7 +420,7 @@ describe('Unit: auth.middleware TOTP-pending security', () => {
         { 
           userId: 'user-123', 
           email: 'test@example.com',
-          type: 'TOTP_PENDING', // Different field name
+          type: 'TOTP_PENDING',
         },
         env.JWT_SECRET,
         { expiresIn: '1h' }
@@ -439,7 +431,7 @@ describe('Unit: auth.middleware TOTP-pending security', () => {
       authenticate(req, res, next);
 
       expect(next).toHaveBeenCalledTimes(1);
-      expect(next).toHaveBeenCalledWith(); // Should accept (checking 'purpose' field only)
+      expect(next).toHaveBeenCalledWith();
       expect(req.user).toBeDefined();
     });
 
@@ -450,13 +442,12 @@ describe('Unit: auth.middleware TOTP-pending security', () => {
         { expiresIn: '5m' }
       );
 
-      req.headers.authorization = `Bearer  ${token}`; // Extra space
+      req.headers.authorization = `Bearer  ${token}`;
 
       authenticate(req, res, next);
 
       expect(next).toHaveBeenCalledTimes(1);
       const error = next.mock.calls[0][0];
-      // Should fail due to malformed token (extra space in token string)
       expect(error).toBeInstanceOf(ApiError);
     });
   });
