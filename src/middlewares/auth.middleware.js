@@ -4,8 +4,11 @@ import { ApiError } from '../shared/errors/ApiError.js';
 
 /**
  * Verifica el Bearer token y rellena req.user.
+ * Rechaza tokens con purpose='TOTP_PENDING' para prevenir bypass de MFA.
+ * @param {Object} options - Opciones de configuración
+ * @param {boolean} options.allowPending - Si true, permite tokens TOTP_PENDING
  */
-export const authenticate = (req, res, next) => {
+const createAuthenticateMiddleware = (options = {}) => (req, res, next) => {
   const authHeader = req.headers.authorization;
 
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -20,6 +23,16 @@ export const authenticate = (req, res, next) => {
 
   try {
     const decoded = jwt.verify(token, env.JWT_SECRET);
+    
+    // Rechazar tokens TOTP_PENDING en rutas ordinarias (a menos que allowPending=true)
+    if (decoded.purpose === 'TOTP_PENDING' && !options.allowPending) {
+      return next(
+        ApiError.forbidden(
+          'Debes completar la verificación de dos factores para acceder a este recurso'
+        )
+      );
+    }
+    
     req.user = decoded;
     return next();
   } catch (error) {
@@ -38,6 +51,17 @@ export const authenticate = (req, res, next) => {
     return next(ApiError.unauthorized('Error de autenticación'));
   }
 };
+
+/**
+ * Middleware de autenticación estándar que rechaza tokens TOTP_PENDING.
+ */
+export const authenticate = createAuthenticateMiddleware({ allowPending: false });
+
+/**
+ * Middleware de autenticación que permite tokens TOTP_PENDING.
+ * Solo debe usarse en la ruta de verificación TOTP.
+ */
+export const authenticateAllowPending = createAuthenticateMiddleware({ allowPending: true });
 
 /**
  * Garantiza que el token sea un token temporal de verificación TOTP.

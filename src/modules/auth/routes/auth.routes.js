@@ -4,7 +4,7 @@
  */
 import { Router } from 'express';
 import * as authController from '../controllers/auth.controller.js';
-import { authenticate, requireTotpPending } from '../../../middlewares/auth.middleware.js';
+import { authenticate, authenticateAllowPending, requireTotpPending } from '../../../middlewares/auth.middleware.js';
 import { validate } from '../../../middlewares/validate.middleware.js';
 import { authLimiter, loginLimiter } from '../../../middlewares/rateLimiter.middleware.js';
 import {
@@ -42,7 +42,7 @@ router.post(
 router.post(
   '/totp/login-verify',
   loginLimiter,
-  authenticate,
+  authenticateAllowPending,
   requireTotpPending,
   validate(verifyLoginTotpSchema),
   authController.verifyLoginTotp
