@@ -39,7 +39,7 @@ CREATE OR REPLACE FUNCTION generate_password_reset_token(
 RETURNS TEXT
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public
+SET search_path = public, pg_temp
 AS $$
 DECLARE
     v_user_id UUID;
@@ -48,7 +48,7 @@ DECLARE
 BEGIN
     SELECT id
     INTO v_user_id
-    FROM users
+    FROM public.users
     WHERE email = p_email
       AND is_active = TRUE
       AND auth_provider = 'LOCAL'
@@ -61,7 +61,7 @@ BEGIN
     -- Rate limit: máximo 5 tokens por hora
     IF (
         SELECT count(*)
-        FROM password_reset_tokens
+        FROM public.password_reset_tokens
         WHERE user_id = v_user_id
           AND created_at > CURRENT_TIMESTAMP - INTERVAL '1 hour'
     ) >= 5 THEN
@@ -69,7 +69,7 @@ BEGIN
     END IF;
 
     -- Invalidar tokens anteriores
-    UPDATE password_reset_tokens
+    UPDATE public.password_reset_tokens
     SET is_used = TRUE
     WHERE user_id = v_user_id
       AND is_used = FALSE;
@@ -77,7 +77,7 @@ BEGIN
     v_raw_token := encode(gen_random_bytes(32), 'hex');
     v_token_hash := encode(digest(v_raw_token, 'sha256'), 'hex');
 
-    INSERT INTO password_reset_tokens (
+    INSERT INTO public.password_reset_tokens (
         user_id,
         token_hash,
         expires_at
@@ -100,7 +100,7 @@ CREATE OR REPLACE FUNCTION reset_password_with_token(
 RETURNS BOOLEAN
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public
+SET search_path = public, pg_temp
 AS $$
 DECLARE
     v_token_hash TEXT;
@@ -116,7 +116,7 @@ BEGIN
 
     SELECT user_id
     INTO v_user_id
-    FROM password_reset_tokens
+    FROM public.password_reset_tokens
     WHERE token_hash = v_token_hash
       AND is_used = FALSE
       AND expires_at > CURRENT_TIMESTAMP
@@ -126,7 +126,7 @@ BEGIN
         RETURN FALSE;
     END IF;
 
-    UPDATE users
+    UPDATE public.users
     SET
         password = p_new_password_hash,
         must_change_password = FALSE,
@@ -134,7 +134,7 @@ BEGIN
         locked_until = NULL
     WHERE id = v_user_id;
 
-    UPDATE password_reset_tokens
+    UPDATE public.password_reset_tokens
     SET is_used = TRUE
     WHERE user_id = v_user_id
       AND is_used = FALSE;
