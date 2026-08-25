@@ -1,23 +1,33 @@
 /**
  * @file env.js
  * @description Configuración centralizada de variables de entorno
- * @note Todas las variables críticas deben validarse al arrancar
  */
 
 import dotenv from 'dotenv';
 
 dotenv.config();
 
-/**
- * Valida que las variables críticas estén presentes
- */
-const validateEnv = () => {
-  const required = ['DATABASE_URL', 'JWT_SECRET'];
-  const missing = required.filter((key) => !process.env[key]);
+const INSECURE_DEFAULT_SECRETS = [
+  'dev-secret-change-me-in-production',
+  'your-super-secret-jwt-key-change-this-in-production',
+  'tu-refresh-secret-key-diferente',
+  'secret',
+  'secret123',
+];
 
-  if (missing.length > 0 && process.env.NODE_ENV === 'production') {
+const validateEnv = () => {
+  const jwtSecret = process.env.JWT_SECRET;
+  const jwtRefreshSecret = process.env.JWT_REFRESH_SECRET;
+
+  if (!jwtSecret || INSECURE_DEFAULT_SECRETS.includes(jwtSecret)) {
     throw new Error(
-      `Variables de entorno faltantes en producción: ${missing.join(', ')}`
+      'FATAL: JWT_SECRET no está configurado o utiliza una clave insegura por defecto.'
+    );
+  }
+
+  if (jwtRefreshSecret && INSECURE_DEFAULT_SECRETS.includes(jwtRefreshSecret)) {
+    throw new Error(
+      'FATAL: JWT_REFRESH_SECRET utiliza una clave insegura por defecto.'
     );
   }
 };
@@ -35,8 +45,9 @@ export default {
   DATABASE_URL: process.env.DATABASE_URL,
 
   // JWT
-  JWT_SECRET: process.env.JWT_SECRET || 'dev-secret-change-me-in-production',
+  JWT_SECRET: process.env.JWT_SECRET,
   JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || '24h',
+  JWT_REFRESH_SECRET: process.env.JWT_REFRESH_SECRET,
   JWT_REFRESH_EXPIRES_IN: process.env.JWT_REFRESH_EXPIRES_IN || '7d',
 
   // CORS
@@ -48,7 +59,7 @@ export default {
   MAX_LOGIN_ATTEMPTS: parseInt(process.env.MAX_LOGIN_ATTEMPTS, 10) || 5,
   LOCK_TIME_MINUTES: parseInt(process.env.LOCK_TIME_MINUTES, 10) || 15,
 
-  // Email (para verificación y recuperación)
+  // Email
   SMTP_HOST: process.env.SMTP_HOST,
   SMTP_PORT: parseInt(process.env.SMTP_PORT, 10) || 587,
   SMTP_USER: process.env.SMTP_USER,
@@ -60,6 +71,6 @@ export default {
   GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET,
   GOOGLE_CALLBACK_URL: process.env.GOOGLE_CALLBACK_URL,
 
-  // Frontend URL (para links en emails)
+  // Frontend URL
   FRONTEND_URL: process.env.FRONTEND_URL || 'http://localhost:5173',
 };
