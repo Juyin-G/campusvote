@@ -6,7 +6,6 @@ model voter_registries {
   semester           Int              @db.SmallInt
   is_eligible        Boolean          @default(true)
   eligibility_reason String?
-  has_voted          Boolean          @default(false)
   created_at         DateTime         @default(now()) @db.Timestamptz(6)
   updated_at         DateTime         @default(now()) @db.Timestamptz(6)
   academic_periods   academic_periods @relation(fields: [period_id], references: [id], onUpdate: NoAction)
@@ -30,6 +29,7 @@ model voting_sessions {
   is_successful Boolean   @default(false)
   created_at    DateTime  @default(now()) @db.Timestamptz(6)
   updated_at    DateTime  @default(now()) @db.Timestamptz(6)
+  votes         votes?
   elections     elections @relation(fields: [election_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   user          User      @relation(fields: [voter_id], references: [id], onUpdate: NoAction)
 
@@ -40,24 +40,28 @@ model voting_sessions {
 model votes {
   id                String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   election_id       String            @db.Uuid
+  voter_id          String            @db.Uuid
+  session_id        String            @unique @db.Uuid
   cast_at           DateTime          @default(now()) @db.Timestamptz(6)
   receipt_code      String            @unique @db.VarChar(64)
   encrypted_payload String
   payload_hash      String            @db.VarChar(128)
   vote_selections   vote_selections[]
   elections         elections         @relation(fields: [election_id], references: [id], onUpdate: NoAction)
+  voting_sessions   voting_sessions   @relation(fields: [session_id], references: [id], onUpdate: NoAction)
+  users             User              @relation(fields: [voter_id], references: [id], onUpdate: NoAction)
 
+  @@unique([election_id, voter_id], map: "uq_votes_election_voter")
   @@index([cast_at(sort: Desc)], map: "idx_votes_cast_at")
   @@index([election_id], map: "idx_votes_election")
   @@index([payload_hash], map: "idx_votes_payload_hash")
+  @@index([voter_id], map: "idx_votes_voter")
 }
 
 model vote_selections {
   id               String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   vote_id          String         @db.Uuid
   ballot_option_id String         @db.Uuid
-  score            Int?           @db.SmallInt // Para evaluaciones de 1 a 5 estrellas
-  text_feedback    String? // Comentarios abiertos anónimos
   created_at       DateTime       @default(now()) @db.Timestamptz(6)
   ballot_options   ballot_options @relation(fields: [ballot_option_id], references: [id], onUpdate: NoAction)
   votes            votes          @relation(fields: [vote_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
@@ -73,8 +77,6 @@ model tallies {
   position_id    String         @db.Uuid
   option_id      String         @db.Uuid
   votes_count    Int            @default(0)
-  total_score    Int?           @default(0) // Suma de estrellas
-  average_score  Decimal?       @db.Decimal(3, 2) // Promedio (ej. 4.8)
   updated_at     DateTime       @default(now()) @db.Timestamptz(6)
   elections      elections      @relation(fields: [election_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   ballot_options ballot_options @relation(fields: [option_id], references: [id], onDelete: Cascade, onUpdate: NoAction)

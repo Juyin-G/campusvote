@@ -113,13 +113,13 @@ export const loginIsAllowed = async (email) => {
 };
 
 export const registerFailedLogin = async (email) => {
-  await prisma.$queryRaw`
+  await prisma.$executeRaw`
     SELECT register_failed_login(${email}::text::citext)
   `;
 };
 
 export const registerSuccessfulLogin = async (email) => {
-  await prisma.$queryRaw`
+  await prisma.$executeRaw`
     SELECT register_successful_login(${email}::text::citext)
   `;
 };

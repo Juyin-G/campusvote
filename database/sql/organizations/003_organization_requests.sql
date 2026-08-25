@@ -16,9 +16,7 @@ CREATE TABLE IF NOT EXISTS organization_requests (
 
     status organization_request_status NOT NULL DEFAULT 'PENDING',
 
-    reviewed_by UUID NULL
-        REFERENCES users(id)
-        ON DELETE SET NULL,
+    reviewed_by UUID NULL,
 
     reviewed_at TIMESTAMPTZ NULL,
     rejection_reason TEXT NULL,

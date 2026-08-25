@@ -29,6 +29,7 @@ CREATE TABLE IF NOT EXISTS users (
     institutional_id CITEXT NOT NULL,
     role user_role NOT NULL DEFAULT 'STUDENT',
     is_verified BOOLEAN NOT NULL DEFAULT FALSE,
+    is_biometric_verified BOOLEAN NOT NULL DEFAULT FALSE,
 
     -- Tenant
     organization_id UUID NULL
@@ -63,7 +64,10 @@ CREATE TABLE IF NOT EXISTS users (
         CHECK (length(trim(institutional_id::text)) > 0),
 
     CONSTRAINT chk_users_password_required_for_local
-        CHECK (auth_provider != 'LOCAL' OR (password IS NOT NULL AND length(password) > 0)),
+        CHECK (
+            auth_provider != 'LOCAL'
+            OR (password IS NOT NULL AND length(password) > 0)
+        ),
 
     CONSTRAINT chk_users_superuser_requires_staff
         CHECK (is_superuser = FALSE OR is_staff = TRUE),

@@ -21,6 +21,15 @@ CREATE TABLE IF NOT EXISTS votes (
     CONSTRAINT chk_votes_payload_hash_length CHECK (length(payload_hash) = 128)
 );
 
+-- REFUERZO DE COLUMNAS (Por si la tabla ya existía de ejecuciones previas)
+ALTER TABLE votes ADD COLUMN IF NOT EXISTS election_id UUID;
+ALTER TABLE votes ADD COLUMN IF NOT EXISTS voter_id UUID;
+ALTER TABLE votes ADD COLUMN IF NOT EXISTS session_id UUID;
+ALTER TABLE votes ADD COLUMN IF NOT EXISTS cast_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP;
+ALTER TABLE votes ADD COLUMN IF NOT EXISTS receipt_code VARCHAR(64);
+ALTER TABLE votes ADD COLUMN IF NOT EXISTS encrypted_payload TEXT;
+ALTER TABLE votes ADD COLUMN IF NOT EXISTS payload_hash VARCHAR(128);
+
 -- ÍNDICES: VOTES
 
 CREATE INDEX IF NOT EXISTS idx_votes_election

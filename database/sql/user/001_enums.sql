@@ -1,7 +1,6 @@
 BEGIN;
 
 -- ENUM: ROLES DE USUARIO
-
 DO $$
 BEGIN
     CREATE TYPE user_role AS ENUM (
@@ -16,7 +15,6 @@ EXCEPTION
 END $$;
 
 -- ENUM: PROVEEDORES DE AUTENTICACIÓN
-
 DO $$
 BEGIN
     CREATE TYPE auth_provider_type AS ENUM (
@@ -28,6 +26,17 @@ EXCEPTION
     WHEN duplicate_object THEN NULL;
 END $$;
 
-CREATE TYPE user_status AS ENUM ('pending', 'active', 'suspended', 'deleted');
+-- ENUM: ESTADO DE USUARIO (Protegido)
+DO $$
+BEGIN
+    CREATE TYPE user_status AS ENUM (
+        'pending', 
+        'active', 
+        'suspended', 
+        'deleted'
+    );
+EXCEPTION
+    WHEN duplicate_object THEN NULL;
+END $$;
 
 COMMIT;

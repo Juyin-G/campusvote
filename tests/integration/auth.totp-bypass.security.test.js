@@ -192,18 +192,28 @@ describe('Security: TOTP-pending JWT bypass mitigation', () => {
     });
 
     it('should allow valid token on POST /api/users/me/password', async () => {
-      const res = await request(app)
-        .post('/api/users/me/password')
-        .set('Authorization', `Bearer ${validToken}`)
-        .send({ 
-          current_password: TEST_PASSWORD,
-          new_password: 'NewValidPassword123!' 
-        });
-
-      expect(res.status).toBe(200);
-      expect(res.body.success).toBe(true);
+  const res = await request(app)
+    .post('/api/users/me/password')
+    .set('Authorization', `Bearer ${validToken}`)
+    .send({
+      current_password: TEST_PASSWORD,
+      new_password: 'NewValidPassword123!',
     });
+
+  expect(res.status).toBe(200);
+  expect(res.body.success).toBe(true);
+
+  const passwordHash = await bcrypt.hash(TEST_PASSWORD, 12);
+
+  await prisma.user.update({
+    where: { id: userWithout2FA.id },
+    data: {
+      password: passwordHash,
+    },
   });
+});
+  });
+
 
   describe('Login flow with 2FA enabled', () => {
     it('should return TOTP_PENDING token when logging in with 2FA enabled', async () => {
