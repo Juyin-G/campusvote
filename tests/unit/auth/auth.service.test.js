@@ -99,14 +99,15 @@ jest.unstable_mockModule('jsonwebtoken', () => ({
 }));
 
 // Mock de variables de entorno
+// JWT_SECRET debe tener al menos 32 caracteres para cumplir con las validaciones de seguridad
 jest.unstable_mockModule(
   '../../../src/config/env.js',
   () => ({
     default: {
-      JWT_SECRET: 'test-secret-key',
+      JWT_SECRET: 'test-secret-key-with-minimum-32-characters-required-for-security',
       JWT_EXPIRATION: '1h',
     },
-    JWT_SECRET: 'test-secret-key',
+    JWT_SECRET: 'test-secret-key-with-minimum-32-characters-required-for-security',
     JWT_EXPIRATION: '1h',
   })
 );

@@ -1,0 +1,10 @@
+{
+  "testEnvironment": "node",
+  "testMatch": [
+    "**/tests/unit/config/env.security.test.js",
+    "**/tests/unit/middlewares/auth.middleware.security.test.js",
+    "**/tests/unit/auth/auth.helpers.security.test.js"
+  ],
+  "globalSetup": "<rootDir>/tests/setup-security-tests.js",
+  "transform": {}
+}

@@ -7,53 +7,65 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-// Lista negra de claves inseguras conocidas (valores exactos)
-const INSECURE_DEFAULT_SECRETS = new Set([
+/**
+ * Lista de valores inseguros conocidos que no deben usarse como secretos JWT
+ */
+const INSECURE_JWT_SECRETS = [
   'dev-secret-change-me-in-production',
   'your-super-secret-jwt-key-change-this-in-production',
-  'your-super-secret-jwt-key-change-this-in-production-must-be-at-least-32-chars',
-  'tu-refresh-secret-key-diferente',
   'secret',
-  'secret123',
-  'supersecret',
-  '12345678901234567890123456789012',
-  'change_me',
-  'jwt_secret'
-]);
+  'test-secret',
+  'change-me',
+  'jwt-secret',
+];
 
+/**
+ * Valida que un secreto JWT esté presente, no sea un valor por defecto inseguro y tenga suficiente longitud.
+ * @param {string} secret - El valor de la variable de entorno
+ * @param {string} secretName - Nombre de la variable (ej. 'JWT_SECRET')
+ */
 const validateSecret = (secret, secretName) => {
   if (!secret || secret.trim() === '') {
-    throw new Error(`FATAL: ${secretName} no está configurado.`);
-  }
-
-  // 1. Longitud mínima de 32 caracteres (fuerza la entropía)
-  if (secret.length < 32) {
-    throw new Error(`FATAL: ${secretName} debe tener al menos 32 caracteres.`);
-  }
-
-  // 2. Coincidencia exacta con la lista negra
-  const normalizedSecret = secret.trim().toLowerCase();
-  if (INSECURE_DEFAULT_SECRETS.has(normalizedSecret)) {
     throw new Error(
-      `FATAL: ${secretName} utiliza una clave insegura, predecible o de ejemplo.`
+      `FATAL: ${secretName} es obligatorio en todos los entornos. ` +
+      'Configure una clave secreta criptográficamente segura de al menos 32 caracteres.'
+    );
+  }
+
+  if (INSECURE_JWT_SECRETS.includes(secret)) {
+    throw new Error(
+      `FATAL: ${secretName} contiene un valor inseguro conocido. ` +
+      'Debe configurar una clave secreta única y criptográficamente segura.'
+    );
+  }
+
+  if (secret.length < 32) {
+    throw new Error(
+      `FATAL: ${secretName} debe tener al menos 32 caracteres para garantizar seguridad criptográfica. ` +
+      `Longitud actual: ${secret.length} caracteres.`
     );
   }
 };
 
+/**
+ * Valida que las variables críticas estén presentes y sean seguras
+ */
 const validateEnv = () => {
-  // Validar base de datos en todos los entornos
+  // 1. Validar base de datos en todos los entornos
   if (!process.env.DATABASE_URL || process.env.DATABASE_URL.trim() === '') {
     throw new Error('FATAL: DATABASE_URL no está configurada.');
   }
 
-  // Validar secretos JWT en todos los entornos
+  // 2. Validar secreto principal JWT (Obligatorio)
   validateSecret(process.env.JWT_SECRET, 'JWT_SECRET');
 
+  // 3. Validar secreto de Refresh Token si está configurado
   if (process.env.JWT_REFRESH_SECRET) {
     validateSecret(process.env.JWT_REFRESH_SECRET, 'JWT_REFRESH_SECRET');
   }
 };
 
+// Ejecutar validación inmediata al importar el módulo
 validateEnv();
 
 export default {

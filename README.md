@@ -11,94 +11,21 @@ Key security changes:
 - Application uses a non-superuser account with limited privileges
 
 ## Configuración Inicial
+1. Clonar el repositorio.
+2. Copiar `.env.example` a `.env` y configurar las variables (DATABASE_URL, JWT_SECRET).
+   - **IMPORTANTE**: JWT_SECRET es obligatorio en TODOS los entornos (desarrollo, pruebas, producción).
+   - Debe tener al menos 32 caracteres y ser criptográficamente seguro.
+   - Genere uno único con: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`
+   - NUNCA use valores predeterminados o de ejemplo en producción.
+3. Instalar dependencias: `npm install`.
+4. Levantar base de datos (PostgreSQL 15+ recomendado).
+5. Ejecutar migraciones y seeds: `npm run db:setup && npm run db:seed`.
+6. Iniciar servidor: `npm run dev`.
 
-### 1. Clonar el repositorio
-```bash
-git clone <repository-url>
-cd campusvote
-```
-
-### 2. Configurar variables de entorno
-
-**CRITICAL**: Set strong database passwords before starting the database.
-
-```bash
-# Copy the example environment file
-cp .env.example .env
-
-# Generate strong random passwords (Linux/Mac)
-openssl rand -base64 32  # Use for POSTGRES_SUPERUSER_PASSWORD
-openssl rand -base64 32  # Use for POSTGRES_APP_PASSWORD
-
-# Or on Windows PowerShell:
-# [Convert]::ToBase64String((1..32 | ForEach-Object { Get-Random -Minimum 0 -Maximum 256 }))
-```
-
-Edit `.env` and set at minimum:
-- `POSTGRES_SUPERUSER_PASSWORD` - Strong password for database superuser
-- `POSTGRES_APP_PASSWORD` - Strong password for application user
-- `JWT_SECRET` - Strong secret for JWT tokens
-- Update `DATABASE_URL` with your `POSTGRES_APP_PASSWORD`
-- Update `MIGRATION_DATABASE_URL` with your `POSTGRES_SUPERUSER_PASSWORD`
-
-**Never commit your `.env` file to source control!**
-
-### 3. Instalar dependencias
-```bash
-npm install
-```
-
-### 4. Levantar base de datos
-```bash
-# Start PostgreSQL in Docker (requires passwords to be set in .env)
-npm run db:up
-
-# Wait for the database to be ready (check with docker ps)
-docker ps
-```
-
-### 5. Ejecutar migraciones
-```bash
-# Run migrations using the superuser account
-npm run db:setup
-```
-
-### 6. Iniciar servidor
-```bash
-# Start the development server (uses application account)
-npm run dev
-```
-
-## Database Security
-
-The application now uses two separate database accounts:
-
-1. **Superuser Account** (`postgres` by default)
-   - Used ONLY for migrations and administrative tasks
-   - Has full database privileges
-   - Should NEVER be used by the application at runtime
-
-2. **Application Account** (`campusvote_app` by default)
-   - Used by the application for all runtime operations
-   - Has limited privileges (SELECT, INSERT, UPDATE, DELETE only)
-   - Cannot modify schema or create/drop tables
-
-For detailed security information, see [SECURITY-DATABASE.md](SECURITY-DATABASE.md).
-
-## Production Deployment
-
-**DO NOT use the example passwords in production!**
-
-For production deployments:
-1. Use a secrets management solution (AWS Secrets Manager, HashiCorp Vault, etc.)
-2. Generate strong, unique passwords for each environment
-3. Consider removing the `ports` section from docker-compose.yml and using Docker networks
-4. Enable SSL/TLS for database connections
-5. Implement network segmentation and firewall rules
-6. Enable database audit logging
-7. Regular security updates and monitoring
-
-See [SECURITY-DATABASE.md](SECURITY-DATABASE.md) for a complete production security checklist.
+## Requisitos de Seguridad
+- **JWT_SECRET**: Obligatorio en todos los entornos, mínimo 32 caracteres, criptográficamente seguro.
+- La aplicación NO arrancará si JWT_SECRET no está configurado o usa un valor inseguro conocido.
+- Para pruebas automatizadas, configure JWT_SECRET en el entorno de CI/CD con un valor seguro.
 
 ## Documentación
 Una vez corriendo el servidor, visita: `http://localhost:3000/api/docs`
