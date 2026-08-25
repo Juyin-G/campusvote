@@ -1,7 +1,6 @@
 /**
  * @file env.js
- * @description Configuración centralizada de variables de entorno
- * @note Todas las variables críticas deben validarse al arrancar
+ * @description Configuración centralizada y validada de variables de entorno
  */
 
 import dotenv from 'dotenv';
@@ -9,7 +8,7 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 /**
- * Lista de valores inseguros conocidos que no deben usarse como JWT_SECRET
+ * Lista de valores inseguros conocidos que no deben usarse como secretos JWT
  */
 const INSECURE_JWT_SECRETS = [
   'dev-secret-change-me-in-production',
@@ -21,46 +20,57 @@ const INSECURE_JWT_SECRETS = [
 ];
 
 /**
- * Valida que las variables críticas estén presentes y sean seguras
+ * Valida que un secreto JWT esté presente, no sea un valor por defecto inseguro y tenga suficiente longitud.
+ * @param {string} secret - El valor de la variable de entorno
+ * @param {string} secretName - Nombre de la variable (ej. 'JWT_SECRET')
  */
-const validateEnv = () => {
-  // Validar que JWT_SECRET esté presente en TODOS los entornos
-  if (!process.env.JWT_SECRET) {
+const validateSecret = (secret, secretName) => {
+  if (!secret || secret.trim() === '') {
     throw new Error(
-      'FATAL: JWT_SECRET es obligatorio en todos los entornos. ' +
+      `FATAL: ${secretName} es obligatorio en todos los entornos. ` +
       'Configure una clave secreta criptográficamente segura de al menos 32 caracteres.'
     );
   }
 
-  // Validar que JWT_SECRET no sea un valor inseguro conocido
-  if (INSECURE_JWT_SECRETS.includes(process.env.JWT_SECRET)) {
+  if (INSECURE_JWT_SECRETS.includes(secret)) {
     throw new Error(
-      'FATAL: JWT_SECRET contiene un valor inseguro conocido. ' +
+      `FATAL: ${secretName} contiene un valor inseguro conocido. ` +
       'Debe configurar una clave secreta única y criptográficamente segura.'
     );
   }
 
-  // Validar longitud mínima de JWT_SECRET
-  if (process.env.JWT_SECRET.length < 32) {
+  if (secret.length < 32) {
     throw new Error(
-      'FATAL: JWT_SECRET debe tener al menos 32 caracteres para garantizar seguridad criptográfica. ' +
-      `Longitud actual: ${process.env.JWT_SECRET.length} caracteres.`
-    );
-  }
-
-  // Validar DATABASE_URL en producción
-  if (!process.env.DATABASE_URL && process.env.NODE_ENV === 'production') {
-    throw new Error(
-      'FATAL: DATABASE_URL es obligatorio en producción.'
+      `FATAL: ${secretName} debe tener al menos 32 caracteres para garantizar seguridad criptográfica. ` +
+      `Longitud actual: ${secret.length} caracteres.`
     );
   }
 };
 
+/**
+ * Valida que las variables críticas estén presentes y sean seguras
+ */
+const validateEnv = () => {
+  // 1. Validar base de datos en todos los entornos
+  if (!process.env.DATABASE_URL || process.env.DATABASE_URL.trim() === '') {
+    throw new Error('FATAL: DATABASE_URL no está configurada.');
+  }
+
+  // 2. Validar secreto principal JWT (Obligatorio)
+  validateSecret(process.env.JWT_SECRET, 'JWT_SECRET');
+
+  // 3. Validar secreto de Refresh Token si está configurado
+  if (process.env.JWT_REFRESH_SECRET) {
+    validateSecret(process.env.JWT_REFRESH_SECRET, 'JWT_REFRESH_SECRET');
+  }
+};
+
+// Ejecutar validación inmediata al importar el módulo
 validateEnv();
 
 export default {
   // Server
-  NODE_ENV: process.env.NODE_ENV || 'development',
+  NODE_ENV: (process.env.NODE_ENV || 'development').toLowerCase().trim(),
   PORT: parseInt(process.env.PORT, 10) || 3000,
   APP_NAME: process.env.APP_NAME || 'CampusVote',
   APP_VERSION: process.env.APP_VERSION || '1.0.0',
@@ -68,13 +78,14 @@ export default {
   // Database
   DATABASE_URL: process.env.DATABASE_URL,
 
-  // JWT - Sin fallback inseguro, debe estar configurado explícitamente
+  // JWT
   JWT_SECRET: process.env.JWT_SECRET,
   JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || '24h',
+  JWT_REFRESH_SECRET: process.env.JWT_REFRESH_SECRET,
   JWT_REFRESH_EXPIRES_IN: process.env.JWT_REFRESH_EXPIRES_IN || '7d',
 
   // CORS
-  CORS_ORIGIN: process.env.CORS_ORIGIN || '*',
+  CORS_ORIGIN: process.env.CORS_ORIGIN || 'http://localhost:5173',
 
   // Security
   BCRYPT_ROUNDS: parseInt(process.env.BCRYPT_ROUNDS, 10) || 12,
@@ -82,7 +93,7 @@ export default {
   MAX_LOGIN_ATTEMPTS: parseInt(process.env.MAX_LOGIN_ATTEMPTS, 10) || 5,
   LOCK_TIME_MINUTES: parseInt(process.env.LOCK_TIME_MINUTES, 10) || 15,
 
-  // Email (para verificación y recuperación)
+  // Email
   SMTP_HOST: process.env.SMTP_HOST,
   SMTP_PORT: parseInt(process.env.SMTP_PORT, 10) || 587,
   SMTP_USER: process.env.SMTP_USER,
@@ -94,6 +105,6 @@ export default {
   GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET,
   GOOGLE_CALLBACK_URL: process.env.GOOGLE_CALLBACK_URL,
 
-  // Frontend URL (para links en emails)
+  // Frontend URL
   FRONTEND_URL: process.env.FRONTEND_URL || 'http://localhost:5173',
 };

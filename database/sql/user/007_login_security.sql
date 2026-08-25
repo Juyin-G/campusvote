@@ -9,7 +9,7 @@ RETURNS BOOLEAN
 LANGUAGE sql
 STABLE
 SECURITY DEFINER
-SET search_path = public
+SET search_path = public, pg_temp
 AS $$
     SELECT COALESCE(
         (
@@ -19,12 +19,16 @@ AS $$
                     locked_until IS NULL
                     OR locked_until <= CURRENT_TIMESTAMP
                 )
-            FROM users
+            FROM public.users
             WHERE email = p_email
         ),
         FALSE
     );
 $$;
+
+-- ACL: Revoke default PUBLIC EXECUTE and grant only to application role
+REVOKE ALL ON FUNCTION login_is_allowed(CITEXT) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION login_is_allowed(CITEXT) TO postgres;
 
 
 -- FUNCIÓN: REGISTRAR INTENTO FALLIDO
@@ -35,7 +39,7 @@ CREATE OR REPLACE FUNCTION register_failed_login(
 RETURNS VOID
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public
+SET search_path = public, pg_temp
 AS $$
 DECLARE
     v_attempts INT;
@@ -44,11 +48,11 @@ BEGIN
         WHEN locked_until IS NOT NULL AND locked_until <= CURRENT_TIMESTAMP THEN 1
         ELSE failed_login_attempts + 1
     END INTO v_attempts
-    FROM users
+    FROM public.users
     WHERE email = p_email AND is_active = TRUE;
 
     IF FOUND THEN
-        UPDATE users
+        UPDATE public.users
         SET
             failed_login_attempts = v_attempts,
             locked_until = CASE
@@ -60,6 +64,10 @@ BEGIN
 END;
 $$;
 
+-- ACL: Revoke default PUBLIC EXECUTE and grant only to application role
+REVOKE ALL ON FUNCTION register_failed_login(CITEXT) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION register_failed_login(CITEXT) TO postgres;
+
 -- FUNCIÓN: REGISTRAR LOGIN EXITOSO
 
 CREATE OR REPLACE FUNCTION register_successful_login(
@@ -68,10 +76,10 @@ CREATE OR REPLACE FUNCTION register_successful_login(
 RETURNS VOID
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public
+SET search_path = public, pg_temp
 AS $$
 BEGIN
-    UPDATE users
+    UPDATE public.users
     SET
         failed_login_attempts = 0,
         locked_until = NULL,
@@ -84,5 +92,9 @@ BEGIN
       );
 END;
 $$;
+
+-- ACL: Revoke default PUBLIC EXECUTE and grant only to application role
+REVOKE ALL ON FUNCTION register_successful_login(CITEXT) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION register_successful_login(CITEXT) TO postgres;
 
 COMMIT;

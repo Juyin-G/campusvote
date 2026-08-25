@@ -1,5 +1,3 @@
-import swaggerJsdoc from 'swagger-jsdoc';
-import swaggerUi from 'swagger-ui-express';
 import env from '../env.js';
 import schemas from './schemas/index.js';
 import { responses } from './responses.js';
@@ -95,18 +93,19 @@ const options = {
 };
 
 /**
- * Especificación OpenAPI compilada
- */
-export const swaggerSpec = swaggerJsdoc(options);
-
-/**
  * Registra la interfaz gráfica Swagger UI y el endpoint JSON en la aplicación Express.
+ * Utiliza importación dinámica para omitir la carga de dependencias de Swagger durante los tests.
  * @param {import('express').Application} app - Instancia principal de Express.
  */
-export const swaggerSetup = (app) => {
-  if (env.SWAGGER_ENABLED === false) {
+export const swaggerSetup = async (app) => {
+  if (env.SWAGGER_ENABLED === false || process.env.NODE_ENV === 'test') {
     return;
   }
+
+  const { default: swaggerJsdoc } = await import('swagger-jsdoc');
+  const { default: swaggerUi } = await import('swagger-ui-express');
+
+  const swaggerSpec = swaggerJsdoc(options);
 
   const swaggerUiOptions = {
     customCss: `

@@ -129,7 +129,10 @@ export const setActiveStatus = async (id, isActive, actor) => {
 
 export const unlockUser = async (id) => {
   try {
-    const updated = await userRepository.resetSecurityFlags(id);
+    const updated = await userRepository.update(id, {
+      failedLoginAttempts: 0,
+      lockedUntil: null,
+    });
     return formatUserResponse(updated);
   } catch (err) {
     notFoundIfMissing(err);

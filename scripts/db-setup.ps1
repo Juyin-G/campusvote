@@ -1,5 +1,13 @@
 Write-Host "Ejecutando migraciones SQL..." -ForegroundColor Cyan
 
+# Get database credentials from environment variables
+$dbUser = if ($env:POSTGRES_SUPERUSER) { $env:POSTGRES_SUPERUSER } else { "postgres" }
+$dbName = if ($env:POSTGRES_DB) { $env:POSTGRES_DB } else { "campusvote_db" }
+
+Write-Host "Usando usuario de base de datos: $dbUser" -ForegroundColor Gray
+Write-Host "Base de datos: $dbName" -ForegroundColor Gray
+Write-Host ""
+
 $migrationOrder = @(
     # 1. Extensiones y funciones base
     @{ Path = "database/sql/000_extensions.sql"; Label = "Extensiones" },
@@ -85,7 +93,7 @@ foreach ($migration in $migrationOrder) {
     Write-Host " ($file)" -ForegroundColor DarkGray
 
     docker cp $file campusvote_db:/tmp/migration.sql
-    $result = docker exec -i campusvote_db psql -U postgres -d campusvote_db -f /tmp/migration.sql 2>&1
+    $result = docker exec -i campusvote_db psql -U $dbUser -d $dbName -f /tmp/migration.sql 2>&1
 
     if ($LASTEXITCODE -ne 0 -or $result -match "ERROR") {
         Write-Host "    [ERROR] $label" -ForegroundColor Red

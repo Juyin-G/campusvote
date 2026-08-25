@@ -1,17 +1,28 @@
-import { PrismaClient } from '@prisma/client';
-import { exec } from 'child_process';
-import { promisify } from 'util';
+import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { exec } from 'child_process';
+import { promisify } from 'util';
 import { Client } from 'pg';
 import fs from 'fs/promises';
 
-const execAsync = promisify(exec);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
+// Carga las variables del .env antes de inicializar la conexión
+dotenv.config({ path: path.resolve(__dirname, '../.env') });
+
+const execAsync = promisify(exec);
+
 export default async function setupTestDB() {
-  const prisma = new PrismaClient();
-  const pgClient = new Client({ connectionString: process.env.DATABASE_URL });
+  const dbUrl = process.env.DATABASE_URL;
+
+  if (!dbUrl) {
+    throw new Error(
+      'FATAL: DATABASE_URL no está definida. Revisa la ubicación de tu archivo .env.'
+    );
+  }
+
+  const pgClient = new Client({ connectionString: dbUrl });
 
   try {
     console.log('1. Reseteando base de datos de pruebas con Prisma...');
@@ -46,6 +57,5 @@ export default async function setupTestDB() {
     process.exit(1);
   } finally {
     await pgClient.end();
-    await prisma.$disconnect();
   }
 }

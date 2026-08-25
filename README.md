@@ -1,5 +1,15 @@
 # Sistema Electoral API
 
+## ⚠️ Security Notice
+
+**IMPORTANT**: This application has been updated with enhanced database security measures. Please read the [Database Security Configuration](SECURITY-DATABASE.md) document before deploying.
+
+Key security changes:
+- Database port now binds to localhost only (127.0.0.1:5433)
+- Separate superuser and application database accounts
+- All passwords must be set via environment variables (no defaults)
+- Application uses a non-superuser account with limited privileges
+
 ## Configuración Inicial
 1. Clonar el repositorio.
 2. Copiar `.env.example` a `.env` y configurar las variables (DATABASE_URL, JWT_SECRET).
