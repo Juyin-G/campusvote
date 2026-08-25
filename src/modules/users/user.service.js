@@ -1,4 +1,5 @@
 import bcrypt from 'bcryptjs';
+import crypto from 'node:crypto';
 import * as userRepository from './user.repository.js';
 import { ApiError } from '../../shared/errors/ApiError.js';
 import { isValidRole, ADMIN_ROLES } from '../../constants/roles.js';
@@ -197,7 +198,9 @@ export const changeMyPassword = async (userId, body = {}) => {
     throw ApiError.badRequest('La contraseña actual es incorrecta');
   }
 
-  if (currentPassword === newPassword) {
+  const actual = crypto.createHash('sha256').update(currentPassword).digest();
+  const expected = crypto.createHash('sha256').update(newPassword).digest();
+  if (crypto.timingSafeEqual(actual, expected)) {
     throw ApiError.badRequest(MESSAGES.USER.PASSWORD_SAME_AS_OLD);
   }
 
