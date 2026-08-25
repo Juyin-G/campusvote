@@ -9,7 +9,7 @@ RETURNS BOOLEAN
 LANGUAGE sql
 STABLE
 SECURITY DEFINER
-SET search_path = public
+SET search_path = public, pg_temp
 AS $$
     SELECT COALESCE(
         (
@@ -19,7 +19,7 @@ AS $$
                     locked_until IS NULL
                     OR locked_until <= CURRENT_TIMESTAMP
                 )
-            FROM users
+            FROM public.users
             WHERE email = p_email
         ),
         FALSE
@@ -39,7 +39,7 @@ CREATE OR REPLACE FUNCTION register_failed_login(
 RETURNS VOID
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public
+SET search_path = public, pg_temp
 AS $$
 DECLARE
     v_attempts INT;
@@ -48,11 +48,11 @@ BEGIN
         WHEN locked_until IS NOT NULL AND locked_until <= CURRENT_TIMESTAMP THEN 1
         ELSE failed_login_attempts + 1
     END INTO v_attempts
-    FROM users
+    FROM public.users
     WHERE email = p_email AND is_active = TRUE;
 
     IF FOUND THEN
-        UPDATE users
+        UPDATE public.users
         SET
             failed_login_attempts = v_attempts,
             locked_until = CASE
@@ -76,10 +76,10 @@ CREATE OR REPLACE FUNCTION register_successful_login(
 RETURNS VOID
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public
+SET search_path = public, pg_temp
 AS $$
 BEGIN
-    UPDATE users
+    UPDATE public.users
     SET
         failed_login_attempts = 0,
         locked_until = NULL,
