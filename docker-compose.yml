@@ -4,15 +4,28 @@ services:
     container_name: campusvote_db
     restart: unless-stopped
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: campusvote_db
+      # SECURITY: Use strong, unique passwords in production
+      # These credentials should be set via environment variables, not hardcoded
+      POSTGRES_USER: ${POSTGRES_SUPERUSER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_SUPERUSER_PASSWORD:?POSTGRES_SUPERUSER_PASSWORD must be set}
+      POSTGRES_DB: ${POSTGRES_DB:-campusvote_db}
+      # Application database user (non-superuser with limited privileges)
+      POSTGRES_APP_USER: ${POSTGRES_APP_USER:-campusvote_app}
+      POSTGRES_APP_PASSWORD: ${POSTGRES_APP_PASSWORD:?POSTGRES_APP_PASSWORD must be set}
     ports:
-      - '5433:5432'
+      # SECURITY: Bind to localhost only to prevent external access
+      # External deployments should use Docker networks or a reverse proxy
+      - '127.0.0.1:5433:5432'
     volumes:
       - db_data:/var/lib/postgresql/data
       - ./database/sql:/database/sql
       - ./database/seeds:/database/seeds
+      - ./database/init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_SUPERUSER:-postgres} -d ${POSTGRES_DB:-campusvote_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
 volumes:
   db_data:
