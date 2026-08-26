@@ -15,9 +15,6 @@
     "test": "npm run db:setup && node --experimental-vm-modules node_modules/jest/bin/jest.js --config jest.config.js",
     "test:watch": "node --experimental-vm-modules node_modules/jest/bin/jest.js --watch"
   },
-  "jest": {
-    "globalSetup": "<rootDir>/tests/setup-db.js"
-  },
   "keywords": [],
   "author": "",
   "license": "ISC",
@@ -54,11 +51,7 @@
     "ts-api-utils": "^2.0.0"
   },
   "overrides": {
-    "raw-body@<4.0.0": "4.0.0",
     "got@<11.8.5": "11.8.5",
-    "@apidevtools/json-schema-ref-parser@<15.5.1": "15.5.1",
-    "deepmerge-ts@<8.0.0": "8.0.0",
-    "minimatch": "^10.2.3",
-    "raw-body": "^2.5.2"
+    "deepmerge-ts@<8.0.0": "8.0.0"
   }
 }
