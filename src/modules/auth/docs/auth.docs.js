@@ -270,4 +270,36 @@
  *         description: Correo verificado exitosamente.
  *       400:
  *         description: Token inválido o expirado.
+ *
+ * /auth/verify-email/resend:
+ *   post:
+ *     tags:
+ *       - Auth
+ *     summary: Reenviar el correo de verificación
+ *     description: >
+ *       Genera un nuevo enlace de verificación para una cuenta pendiente.
+ *       Es la salida para quien se registró y no recibió el correo.
+ *       Responde siempre 200 con el mismo mensaje —exista la cuenta, esté ya
+ *       verificada o falle el envío— para no revelar qué correos están
+ *       registrados.
+ *     security: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [email]
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 example: "estudiante@campusvote.edu.pe"
+ *     responses:
+ *       200:
+ *         description: Solicitud procesada (respuesta genérica).
+ *       400:
+ *         description: El correo enviado no tiene formato válido.
+ *       429:
+ *         description: Demasiadas solicitudes.
  */

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { passwordSchema } from '../../../shared/utils/passwordPolicy.js';
 
 // Login
 export const loginSchema = z.object({
@@ -13,7 +14,7 @@ export const registerSchema = z.object({
   body: z.object({
     username: z.string().min(3, 'Mínimo 3 caracteres').trim(),
     email: z.string().email('Email inválido').trim().toLowerCase(),
-    password: z.string().min(8, 'Mínimo 8 caracteres'),
+    password: passwordSchema,
     firstName: z.string().min(1, 'El nombre es obligatorio').trim(),
     lastName: z.string().min(1, 'El apellido es obligatorio').trim(),
     institutionalId: z.string().min(1, 'El ID institucional es obligatorio').trim(),
@@ -48,7 +49,7 @@ export const requestPasswordResetSchema = z.object({
 export const resetPasswordSchema = z.object({
   body: z.object({
     token: z.string().min(1, 'El token es obligatorio'),
-    newPassword: z.string().min(8, 'Mínimo 8 caracteres'),
+    newPassword: passwordSchema,
   }),
 });
 
@@ -56,5 +57,12 @@ export const resetPasswordSchema = z.object({
 export const verifyEmailSchema = z.object({
   body: z.object({
     token: z.string().min(1, 'El token es obligatorio'),
+  }),
+});
+
+// Reenvío del correo de verificación
+export const resendVerificationSchema = z.object({
+  body: z.object({
+    email: z.string().email('Email inválido').trim().toLowerCase(),
   }),
 });

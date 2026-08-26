@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { passwordSchema } from '../../shared/utils/passwordPolicy.js';
 import { ALL_ROLES } from '../../constants/roles.js';
 
 const roleEnum = z.enum(ALL_ROLES);
@@ -25,7 +26,7 @@ export const createUserSchema = z.object({
   body: z.object({
     username: z.string().min(3, 'Como mínimo 3 caracteres').max(50),
     email: z.string().email('Email inválido'),
-    password: z.string().min(8, 'Como mínimo 8 caracteres').max(100),
+    password: passwordSchema,
     first_name: z.string().min(1, 'Como mínimo 1 carácter').max(50),
     last_name: z.string().min(1, 'Como mínimo 1 carácter').max(50),
     institutional_id: z.string().min(1, 'Como mínimo 1 carácter').max(50),
@@ -95,14 +96,14 @@ export const setActiveSchema = z.object({
 export const changePasswordSchema = z.object({
   body: z.object({
     current_password: z.string().min(8, 'Como mínimo 8 caracteres').max(100),
-    new_password: z.string().min(8, 'Como mínimo 8 caracteres').max(100),
+    new_password: passwordSchema,
   }),
 });
 
 // Restablecer contraseña
 export const resetPasswordSchema = z.object({
   body: z.object({
-    new_password: z.string().min(8, 'Como mínimo 8 caracteres').max(100),
+    new_password: passwordSchema,
   }),
 });
 

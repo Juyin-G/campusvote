@@ -39,12 +39,30 @@ export const register = asyncHandler(async (req, res) => {
     requestId: req.requestId,
   });
 
+  // El alta se confirma aunque el correo no haya salido; en ese caso se indica
+  // al usuario que puede pedir el reenvío en lugar de dejarlo sin salida.
+  const message = result.verificationEmailSent
+    ? MESSAGES.USER.CREATED_SUCCESS
+    : MESSAGES.AUTH.REGISTER_EMAIL_FAILED;
+
   return sendSuccess(
     res,
     result,
-    MESSAGES.USER.CREATED_SUCCESS,
+    message,
     { requestId: req.requestId },
     HTTP_STATUS.CREATED
+  );
+});
+
+export const resendVerification = asyncHandler(async (req, res) => {
+  const result = await authService.resendVerification(req.body.email);
+
+  return sendSuccess(
+    res,
+    result,
+    MESSAGES.AUTH.EMAIL_VERIFICATION_SENT,
+    { requestId: req.requestId },
+    HTTP_STATUS.OK
   );
 });
 

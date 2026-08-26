@@ -15,6 +15,7 @@ import {
   requestPasswordResetSchema,
   resetPasswordSchema,
   verifyEmailSchema,
+  resendVerificationSchema,
 } from '../schemas/auth.schema.js';
 
 const router = Router();
@@ -64,10 +65,22 @@ router.post(
 );
 
 // Verificación de Email
+// Es el único endpoint público de auth que consume un token, así que lleva
+// el mismo limitador que el resto para no dejarlo abierto a fuerza bruta.
 router.post(
   '/verify-email',
+  authLimiter,
   validate(verifyEmailSchema),
   authController.verifyEmail
+);
+
+// Salida para quien se registró y no recibió el correo (SMTP caído, spam...).
+// Responde siempre igual para no revelar qué correos están registrados.
+router.post(
+  '/verify-email/resend',
+  authLimiter,
+  validate(resendVerificationSchema),
+  authController.resendVerification
 );
 
 // ═══════════════════════════════════════════

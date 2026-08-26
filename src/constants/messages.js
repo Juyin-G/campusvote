@@ -43,7 +43,7 @@ export const MESSAGES = {
     EMAIL_ALREADY_VERIFIED: 'El correo electrónico ya se encuentra verificado.',
     EMAIL_SEND_FAILED: 'No se pudo enviar el correo electrónico. Intente más tarde.',
     REGISTER_EMAIL_FAILED:
-      'La cuenta fue creada pero no se pudo enviar el correo de verificación. Contacte al administrador.',
+      'La cuenta fue creada, pero no se pudo enviar el correo de verificación. Solicite el reenvío para activarla.',
   },
 
   // USUARIOS (USERS)
