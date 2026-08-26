@@ -1,4 +1,5 @@
 import auditService from './audit.service.js';
+import { isAdminRole } from '../../constants/roles.js';
 import { 
   auditLogsQuerySchema, 
   createAuditLogSchema,
@@ -160,7 +161,7 @@ class AuditController {
         });
       }
 
-      if (req.user.id !== value.userId && !req.user.isAdmin) {
+      if (req.user.userId !== value.userId && !isAdminRole(req.user.role)) {
         return res.status(403).json({
           success: false,
           error: { message: 'No tiene permisos para crear tokens para este usuario' }

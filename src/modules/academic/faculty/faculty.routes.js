@@ -1,13 +1,14 @@
 import { Router } from 'express';
 import { authenticate, authorize } from '../../../middlewares/auth.middleware.js';
 import { validate } from '../../../middlewares/validate.middleware.js';
+import { ROLES } from '../../../constants/roles.js';
 import * as facultyController from './faculty.controller.js';
 import * as facultySchema from './faculty.schema.js';
 
 const router = Router();
 
 // Middleware global para todas las rutas de facultades
-router.use(authenticate, authorize('ADMIN', 'ORG_ADMIN'));
+router.use(authenticate, authorize(ROLES.ADMIN));
 
 router.get('/', facultyController.getFaculties);
 router.post('/', validate(facultySchema.createFacultySchema), facultyController.createFaculty);

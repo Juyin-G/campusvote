@@ -3,8 +3,11 @@ import { sendSuccess, asyncHandler } from '../../../shared/utils/index.js';
 import { ApiError } from '../../../shared/errors/ApiError.js';
 import { HTTP_STATUS } from '../../../constants/index.js';
 
+// El JWT se firma con userId; se acepta id como respaldo (igual que en users)
+const actorId = (user) => user?.userId ?? user?.id;
+
 export const setupTotp = asyncHandler(async (req, res) => {
-  const userId = req.user.id;
+  const userId = actorId(req.user);
   const result = await otpService.setupTotp(userId);
 
   return sendSuccess(
@@ -21,7 +24,7 @@ export const setupTotp = asyncHandler(async (req, res) => {
 });
 
 export const verifyTotp = asyncHandler(async (req, res) => {
-  const userId = req.user.id;
+  const userId = actorId(req.user);
   const { code } = req.body;
 
   const result = await otpService.verifyAndEnableTotp(userId, code);
@@ -38,7 +41,7 @@ export const verifyTotp = asyncHandler(async (req, res) => {
 });
 
 export const verifyLoginTotp = asyncHandler(async (req, res) => {
-  const userId = req.user.id;
+  const userId = actorId(req.user);
   const { code, backupCode } = req.body;
 
   let result;
@@ -61,7 +64,7 @@ export const verifyLoginTotp = asyncHandler(async (req, res) => {
 });
 
 export const disableTotp = asyncHandler(async (req, res) => {
-  const userId = req.user.id;
+  const userId = actorId(req.user);
   const result = await otpService.disableTotp(userId);
 
   return sendSuccess(

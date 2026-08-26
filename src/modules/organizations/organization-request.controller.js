@@ -30,7 +30,7 @@ export const createOrganizationRequest = asyncHandler(async (req, res) => {
 
 export const approveOrganizationRequest = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const reviewerId = req.user.id;
+  const reviewerId = req.user.userId;
 
   const newOrganization = await organizationService.approveRequest(id, reviewerId);
 
@@ -52,7 +52,7 @@ export const approveOrganizationRequest = asyncHandler(async (req, res) => {
 
 export const rejectOrganizationRequest = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const reviewerId = req.user.id;
+  const reviewerId = req.user.userId;
   const { rejection_reason } = req.body;
 
   const request = await organizationService.rejectRequest(id, reviewerId, rejection_reason);

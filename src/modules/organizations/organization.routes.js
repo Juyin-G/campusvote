@@ -64,7 +64,7 @@ router.patch(
   authorize('ADMIN'),
   validate(idParamSchema, 'params'),
   asyncHandler(async (req, res) => {
-    const newOrganization = await approvalService.approveRequest(req.params.id, req.user.id);
+    const newOrganization = await approvalService.approveRequest(req.params.id, req.user.userId);
     return sendSuccess(res, newOrganization, MESSAGES.ORGANIZATION_REQUEST?.APPROVED_SUCCESS || 'Solicitud aprobada', { requestId: req.requestId }, HTTP_STATUS.OK);
   })
 );
@@ -76,7 +76,7 @@ router.patch(
   validate(idParamSchema, 'params'),
   validate(rejectReasonBodySchema, 'body'),
   asyncHandler(async (req, res) => {
-    const request = await approvalService.rejectRequest(req.params.id, req.user.id, req.body.rejection_reason);
+    const request = await approvalService.rejectRequest(req.params.id, req.user.userId, req.body.rejection_reason);
     return sendSuccess(res, request, MESSAGES.ORGANIZATION_REQUEST?.REJECTED_SUCCESS || 'Solicitud rechazada', { requestId: req.requestId }, HTTP_STATUS.OK);
   })
 );
