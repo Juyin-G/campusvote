@@ -5,6 +5,7 @@ import userRoutes from '../modules/users/user.routes.js';
 import healthRoutes from '../modules/health/health.routes.js';
 import organizationRoutes from '../modules/organizations/organization.routes.js';
 import academicRoutes from '../modules/academic/academic.routes.js';
+import electionRoutes from '../modules/elections/election.routes.js';
 import auditRoutes from '../modules/audit/audit.routes.js';
 
 const router = Router();
@@ -20,6 +21,9 @@ router.use('/users', userRoutes);
 // Dominio Académico e Institucional
 router.use('/organizations', organizationRoutes);
 router.use('/academic', academicRoutes);
+
+// Proceso Electoral
+router.use('/elections', electionRoutes);
 
 // Auditoría y Tokens de Un Solo Uso
 router.use('/audit', auditRoutes);
