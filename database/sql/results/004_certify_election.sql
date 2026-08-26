@@ -47,7 +47,7 @@ BEGIN
 
     -- 3. Calcular total de votos emitidos (papeletas registradas)
     SELECT COUNT(*) INTO v_total_votes_cast
-    FROM vote_records
+    FROM votes
     WHERE election_id = p_election_id;
 
     -- 4. Promediar votos en blanco y nulos por posición

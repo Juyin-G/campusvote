@@ -31,7 +31,7 @@ model organization_requests {
   rejection_reason  String?
   created_at        DateTime                    @default(now()) @db.Timestamptz(6)
   updated_at        DateTime                    @default(now()) @db.Timestamptz(6)
-  user              User?                       @relation(fields: [reviewed_by], references: [id], onUpdate: NoAction)
+  user              User?                       @relation(fields: [reviewed_by], references: [id], onDelete: Restrict, onUpdate: NoAction)
 
   @@index([contact_email], map: "idx_org_requests_email")
   @@index([status], map: "idx_org_requests_status")

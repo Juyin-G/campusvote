@@ -47,7 +47,6 @@ $migrationOrder = @(
     @{ Path = "database/sql/elections/004_candidate_lists.sql"; Label = "Elections - Lists" },
     @{ Path = "database/sql/elections/005_candidacies.sql"; Label = "Elections - Candidacies" },
     @{ Path = "database/sql/elections/006_election_rules.sql"; Label = "Elections - Rules" },
-    @{ Path = "database/sql/elections/008_vote_validation.sql"; Label = "Elections - Validation" },
 
     # 7. Ballots
     @{ Path = "database/sql/ballots/001_enums.sql"; Label = "Ballots - Enums" },
@@ -75,7 +74,11 @@ $migrationOrder = @(
     @{ Path = "database/sql/voting/002_votes.sql"; Label = "Voting - Votes" },
     @{ Path = "database/sql/voting/003_vote_selections.sql"; Label = "Voting - Selections" },
     @{ Path = "database/sql/voting/004_start_session.sql"; Label = "Voting - Start Session" },
-    @{ Path = "database/sql/voting/005_cast_vote.sql"; Label = "Voting - Cast Vote" }
+    @{ Path = "database/sql/voting/005_cast_vote.sql"; Label = "Voting - Cast Vote" },
+
+    # 11. Claves foraneas que cruzan modulos (deben ir al final,
+    #     cuando todas las tablas ya existen)
+    @{ Path = "database/sql/999_foreign_keys.sql"; Label = "Foreign Keys" }
 )
 
 $errors = 0
