@@ -2,6 +2,12 @@ import pluginSecurity from 'eslint-plugin-security';
 import pluginSonarjs from 'eslint-plugin-sonarjs';
 
 export default [
+  // Carpetas generadas: no son código fuente del proyecto.
+  // Alineado con .gitignore para que lint y git ignoren lo mismo.
+  {
+    ignores: ['coverage/**', 'dist/**', 'build/**', 'logs/**'],
+  },
+
   pluginSecurity.configs.recommended,
   pluginSonarjs.configs.recommended,
 
