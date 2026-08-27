@@ -5,69 +5,100 @@ import { HTTP_STATUS } from '../../../constants/httpStatus.js';
 export const listPeriods = async (query = {}) => {
   const skip = Math.max(0, Number(query.skip) || 0);
   const take = Math.min(100, Math.max(1, Number(query.take) || 50));
-  
-  return periodRepository.list({ skip, take });
+
+  const [data, total] = await Promise.all([
+    periodRepository.list({ skip, take }),
+    periodRepository.count(),
+  ]);
+
+  return {
+    data,
+    meta: {
+      total,
+      skip,
+      take,
+      hasMore: skip + data.length < total,
+    },
+  };
 };
 
 export const getPeriodById = async (id) => {
   const period = await periodRepository.findById(id);
-  if (!period) throw new ApiError(HTTP_STATUS.NOT_FOUND, 'Periodo no encontrado');
+  if (!period) throw new ApiError(HTTP_STATUS.NOT_FOUND, 'Período no encontrado');
   return period;
 };
 
-export const createPeriod = async (data) => {
-  if (data.is_active) {
-    const overlapping = await periodRepository.checkOverlap(data.start_date, data.end_date);
+export const createPeriod = async (payload) => {
+  const isActive = payload.is_active ?? false;
+
+  if (isActive) {
+    const overlapping = await periodRepository.checkOverlap(payload.start_date, payload.end_date);
     if (overlapping) {
       throw new ApiError(
-        HTTP_STATUS.CONFLICT, 
-        `El periodo choca con un periodo activo existente: ${overlapping.name}`
+        HTTP_STATUS.CONFLICT,
+        `El período choca con un período activo existente: ${overlapping.name}`
       );
     }
   }
 
-  return periodRepository.create(data);
+  return periodRepository.create({
+    name: payload.name,
+    startDate: new Date(payload.start_date),
+    endDate: new Date(payload.end_date),
+    isActive,
+  });
 };
 
-export const updatePeriod = async (id, data) => {
-  if (data.start_date || data.end_date) {
-    const currentPeriod = await periodRepository.findById(id);
-    if (!currentPeriod) throw new ApiError(HTTP_STATUS.NOT_FOUND, 'Periodo no encontrado');
+export const updatePeriod = async (id, payload) => {
+  const currentPeriod = await getPeriodById(id);
 
-    const finalStart = data.start_date ? new Date(data.start_date) : currentPeriod.start_date;
-    const finalEnd = data.end_date ? new Date(data.end_date) : currentPeriod.end_date;
+  const startDate = payload.start_date ? new Date(payload.start_date) : currentPeriod.startDate;
+  const endDate = payload.end_date ? new Date(payload.end_date) : currentPeriod.endDate;
 
-    if (finalStart >= finalEnd) {
-      throw new ApiError(HTTP_STATUS.BAD_REQUEST, 'La fecha de inicio debe ser anterior a la fecha de fin');
-    }
+  if (startDate >= endDate) {
+    throw new ApiError(
+      HTTP_STATUS.BAD_REQUEST,
+      'La fecha de inicio debe ser estrictamente anterior a la fecha de fin'
+    );
+  }
 
-    if (data.is_active !== false) { 
-      const overlapping = await periodRepository.checkOverlap(finalStart, finalEnd, id);
-      if (overlapping) {
-        throw new ApiError(
-          HTTP_STATUS.CONFLICT, 
-          `Las nuevas fechas chocan con un periodo activo existente: ${overlapping.name}`
-        );
-      }
+  // Evalúa si el período QUEDARÁ activo tras la actualización
+  const willBeActive = payload.is_active !== undefined ? payload.is_active : currentPeriod.isActive;
+
+  if (willBeActive) {
+    const overlapping = await periodRepository.checkOverlap(startDate, endDate, id);
+    if (overlapping) {
+      throw new ApiError(
+        HTTP_STATUS.CONFLICT,
+        `Las nuevas fechas chocan con un período activo existente: ${overlapping.name}`
+      );
     }
   }
 
-  const updatedPeriod = await periodRepository.update(id, data);
-  if (!updatedPeriod) throw new ApiError(HTTP_STATUS.NOT_FOUND, 'Periodo no encontrado');
-  
-  return updatedPeriod;
+  const data = {};
+  if (payload.name !== undefined) data.name = payload.name;
+  if (payload.start_date !== undefined) data.startDate = startDate;
+  if (payload.end_date !== undefined) data.endDate = endDate;
+  if (payload.is_active !== undefined) data.isActive = payload.is_active;
+
+  return periodRepository.update(id, data);
 };
 
 export const setActivePeriod = async (id) => {
-  const period = await periodRepository.findById(id);
-  if (!period) throw new ApiError(HTTP_STATUS.NOT_FOUND, 'Periodo no encontrado');
-  
+  await getPeriodById(id);
   return periodRepository.setActive(id);
 };
 
 export const deletePeriod = async (id) => {
-  const deleted = await periodRepository.deleteById(id);
-  if (!deleted) throw new ApiError(HTTP_STATUS.NOT_FOUND, 'Periodo no encontrado');
-  
-  return true;
+  await getPeriodById(id);
+
+  const hasRegistries = await periodRepository.hasAssociatedRegistries(id);
+  if (hasRegistries) {
+    throw new ApiError(
+      HTTP_STATUS.CONFLICT,
+      'No se puede eliminar el período académico porque tiene registros asociados'
+    );
+  }
+
+  return periodRepository.deleteById(id);
 };

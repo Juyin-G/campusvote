@@ -4,8 +4,8 @@ import { sendSuccess } from '../../../shared/utils/apiResponse.js';
 import { HTTP_STATUS } from '../../../constants/httpStatus.js';
 
 export const getFaculties = asyncHandler(async (req, res) => {
-  const faculties = await facultyService.listFaculties(req.query);
-  return sendSuccess(res, faculties, 'Facultades obtenidas', undefined, HTTP_STATUS.OK);
+  const { data, meta } = await facultyService.listFaculties(req.query);
+  return sendSuccess(res, data, 'Facultades obtenidas', meta, HTTP_STATUS.OK);
 });
 
 export const getFacultyById = asyncHandler(async (req, res) => {
@@ -27,4 +27,3 @@ export const deleteFaculty = asyncHandler(async (req, res) => {
   await facultyService.deleteFaculty(req.params.id);
   return sendSuccess(res, null, 'Facultad eliminada', undefined, HTTP_STATUS.OK);
 });
-

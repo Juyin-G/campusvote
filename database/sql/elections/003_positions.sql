@@ -1,6 +1,5 @@
+-- 003_positions.sql (Refactorizado)
 BEGIN;
-
--- TABLA: CARGOS / POSICIONES (POSITIONS)
 
 CREATE TABLE IF NOT EXISTS positions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -13,17 +12,20 @@ CREATE TABLE IF NOT EXISTS positions (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT uq_positions_election_name UNIQUE (election_id, name),
+    CONSTRAINT uq_positions_id_election UNIQUE (id, election_id),
     CONSTRAINT chk_positions_seats_positive CHECK (seats >= 1),
     CONSTRAINT chk_positions_name_not_empty CHECK (length(trim(name)) > 0)
 );
 
--- TRIGGER: ACTUALIZAR updated_at EN POSITIONS
+CREATE INDEX IF NOT EXISTS idx_positions_election_id ON positions (election_id);
 
 DROP TRIGGER IF EXISTS trg_positions_updated_at ON positions;
-
 CREATE TRIGGER trg_positions_updated_at
-BEFORE UPDATE ON positions
-FOR EACH ROW
-EXECUTE FUNCTION set_updated_at();
+BEFORE UPDATE ON positions FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+DROP TRIGGER IF EXISTS trg_positions_lock ON positions;
+CREATE TRIGGER trg_positions_lock
+BEFORE INSERT OR UPDATE OR DELETE ON positions
+FOR EACH ROW EXECUTE FUNCTION enforce_election_immutability();
 
 COMMIT;

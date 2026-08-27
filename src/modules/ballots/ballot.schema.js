@@ -1,5 +1,4 @@
 // src/modules/ballots/ballot.schema.js
-// S5-07 — Validaciones Zod del recurso ballots.
 
 import { z } from 'zod';
 
@@ -25,22 +24,15 @@ export const electionBallotParamsSchema = z.object({
 
 export const listBallotSchema = z.object({
   query: z.object({
-    election_id: uuid('election_id'),
+    electionId: uuid('ID de elección').optional(),
     page: z.coerce.number().int().min(1).default(1),
-    limit: z.coerce
-      .number()
-      .int()
-      .min(1)
-      .max(100)
-      .default(10),
+    limit: z.coerce.number().int().min(1).max(100).default(10),
   }),
 });
 
 export const createBallotSchema = z.object({
   body: z.object({
-    election_id: uuid('ID de elección'),
-    version: version.optional(),
-    is_active: z.boolean().optional(),
+    electionId: uuid('ID de elección'),
   }),
 });
 
@@ -48,15 +40,13 @@ export const updateBallotSchema = z.object({
   params: z.object({
     id: uuid('ID de boleta'),
   }),
-
   body: z
     .object({
-      version: version.optional(),
-      is_active: z.boolean().optional(),
+      isActive: z.boolean().optional(),
     })
     .refine(
       (data) => Object.keys(data).length > 0,
-      'Al menos un campo debe ser proporcionado',
+      { message: 'Al menos un campo debe ser proporcionado' }
     ),
 });
 

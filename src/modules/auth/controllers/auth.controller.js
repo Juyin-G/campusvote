@@ -3,6 +3,7 @@
  * Manejo de capa HTTP y delegación a Auth Service
  */
 import * as authService from '../services/auth.service.js';
+import { disableTotp as disableTotpService } from '../services/auth.totp.service.js';
 import asyncHandler from '../../../shared/utils/asyncHandler.js';
 import { sendSuccess } from '../../../shared/utils/apiResponse.js';
 import { HTTP_STATUS } from '../../../constants/httpStatus.js';
@@ -13,9 +14,16 @@ import logger from '../../../config/logger.js';
 const safe = (input) => String(input ?? '').replace(/[\r\n]/g, '');
 
 export const login = asyncHandler(async (req, res) => {
-  const result = await authService.login(req.body);
+  const ipAddress = req.ip || req.headers['x-forwarded-for'] || null;
+  const userAgent = req.headers['user-agent'] || null;
 
-  logger.info(`Intento de login: ${safe(req.body?.email || 'N/A')}`, {
+  const result = await authService.login({
+    ...req.body,
+    ipAddress,
+    userAgent,
+  });
+
+  logger.info(`Intento de login procesado: ${safe(req.body?.email || 'N/A')}`, {
     requestId: req.requestId,
   });
 
@@ -67,8 +75,11 @@ export const resendVerification = asyncHandler(async (req, res) => {
 });
 
 export const logout = asyncHandler(async (req, res) => {
+  const tokenHash = req.tokenHash || null;
+
   await authService.logout({
-    email: req.user.email,
+    userId: req.user?.userId,
+    tokenHash,
   });
 
   return sendSuccess(
@@ -117,15 +128,31 @@ export const verifyTotp = asyncHandler(async (req, res) => {
 });
 
 export const verifyLoginTotp = asyncHandler(async (req, res) => {
+  // Recibe el objeto con { code } o { backupCode } normalizado por Zod
   const result = await authService.verifyLoginTotp(
     req.user.userId,
-    req.body.code
+    req.body
   );
 
   return sendSuccess(
     res,
     result,
     MESSAGES.AUTH.LOGIN_SUCCESS,
+    { requestId: req.requestId },
+    HTTP_STATUS.OK
+  );
+});
+
+export const disableTotp = asyncHandler(async (req, res) => {
+  const result = await disableTotpService(
+    req.user.userId,
+    req.body.password
+  );
+
+  return sendSuccess(
+    res,
+    result,
+    MESSAGES.AUTH.OTP_DISABLED || '2FA deshabilitado correctamente',
     { requestId: req.requestId },
     HTTP_STATUS.OK
   );

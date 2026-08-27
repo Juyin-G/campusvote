@@ -34,6 +34,11 @@ export const otpDocs = {
           },
           401: {
             description: 'No autorizado / Token faltante o expirado',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/ErrorResponse' },
+              },
+            },
           },
           409: {
             description: '2FA ya está habilitado',
@@ -42,6 +47,9 @@ export const otpDocs = {
                 schema: { $ref: '#/components/schemas/ErrorResponse' },
               },
             },
+          },
+          429: {
+            description: 'Demasiadas solicitudes. Intente más tarde.',
           },
         },
       },
@@ -87,6 +95,12 @@ export const otpDocs = {
                 schema: { $ref: '#/components/schemas/ErrorResponse' },
               },
             },
+          },
+          401: {
+            description: 'No autorizado / Token faltante o expirado',
+          },
+          429: {
+            description: 'Demasiadas solicitudes de verificación.',
           },
         },
       },
@@ -137,9 +151,20 @@ export const otpDocs = {
           },
           400: {
             description: 'Código TOTP o de respaldo inválido',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/ErrorResponse' },
+              },
+            },
+          },
+          401: {
+            description: 'No autorizado / Token faltante o expirado',
           },
           403: {
             description: 'Se requiere sesión temporal de verificación TOTP',
+          },
+          429: {
+            description: 'Demasiados intentos fallidos.',
           },
         },
       },
@@ -148,23 +173,14 @@ export const otpDocs = {
     '/api/auth/otp/disable': {
       post: {
         summary: 'Deshabilitar 2FA',
-        description: 'Elimina la configuración de 2FA y limpia los códigos de respaldo del usuario.',
+        description: 'Elimina la configuración de 2FA previa confirmación obligatoria de contraseña.',
         tags: ['OTP - Two Factor Authentication'],
         security: [{ bearerAuth: [] }],
         requestBody: {
-          required: false,
+          required: true,
           content: {
             'application/json': {
-              schema: {
-                type: 'object',
-                properties: {
-                  password: {
-                    type: 'string',
-                    description: 'Contraseña del usuario (opcional)',
-                    example: 'Password123!',
-                  },
-                },
-              },
+              schema: { $ref: '#/components/schemas/OtpDisableRequest' },
             },
           },
         },
@@ -173,7 +189,18 @@ export const otpDocs = {
             description: '2FA deshabilitado exitosamente',
           },
           400: {
-            description: '2FA no está habilitado',
+            description: '2FA no está habilitado o la contraseña es incorrecta',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/ErrorResponse' },
+              },
+            },
+          },
+          401: {
+            description: 'No autorizado / Token faltante o contraseña incorrecta',
+          },
+          429: {
+            description: 'Demasiadas solicitudes. Intente más tarde.',
           },
         },
       },
@@ -207,6 +234,7 @@ export const otpDocs = {
 
       OtpVerifyRequest: {
         type: 'object',
+        required: ['code'],
         properties: {
           code: {
             type: 'string',
@@ -215,12 +243,17 @@ export const otpDocs = {
             minLength: 6,
             maxLength: 6,
           },
-          token: {
+        },
+      },
+
+      OtpDisableRequest: {
+        type: 'object',
+        required: ['password'],
+        properties: {
+          password: {
             type: 'string',
-            description: 'Alias de `code` para compatibilidad en Swagger UI',
-            example: '123456',
-            minLength: 6,
-            maxLength: 6,
+            description: 'Contraseña actual del usuario para confirmar la acción',
+            example: 'Password123!',
           },
         },
       },
@@ -240,16 +273,11 @@ export const otpDocs = {
 
       OtpLoginVerifyRequest: {
         type: 'object',
-        description: 'Debe incluir `code` (o `token`) O `backupCode`',
+        description: 'Debe incluir `code` O `backupCode`',
         properties: {
           code: {
             type: 'string',
             description: 'Código TOTP de 6 dígitos',
-            example: '123456',
-          },
-          token: {
-            type: 'string',
-            description: 'Alias de `code`',
             example: '123456',
           },
           backupCode: {

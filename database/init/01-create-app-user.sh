@@ -1,6 +1,11 @@
 #!/bin/bash
 set -e
 
+# Habilitar nullglob para evitar errores si un directorio no contiene archivos .sql
+shopt -s nullglob
+
+BASE_DIR="/database/sql"
+
 echo "Creating application database user..."
 
 psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-EOSQL
@@ -14,24 +19,14 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-E
 
     GRANT CONNECT ON DATABASE $POSTGRES_DB TO $POSTGRES_APP_USER;
     GRANT USAGE ON SCHEMA public TO $POSTGRES_APP_USER;
-    GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO $POSTGRES_APP_USER;
-    GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO $POSTGRES_APP_USER;
+
+    -- Configurar privilegios por defecto para objetos creados por $POSTGRES_USER
     ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO $POSTGRES_APP_USER;
     ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO $POSTGRES_APP_USER;
-    GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO $POSTGRES_APP_USER;
     ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT EXECUTE ON FUNCTIONS TO $POSTGRES_APP_USER;
-
-    \echo 'Application user created successfully with limited privileges'
 EOSQL
 
-echo "Application user setup complete."
-
-# ==============================================================================
-# EJECUCIÓN DE MÓDULOS SQL
-# ==============================================================================
 echo "Executing database schema migrations..."
-
-BASE_DIR="/database/sql"
 
 # 1. Archivos SQL en la raíz (excluyendo 999_foreign_keys.sql)
 for sql_file in "$BASE_DIR"/*.sql; do
@@ -41,8 +36,21 @@ for sql_file in "$BASE_DIR"/*.sql; do
     fi
 done
 
-# 2. Subdirectorios en orden de dependencia
-MODULES=("organizations" "user" "academic" "elections" "ballots" "voting" "audit" "results")
+# 2. Subdirectorios en orden estricto de dependencia
+MODULES=(
+    "organizations"
+    "user"
+    "academic"
+    "elections"
+    "challenges"
+    "ballots"
+    "voting"
+    "notifications"
+    "audit"
+    "results"
+    "reports"
+    "public"
+)
 
 for module in "${MODULES[@]}"; do
     if [ -d "$BASE_DIR/$module" ]; then
@@ -56,10 +64,18 @@ for module in "${MODULES[@]}"; do
     fi
 done
 
-# 3. Claves foráneas globales (se ejecutan al FINAL)
+# 3. Claves foráneas globales
 if [ -f "$BASE_DIR/999_foreign_keys.sql" ]; then
     echo "Running final foreign keys script..."
     psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" -f "$BASE_DIR/999_foreign_keys.sql"
 fi
+
+# 4. Reafirmar permisos sobre todos los objetos creados
+echo "Applying final security baseline privileges..."
+psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-EOSQL
+    GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO $POSTGRES_APP_USER;
+    GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO $POSTGRES_APP_USER;
+    GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO $POSTGRES_APP_USER;
+EOSQL
 
 echo "Database migrations executed successfully."

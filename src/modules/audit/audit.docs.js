@@ -68,9 +68,9 @@
  * /audit/logs:
  *   get:
  *     tags:
- *       - Audit Logs
+ *       - Audit
  *     summary: Consultar registros de auditoría
- *     description: Obtiene una lista paginada de logs de auditoría con filtros opcionales. Requiere rol admin o auditor.
+ *     description: Obtiene una lista paginada de logs de auditoría con filtros opcionales. Requiere rol SUPER_ADMIN, ADMIN o AUDITOR.
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -118,15 +118,15 @@
  *       401:
  *         description: No autenticado
  *       403:
- *         description: Acceso denegado (Requiere rol admin o auditor)
+ *         description: Acceso denegado (Requiere rol administrativo)
  *       500:
  *         description: Error interno del servidor
  *
  *   post:
  *     tags:
- *       - Audit Logs
+ *       - Audit
  *     summary: Registrar una nueva acción de auditoría
- *     description: Crea un nuevo registro inmutable en la tabla de auditoría. Endpoint de uso interno o administrativo.
+ *     description: Crea un nuevo registro inmutable en la tabla de auditoría.
  *     security:
  *       - bearerAuth: []
  *     requestBody:
@@ -164,9 +164,9 @@
  * /audit/logs/{id}:
  *   get:
  *     tags:
- *       - Audit Logs
+ *       - Audit
  *     summary: Obtener un registro de auditoría específico
- *     description: Obtiene un log por su ID UUID. Requiere rol admin o auditor.
+ *     description: Obtiene un log por su ID UUID. Requiere rol SUPER_ADMIN, ADMIN o AUDITOR.
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -196,7 +196,7 @@
  * /audit/tokens:
  *   post:
  *     tags:
- *       - One-Time Tokens
+ *       - Audit
  *     summary: Crear un token de un solo uso
  *     description: Genera un token seguro. El token en texto plano solo se retorna una única vez.
  *     security:
@@ -229,7 +229,7 @@
  *       401:
  *         description: No autenticado
  *       403:
- *         description: Permisos insuficientes para crear token para otro usuario
+ *         description: Permisos insuficientes
  *       409:
  *         description: Ya existe un token activo para este usuario y elección
  *       500:
@@ -241,9 +241,9 @@
  * /audit/tokens/consume:
  *   post:
  *     tags:
- *       - One-Time Tokens
+ *       - Audit
  *     summary: Consumir un token de un solo uso
- *     description: Valida y consume el token de forma atómica. Endpoint público protegido por Rate Limiting.
+ *     description: Valida y consume el token de forma atómica. Omite identificadores de usuario para asegurar el secreto del voto. Protegido por Rate Limiting.
  *     requestBody:
  *       required: true
  *       content:
@@ -282,9 +282,9 @@
  * /audit/tokens/status:
  *   get:
  *     tags:
- *       - One-Time Tokens
+ *       - Audit
  *     summary: Verificar el estado de un token
- *     description: Consulta el estado de un token sin consumirlo (ACTIVE, USED, EXPIRED, NOT_FOUND). Endpoint público protegido por Rate Limiting.
+ *     description: Consulta el estado de un token sin consumirlo (ACTIVE, USED, EXPIRED, NOT_FOUND). Protegido por Rate Limiting.
  *     parameters:
  *       - name: token
  *         in: query
@@ -313,7 +313,7 @@
  * /audit/tokens/cleanup:
  *   delete:
  *     tags:
- *       - One-Time Tokens
+ *       - Audit
  *     summary: Limpiar tokens expirados
  *     description: Elimina registros de tokens expirados. Requiere permisos de administrador.
  *     security:

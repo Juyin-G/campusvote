@@ -1,6 +1,5 @@
 import Joi from 'joi';
 
-// Enum de acciones de auditoría (coincide exactamente con el ENUM SQL)
 export const AUDIT_ACTIONS = {
   LOGIN: 'LOGIN',
   VERIFY_2FA: 'VERIFY_2FA',
@@ -12,117 +11,78 @@ export const AUDIT_ACTIONS = {
   PUBLISH_RESULT: 'PUBLISH_RESULT'
 };
 
-// Esquema reutilizable de UUID v4
-export const uuidSchema = Joi.string().uuid({ version: 'uuidv4' });
 
-// Esquema para consultar audit logs (filtros)
+// Esquema de UUID compatible con v4, v7 u otros estándares de BD
+export const uuidSchema = Joi.string().uuid();
+
 export const auditLogsQuerySchema = Joi.object({
   action: Joi.string()
     .valid(...Object.values(AUDIT_ACTIONS))
-    .optional()
-    .description('Tipo de acción a filtrar'),
+    .optional(),
   
-  electionId: uuidSchema
-    .optional()
-    .description('ID de la elección'),
+  electionId: uuidSchema.optional(),
+  actorId: uuidSchema.optional(),
   
-  actorId: uuidSchema
-    .optional()
-    .description('ID del usuario que realizó la acción'),
-  
-  fromDate: Joi.date()
-    .iso()
-    .optional()
-    .description('Fecha inicial del rango'),
-  
+  fromDate: Joi.date().iso().optional(),
   toDate: Joi.date()
     .iso()
     .optional()
     .when('fromDate', {
       is: Joi.exist(),
-      then: Joi.date().greater(Joi.ref('fromDate')),
-      otherwise: Joi.date()
-    })
-    .description('Fecha final del rango (debe ser mayor a fromDate)'),
+      then: Joi.date().min(Joi.ref('fromDate'))
+    }),
   
-  page: Joi.number()
-    .integer()
-    .min(1)
-    .default(1)
-    .description('Número de página'),
-  
-  limit: Joi.number()
-    .integer()
-    .min(1)
-    .max(100)
-    .default(20)
-    .description('Cantidad de registros por página')
+  page: Joi.number().integer().min(1).default(1),
+  limit: Joi.number().integer().min(1).max(100).default(20)
 }).with('toDate', 'fromDate');
 
-// Esquema para crear un log de auditoría
 export const createAuditLogSchema = Joi.object({
-  electionId: uuidSchema
-    .optional()
-    .allow(null)
-    .description('ID de la elección asociada'),
-  
+  actorId: uuidSchema.optional().allow(null),
+  electionId: uuidSchema.optional().allow(null),
   action: Joi.string()
     .valid(...Object.values(AUDIT_ACTIONS))
-    .required()
-    .description('Acción a registrar'),
-  
-  metadata: Joi.object()
-    .optional()
-    .default({})
-    .description('Metadatos adicionales del evento')
-});
+    .required(),
+  ipAddress: Joi.string().ip().optional().allow(null),
+  metadata: Joi.object().optional().default({})
+}).when(
+  Joi.object({ action: AUDIT_ACTIONS.CAST_VOTE }).unknown(),
+  {
+    then: Joi.object({
+      actorId: Joi.forbidden().messages({
+        'any.unknown': 'El voto debe ser anónimo: actorId no está permitido.'
+      }),
+      ipAddress: Joi.forbidden().messages({
+        'any.unknown': 'El voto debe ser anónimo: ipAddress no está permitida.'
+      }),
+      metadata: Joi.object().pattern(
+        /^(voter_email|voter_name|ip|user_id)$/,
+        Joi.any().forbidden()
+      ).messages({
+        'object.pattern.match': 'Metadatos contienen llaves de identidad prohibidas para CAST_VOTE.'
+      })
+    })
+  }
+);
 
-// Esquema para crear one-time token
 export const createOneTimeTokenSchema = Joi.object({
-  userId: uuidSchema
-    .required()
-    .description('ID del usuario'),
-  
-  electionId: uuidSchema
-    .required()
-    .description('ID de la elección'),
-  
-  expiresAt: Joi.date()
-    .iso()
-    .required()
-    .greater('now')
-    .description('Fecha de expiración del token')
+  userId: uuidSchema.required(),
+  electionId: uuidSchema.required(),
+  expiresAt: Joi.date().iso().required().greater('now')
 });
 
-// Esquema para consumir one-time token
 export const consumeOneTimeTokenSchema = Joi.object({
-  rawToken: Joi.string()
-    .trim()
-    .min(32)
-    .max(128)
-    .required()
-    .description('Token en texto plano'),
-  
-  electionId: uuidSchema
-    .required()
-    .description('ID de la elección')
+  rawToken: Joi.string().trim().min(32).max(128).required(),
+  electionId: uuidSchema.required()
 });
 
-// Esquema para consultar estado de un token
 export const checkTokenStatusSchema = Joi.object({
-  token: Joi.string()
-    .trim()
-    .required()
-    .description('Token en texto plano'),
-  
-  electionId: uuidSchema
-    .required()
-    .description('ID de la elección')
+  token: Joi.string().trim().min(32).max(128).required(),
+  electionId: uuidSchema.required()
 });
 
-// Esquema para respuesta de audit log
 export const auditLogResponseSchema = Joi.object({
   id: uuidSchema.required(),
+  sequenceNum: Joi.alternatives().try(Joi.string(), Joi.number().integer()).required(),
   actorId: uuidSchema.allow(null),
   electionId: uuidSchema.allow(null),
   action: Joi.string().valid(...Object.values(AUDIT_ACTIONS)).required(),

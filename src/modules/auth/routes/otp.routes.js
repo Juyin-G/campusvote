@@ -3,6 +3,7 @@ import * as otpController from '../controllers/otp.controller.js';
 import { verifyTotpSchema, verifyLoginSchema, disableTotpSchema } from '../schemas/otp.schema.js';
 import { authenticate, authenticateAllowPending, requireTotpPending } from '../../../middlewares/auth.middleware.js';
 import { validate } from '../../../middlewares/validate.middleware.js';
+import { authLimiter, loginLimiter } from '../../../middlewares/rateLimiter.middleware.js';
 
 const router = Router();
 
@@ -22,8 +23,10 @@ const router = Router();
  *         description: Token no provisto o inválido.
  *       409:
  *         description: El usuario ya tiene 2FA activado.
+ *       429:
+ *         description: Demasiadas solicitudes. Intente más tarde.
  */
-router.post('/setup', authenticate, otpController.setupTotp);
+router.post('/setup', authenticate, authLimiter, otpController.setupTotp);
 
 /**
  * @openapi
@@ -54,8 +57,10 @@ router.post('/setup', authenticate, otpController.setupTotp);
  *         description: Código TOTP inválido o la configuración no ha sido iniciada.
  *       401:
  *         description: Token no provisto o inválido.
+ *       429:
+ *         description: Demasiadas solicitudes. Intente más tarde.
  */
-router.post('/verify', authenticate, validate(verifyTotpSchema), otpController.verifyTotp);
+router.post('/verify', authenticate, authLimiter, validate(verifyTotpSchema), otpController.verifyTotp);
 
 /**
  * @openapi
@@ -86,9 +91,12 @@ router.post('/verify', authenticate, validate(verifyTotpSchema), otpController.v
  *         description: Código TOTP o de respaldo inválido o 2FA no habilitado.
  *       401:
  *         description: Token no provisto o inválido.
+ *       429:
+ *         description: Demasiados intentos de inicio de sesión.
  */
 router.post(
   '/verify-login',
+  loginLimiter,
   authenticateAllowPending,
   requireTotpPending,
   validate(verifyLoginSchema),
@@ -100,16 +108,18 @@ router.post(
  * /api/auth/otp/disable:
  *   post:
  *     summary: Deshabilitar 2FA
- *     description: Desactiva la autenticación en dos pasos y elimina el secreto e historial de códigos de respaldo.
+ *     description: Desactiva la autenticación en dos pasos previa confirmación de la contraseña actual del usuario.
  *     tags: [OTP - Two Factor Authentication]
  *     security:
  *       - bearerAuth: []
  *     requestBody:
- *       required: false
+ *       required: true
  *       content:
  *         application/json:
  *           schema:
  *             type: object
+ *             required:
+ *               - password
  *             properties:
  *               password:
  *                 type: string
@@ -118,13 +128,16 @@ router.post(
  *       200:
  *         description: 2FA deshabilitado exitosamente.
  *       400:
- *         description: El usuario no tiene 2FA habilitado.
+ *         description: El usuario no tiene 2FA habilitado o la contraseña es incorrecta.
  *       401:
- *         description: Token no provisto o inválido.
+ *         description: Token no provisto, inválido o contraseña incorrecta.
+ *       429:
+ *         description: Demasiadas solicitudes. Intente más tarde.
  */
 router.post(
   '/disable',
   authenticate,
+  authLimiter,
   validate(disableTotpSchema),
   otpController.disableTotp
 );

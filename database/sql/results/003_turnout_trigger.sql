@@ -1,10 +1,12 @@
-BEGIN;
+--src/database/sql/results/003_turnout_trigger.sql
 
--- FUNCIÓN: RECALCULAR TURNOUT_PERCENTAGE AUTOMÁTICAMENTE
+BEGIN;
 
 CREATE OR REPLACE FUNCTION recalculate_turnout_percentage()
 RETURNS TRIGGER
 LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
 AS $$
 BEGIN
     IF NEW.total_voters > 0 THEN
@@ -17,10 +19,7 @@ BEGIN
 END;
 $$;
 
--- TRIGGER: RECALCULAR EN INSERT/UPDATE
-
 DROP TRIGGER IF EXISTS trg_recalculate_turnout ON election_results;
-
 CREATE TRIGGER trg_recalculate_turnout
 BEFORE INSERT OR UPDATE OF total_voters, total_votes_cast ON election_results
 FOR EACH ROW

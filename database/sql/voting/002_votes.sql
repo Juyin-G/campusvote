@@ -1,6 +1,6 @@
-BEGIN;
+-- 002_votes.sql (Refactorizado)
 
--- TABLA: VOTES (VOTOS CIFRADOS)
+BEGIN;
 
 CREATE TABLE IF NOT EXISTS votes (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -21,55 +21,38 @@ CREATE TABLE IF NOT EXISTS votes (
     CONSTRAINT chk_votes_payload_hash_length CHECK (length(payload_hash) = 128)
 );
 
--- REFUERZO DE COLUMNAS (Por si la tabla ya existía de ejecuciones previas)
-ALTER TABLE votes ADD COLUMN IF NOT EXISTS election_id UUID;
-ALTER TABLE votes ADD COLUMN IF NOT EXISTS voter_id UUID;
-ALTER TABLE votes ADD COLUMN IF NOT EXISTS session_id UUID;
-ALTER TABLE votes ADD COLUMN IF NOT EXISTS cast_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP;
-ALTER TABLE votes ADD COLUMN IF NOT EXISTS receipt_code VARCHAR(64);
-ALTER TABLE votes ADD COLUMN IF NOT EXISTS encrypted_payload TEXT;
-ALTER TABLE votes ADD COLUMN IF NOT EXISTS payload_hash VARCHAR(128);
+CREATE INDEX IF NOT EXISTS idx_votes_election ON votes (election_id);
+CREATE INDEX IF NOT EXISTS idx_votes_voter ON votes (voter_id);
+CREATE INDEX IF NOT EXISTS idx_votes_payload_hash ON votes (payload_hash);
+CREATE INDEX IF NOT EXISTS idx_votes_cast_at ON votes (cast_at DESC);
 
--- ÍNDICES: VOTES
-
-CREATE INDEX IF NOT EXISTS idx_votes_election
-    ON votes (election_id);
-
-CREATE INDEX IF NOT EXISTS idx_votes_voter
-    ON votes (voter_id);
-
-CREATE INDEX IF NOT EXISTS idx_votes_payload_hash
-    ON votes (payload_hash);
-
-CREATE INDEX IF NOT EXISTS idx_votes_cast_at
-    ON votes (cast_at DESC);
-
--- FUNCIÓN: VALIDAR INTEGRIDAD DEL VOTO
-
+-- FUNCIÓN DE INTEGRIDAD
 CREATE OR REPLACE FUNCTION validate_vote_integrity()
 RETURNS TRIGGER
 LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
 AS $$
 DECLARE
     v_session RECORD;
     v_election RECORD;
     v_now TIMESTAMPTZ := CURRENT_TIMESTAMP;
 BEGIN
-    SELECT * INTO v_session
-    FROM voting_sessions
-    WHERE id = NEW.session_id;
+    SELECT * INTO v_session FROM voting_sessions WHERE id = NEW.session_id;
 
     IF v_session.is_successful = FALSE OR v_session.completed_at IS NULL THEN
         RAISE EXCEPTION 'No se puede registrar un voto de una sesión no completada o no exitosa.';
     END IF;
 
-    IF v_session.voter_id != NEW.voter_id OR v_session.election_id != NEW.election_id THEN
-        RAISE EXCEPTION 'La sesión no corresponde al votante o elección del voto.';
+    IF v_session.election_id != NEW.election_id THEN
+        RAISE EXCEPTION 'La sesión no corresponde a la elección del voto.';
     END IF;
 
-    SELECT status, start_at, end_at INTO v_election
-    FROM elections
-    WHERE id = NEW.election_id;
+    IF v_session.voter_id != NEW.voter_id THEN
+        RAISE EXCEPTION 'El votante del voto no coincide con el titular de la sesión.';
+    END IF;
+
+    SELECT status, start_at, end_at INTO v_election FROM elections WHERE id = NEW.election_id;
 
     IF v_election.status != 'OPEN' THEN
         RAISE EXCEPTION 'La elección no está abierta para votar. Estado: %', v_election.status;
@@ -87,13 +70,13 @@ BEGIN
 END;
 $$;
 
--- TRIGGER: VALIDAR INTEGRIDAD EN INSERT
-
 DROP TRIGGER IF EXISTS trg_validate_vote_integrity ON votes;
-
 CREATE TRIGGER trg_validate_vote_integrity
 BEFORE INSERT ON votes
 FOR EACH ROW
 EXECUTE FUNCTION validate_vote_integrity();
+
+GRANT SELECT, INSERT ON votes TO app_user;
+REVOKE UPDATE, DELETE ON votes FROM PUBLIC, app_user;
 
 COMMIT;

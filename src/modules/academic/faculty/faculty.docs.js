@@ -24,12 +24,28 @@
  *         code:
  *           type: string
  *           example: "FING"
- *         created_at:
+ *         createdAt:
  *           type: string
  *           format: date-time
- *         updated_at:
+ *         updatedAt:
  *           type: string
  *           format: date-time
+ *
+ *     PaginationMeta:
+ *       type: object
+ *       properties:
+ *         total:
+ *           type: integer
+ *           example: 100
+ *         skip:
+ *           type: integer
+ *           example: 0
+ *         take:
+ *           type: integer
+ *           example: 50
+ *         hasMore:
+ *           type: boolean
+ *           example: true
  *
  *     SuccessResponse:
  *       type: object
@@ -84,6 +100,8 @@
  *                       type: array
  *                       items:
  *                         $ref: '#/components/schemas/Faculty'
+ *                     meta:
+ *                       $ref: '#/components/schemas/PaginationMeta'
  *       401:
  *         description: No autenticado
  *         content:
@@ -293,12 +311,6 @@
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/SuccessResponse'
- *       400:
- *         description: Restricción - La facultad tiene programas asociados
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
  *       401:
  *         description: No autenticado
  *         content:
@@ -313,6 +325,12 @@
  *               $ref: '#/components/schemas/ErrorResponse'
  *       404:
  *         description: Facultad no encontrada
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       409:
+ *         description: Conflicto - La facultad tiene programas asociados y no se puede eliminar
  *         content:
  *           application/json:
  *             schema:

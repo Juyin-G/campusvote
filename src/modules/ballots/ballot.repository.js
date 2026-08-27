@@ -1,17 +1,16 @@
 // src/modules/ballots/ballot.repository.js
-// S5-02 — Acceso a datos de ballots (Prisma)
-// + funciones SQL de ballots.
+
 
 import { prisma } from '../../database/prisma.js';
 
 const BALLOT_SELECT = {
   id: true,
-  election_id: true,
+  electionId: true,
   version: true,
-  is_active: true,
-  generated_at: true,
-  created_at: true,
-  updated_at: true,
+  isActive: true,
+  generatedAt: true,
+  createdAt: true,
+  updatedAt: true,
 };
 
 export const findBallotById = (id) =>
@@ -26,7 +25,7 @@ export const listBallotsByElection = (
 ) =>
   prisma.ballots.findMany({
     where: {
-      election_id: electionId,
+      electionId,
     },
     select: BALLOT_SELECT,
     orderBy: {
@@ -39,7 +38,7 @@ export const listBallotsByElection = (
 export const countBallotsByElection = (electionId) =>
   prisma.ballots.count({
     where: {
-      election_id: electionId,
+      electionId,
     },
   });
 
@@ -70,7 +69,10 @@ export const deleteBallotById = (id) =>
  */
 export const getActiveBallot = async (electionId) => {
   const result = await prisma.$queryRaw`
-    SELECT *
+    SELECT 
+      ballot_id AS "id",
+      version,
+      generated_at AS "generatedAt"
     FROM get_active_ballot(${electionId}::uuid)
   `;
 

@@ -38,6 +38,8 @@
  *         description: Usuario registrado exitosamente.
  *       400:
  *         description: Datos de registro inválidos o el usuario/email ya existe.
+ *       429:
+ *         description: Demasiadas solicitudes de registro. Intente más tarde.
  *
  * /auth/login:
  *   post:
@@ -75,6 +77,8 @@
  *       423:
  *         description: |
  *           Cuenta bloqueada por múltiples intentos fallidos. Código: ACCOUNT_LOCKED.
+ *       429:
+ *         description: Demasiados intentos de inicio de sesión. Intente más tarde.
  *
  * /auth/logout:
  *   post:
@@ -82,16 +86,14 @@
  *       - Auth
  *     summary: Cerrar sesión
  *     description: |
- *       Cierra la sesión del usuario. El cliente debe descartar el token JWT localmente.
+ *       Cierra la sesión del usuario revocando la sesión activa y los refresh tokens asociados.
  *     security:
  *       - bearerAuth: []
  *     responses:
  *       200:
- *         description: |
- *           Sesión cerrada correctamente.
+ *         description: Sesión cerrada correctamente.
  *       401:
- *         description: |
- *           Token JWT ausente, inválido o expirado.
+ *         description: Token JWT ausente, inválido o expirado.
  *
  * /auth/me:
  *   get:
@@ -129,6 +131,8 @@
  *       409:
  *         description: |
  *           TOTP ya configurado. Código: TOTP_ALREADY_CONFIGURED.
+ *       429:
+ *         description: Demasiadas solicitudes. Intente más tarde.
  *
  * /auth/totp/verify:
  *   post:
@@ -136,7 +140,7 @@
  *       - Auth
  *     summary: Verificar y activar TOTP
  *     description: |
- *       Valida el código TOTP de 6 dígitos y activa la autenticación en dos pasos.
+ *       Valida el código TOTP de 6 dígitos e ingresado por primera vez y activa el 2FA.
  *     security:
  *       - bearerAuth: []
  *     requestBody:
@@ -145,29 +149,31 @@
  *         application/json:
  *           schema:
  *             type: object
- *             required: [token]
+ *             required: [code]
  *             properties:
- *               token:
+ *               code:
  *                 type: string
  *                 example: "123456"
  *     responses:
  *       200:
  *         description: |
- *           TOTP verificado y habilitado.
+ *           TOTP verificado y habilitado. Retorna los códigos de respaldo.
  *       400:
  *         description: |
- *           TOTP no configurado o formato de token inválido.
+ *           TOTP no configurado o formato de código inválido.
  *       401:
  *         description: |
  *           Código TOTP inválido o expirado.
+ *       429:
+ *         description: Demasiadas solicitudes de verificación.
  *
  * /auth/totp/login-verify:
  *   post:
  *     tags:
  *       - Auth
- *     summary: Completar login con TOTP
+ *     summary: Completar login con TOTP o Código de Respaldo
  *     description: |
- *       Intercambia el `tempToken` (propósito TOTP_PENDING) y el código TOTP por el JWT definitivo.
+ *       Intercambia el `tempToken` (propósito TOTP_PENDING) y el código TOTP (o de respaldo) por el JWT definitivo.
  *     security:
  *       - bearerAuth: []
  *     requestBody:
@@ -176,27 +182,61 @@
  *         application/json:
  *           schema:
  *             type: object
- *             required: [token]
  *             properties:
- *               token:
+ *               code:
  *                 type: string
  *                 example: "123456"
  *               backupCode:
  *                 type: string
- *                 example: "ABC123XYZ"
+ *                 example: "A1B2C3D4"
  *     responses:
  *       200:
  *         description: |
  *           Verificación TOTP completada. Sesión iniciada.
  *       400:
  *         description: |
- *           TOTP no configurado o formato de token inválido.
+ *           Código TOTP o de respaldo inválido o 2FA no habilitado.
  *       401:
  *         description: |
- *           Código TOTP inválido o token ausente.
+ *           Código inválido o token temporal expirado/ausente.
  *       403:
  *         description: |
  *           Se requiere una sesión temporal de verificación TOTP. Código: TOTP_SESSION_REQUIRED.
+ *       429:
+ *         description: Demasiados intentos fallidos. Intente más tarde.
+ *
+ * /auth/totp/disable:
+ *   post:
+ *     tags:
+ *       - Auth
+ *     summary: Deshabilitar TOTP
+ *     description: |
+ *       Desactiva la autenticación en dos pasos mediante la confirmación obligatoria de la contraseña del usuario.
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [password]
+ *             properties:
+ *               password:
+ *                 type: string
+ *                 example: "Password123!"
+ *     responses:
+ *       200:
+ *         description: |
+ *           TOTP deshabilitado exitosamente. Se eliminan secretos y códigos de respaldo.
+ *       400:
+ *         description: |
+ *           El usuario no tiene TOTP activado o la contraseña es incorrecta.
+ *       401:
+ *         description: |
+ *           No autenticado o credenciales de confirmación inválidas.
+ *       429:
+ *         description: Demasiadas solicitudes. Intente más tarde.
  *
  * /auth/password/forgot:
  *   post:
@@ -219,6 +259,8 @@
  *     responses:
  *       200:
  *         description: Solicitud recibida. Si el email existe, se enviará el enlace.
+ *       429:
+ *         description: Demasiadas solicitudes de restablecimiento.
  *
  * /auth/password/reset:
  *   post:
@@ -246,6 +288,8 @@
  *         description: Contraseña restablecida con éxito.
  *       400:
  *         description: Token inválido o expirado.
+ *       429:
+ *         description: Demasiadas solicitudes.
  *
  * /auth/verify-email:
  *   post:
@@ -270,36 +314,6 @@
  *         description: Correo verificado exitosamente.
  *       400:
  *         description: Token inválido o expirado.
- *
- * /auth/verify-email/resend:
- *   post:
- *     tags:
- *       - Auth
- *     summary: Reenviar el correo de verificación
- *     description: >
- *       Genera un nuevo enlace de verificación para una cuenta pendiente.
- *       Es la salida para quien se registró y no recibió el correo.
- *       Responde siempre 200 con el mismo mensaje —exista la cuenta, esté ya
- *       verificada o falle el envío— para no revelar qué correos están
- *       registrados.
- *     security: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required: [email]
- *             properties:
- *               email:
- *                 type: string
- *                 format: email
- *                 example: "estudiante@campusvote.edu.pe"
- *     responses:
- *       200:
- *         description: Solicitud procesada (respuesta genérica).
- *       400:
- *         description: El correo enviado no tiene formato válido.
  *       429:
  *         description: Demasiadas solicitudes.
  */

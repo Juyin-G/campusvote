@@ -1,19 +1,33 @@
-model organizations {
-  id                      String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name                    String            @db.VarChar(200)
-  code                    String            @unique @db.VarChar(30)
-  org_type                organization_type @default(UNIVERSITY)
-  is_active               Boolean           @default(true)
-  created_at              DateTime          @default(now()) @db.Timestamptz(6)
-  updated_at              DateTime          @default(now()) @db.Timestamptz(6)
-  logo                    String?           @db.VarChar(500)
-  primary_color           String            @default("#0066CC") @db.VarChar(7)
-  secondary_color         String            @default("#FFD700") @db.VarChar(7)
-  country                 String            @default("Perú") @db.VarChar(100)
-  timezone                String            @default("America/Lima") @db.VarChar(50)
-  onboarding_completed    Boolean           @default(false)
-  onboarding_completed_at DateTime?         @db.Timestamptz(6)
-  users                   User[]
+
+
+
+
+model Organization {
+  id                    String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name                  String           @db.VarChar(200)
+  code                  String           @unique @db.VarChar(30)
+  orgType               OrganizationType @default(UNIVERSITY) @map("org_type")
+  isActive              Boolean          @default(true) @map("is_active")
+  createdAt             DateTime         @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt             DateTime         @updatedAt @map("updated_at") @db.Timestamptz
+  
+  logo                  String?          @db.VarChar(500)
+  primaryColor          String           @default("#0066CC") @map("primary_color") @db.VarChar(7)
+  secondaryColor        String           @default("#FFD700") @map("secondary_color") @db.VarChar(7)
+  
+  country               String           @default("Perú") @db.VarChar(100)
+  timezone              String           @default("America/Lima") @db.VarChar(50)
+  
+  onboardingCompleted   Boolean          @default(false) @map("onboarding_completed")
+  onboardingCompletedAt DateTime?        @map("onboarding_completed_at") @db.Timestamptz
+  
+  // Agregado del prompt anterior
+  defaultLocale         String           @default("es-PE") @map("default_locale") @db.VarChar(10)
+
+  // Relaciones
+  users                 User[]
+
+  @@map("organizations")
 }
 
 model organization_requests {

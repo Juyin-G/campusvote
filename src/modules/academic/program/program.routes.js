@@ -10,9 +10,29 @@ const router = Router();
 router.use(authenticate, authorize(ROLES.ADMIN));
 
 router.get('/', programController.getPrograms);
-router.post('/', validate(programSchema.createProgramSchema), programController.createProgram);
-router.get('/:id', validate(programSchema.idParamSchema), programController.getProgramById);
-router.put('/:id', validate(programSchema.idParamSchema), programController.updateProgram);
-router.delete('/:id', validate(programSchema.idParamSchema), programController.deleteProgram);
+
+router.post(
+  '/',
+  validate(programSchema.createProgramSchema),
+  programController.createProgram
+);
+
+router.get(
+  '/:id',
+  validate(programSchema.idParamSchema),
+  programController.getProgramById
+);
+
+router.put(
+  '/:id',
+  validate(programSchema.updateProgramSchema),
+  programController.updateProgram
+);
+
+router.delete(
+  '/:id',
+  validate(programSchema.idParamSchema),
+  programController.deleteProgram
+);
 
 export default router;

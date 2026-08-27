@@ -1,6 +1,4 @@
 // src/modules/ballots/ballot.service.js
-// S5-01 — Lógica de negocio de ballots.
-// CRUD + create_ballot_version() + validate_ballot_completeness().
 
 import * as ballotRepository from './ballot.repository.js';
 import { ApiError } from '../../shared/errors/ApiError.js';
@@ -10,6 +8,14 @@ import {
 } from '../../shared/utils/pagination.js';
 
 const translatePrismaError = (err) => {
+  // Manejo explícito de excepciones lanzadas por funciones/triggers PL/pgSQL
+  if (err?.code === 'P2010' || err?.code === 'P2034') {
+    const message = err.meta?.message || err.message || '';
+    if (message.includes('bloqueada') || message.includes('estado')) {
+      return ApiError.badRequest(message);
+    }
+  }
+
   if (err?.code === 'P2025') {
     return ApiError.notFound('Boleta no encontrada');
   }
@@ -31,16 +37,16 @@ export const listBallots = async (query = {}) => {
   const { page, limit } = parsePagination(query);
   const { skip, take } = prismaPagination({ page, limit });
 
-  if (!query.election_id) {
-    throw ApiError.badRequest('El election_id es obligatorio');
+  // Acepta tanto electionId como election_id por compatibilidad
+  const electionId = query.electionId || query.election_id;
+
+  if (!electionId) {
+    throw ApiError.badRequest('El ID de la elección es obligatorio');
   }
 
   const [total, ballots] = await Promise.all([
-    ballotRepository.countBallotsByElection(query.election_id),
-    ballotRepository.listBallotsByElection(query.election_id, {
-      skip,
-      take,
-    }),
+    ballotRepository.countBallotsByElection(electionId),
+    ballotRepository.listBallotsByElection(electionId, { skip, take }),
   ]);
 
   return {
@@ -65,15 +71,17 @@ export const getBallotById = async (id) => {
 };
 
 export const createBallot = async (body = {}) => {
-  if (!body.election_id) {
-    throw ApiError.badRequest('El election_id es obligatorio');
+  const electionId = body.electionId || body.election_id;
+
+  if (!electionId) {
+    throw ApiError.badRequest('El ID de la elección es obligatorio');
   }
 
   try {
     return await ballotRepository.createBallot({
-      election_id: body.election_id,
+      electionId,
       version: body.version ?? 1,
-      is_active: body.is_active ?? true,
+      isActive: body.isActive ?? body.is_active ?? true,
     });
   } catch (err) {
     throw translatePrismaError(err);
@@ -93,8 +101,10 @@ export const updateBallot = async (id, body = {}) => {
     data.version = body.version;
   }
 
-  if (body.is_active !== undefined) {
-    data.is_active = body.is_active;
+  if (body.isActive !== undefined) {
+    data.isActive = body.isActive;
+  } else if (body.is_active !== undefined) {
+    data.isActive = body.is_active;
   }
 
   if (Object.keys(data).length === 0) {
@@ -130,11 +140,10 @@ export const deleteBallot = async (id) => {
 
 export const getActiveBallot = async (electionId) => {
   if (!electionId) {
-    throw ApiError.badRequest('El election_id es obligatorio');
+    throw ApiError.badRequest('El ID de la elección es obligatorio');
   }
 
-  const ballot =
-    await ballotRepository.getActiveBallot(electionId);
+  const ballot = await ballotRepository.getActiveBallot(electionId);
 
   if (!ballot) {
     throw ApiError.notFound(
@@ -147,32 +156,26 @@ export const getActiveBallot = async (electionId) => {
 
 export const createBallotVersion = async (electionId) => {
   if (!electionId) {
-    throw ApiError.badRequest('El election_id es obligatorio');
+    throw ApiError.badRequest('El ID de la elección es obligatorio');
   }
 
   try {
-    return await ballotRepository.createBallotVersion(
-      electionId
-    );
+    return await ballotRepository.createBallotVersion(electionId);
   } catch (err) {
     throw translatePrismaError(err);
   }
 };
 
-export const validateBallotCompleteness = async (
-  ballotId
-) => {
-  const ballot =
-    await ballotRepository.findBallotById(ballotId);
+export const validateBallotCompleteness = async (ballotId) => {
+  const ballot = await ballotRepository.findBallotById(ballotId);
 
   if (!ballot) {
     throw ApiError.notFound('Boleta no encontrada');
   }
 
-  const isComplete =
-    await ballotRepository.validateBallotCompleteness(
-      ballotId
-    );
+  const isComplete = await ballotRepository.validateBallotCompleteness(
+    ballotId
+  );
 
   return {
     ballotId,

@@ -1,22 +1,3 @@
-model audit_logs {
-  id            String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  actor_id      String?           @db.Uuid
-  election_id   String?           @db.Uuid
-  action        audit_action_type
-  timestamp     DateTime          @default(now()) @db.Timestamptz(6)
-  ip_address    String?           @db.Inet
-  metadata      Json              @default("{}")
-  previous_hash String            @default("") @db.VarChar(64)
-  current_hash  String            @default("") @db.VarChar(64)
-  signature     String            @default("")
-  user          User?             @relation(fields: [actor_id], references: [id], onUpdate: NoAction)
-  elections     elections?        @relation(fields: [election_id], references: [id], onUpdate: NoAction)
-
-  @@index([action, timestamp(sort: Desc)], map: "idx_audit_logs_action_timestamp")
-  @@index([election_id, timestamp(sort: Desc)], map: "idx_audit_logs_election_timestamp")
-  @@index([timestamp(sort: Desc)], map: "idx_audit_logs_timestamp_desc")
-}
-
 enum audit_action_type {
   LOGIN
   VERIFY_2FA
@@ -26,4 +7,42 @@ enum audit_action_type {
   CLOSE_ELECTION
   CERTIFY_RESULT
   PUBLISH_RESULT
+}
+
+model audit_logs {
+  id            String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sequence_num  BigInt            @unique @default(autoincrement())
+  actor_id      String?           @db.Uuid
+  election_id   String?           @db.Uuid
+  action        audit_action_type
+  timestamp     DateTime          @default(now()) @db.Timestamptz(6)
+  ip_address    String?           @db.Inet
+  metadata      Json              @default("{}")
+  previous_hash String            @default("") @db.VarChar(64)
+  current_hash  String            @default("") @db.VarChar(64)
+  signature     String            @default("")
+
+  user          User?             @relation(fields: [actor_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  elections     elections?        @relation(fields: [election_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+
+  @@index([action, timestamp(sort: Desc)], map: "idx_audit_logs_action_timestamp")
+  @@index([election_id, timestamp(sort: Desc)], map: "idx_audit_logs_election_timestamp")
+  @@index([actor_id, timestamp(sort: Desc)], map: "idx_audit_logs_actor_timestamp")
+  @@index([timestamp(sort: Desc)], map: "idx_audit_logs_timestamp_desc")
+}
+
+model voting_access_tokens {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  token_hash  String    @unique @db.VarChar(64)
+  user_id     String    @db.Uuid
+  election_id String    @db.Uuid
+  created_at  DateTime  @default(now()) @db.Timestamptz(6)
+  expires_at  DateTime  @db.Timestamptz(6)
+  used_at     DateTime? @db.Timestamptz(6)
+
+  user        User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  election    elections @relation(fields: [election_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id, election_id], map: "idx_vat_user_election")
+  @@index([election_id], map: "idx_vat_election")
 }

@@ -13,9 +13,9 @@
 // NO invoca directamente la funcion SQL de cambio de estado.
 // NO conoce HTTP.
 
-import * as electionService from '../../elections/election.service.js';
-import * as electionRepository from '../../elections/election.repository.js';
-import * as electionRulesRepository from '../../elections/electionRules.repository.js';
+import * as electionService from '../../elections/elections/election.service.js';
+import * as electionRepository from '../../elections/elections/election.repository.js';
+import * as electionRulesRepository from '../../elections/electionRules/electionRules.repository.js';
 import auditService from '../../audit/audit.service.js';
 import { AUDIT_ACTIONS } from '../../audit/audit.schema.js';
 import resultsRepository from '../results.repository.js';

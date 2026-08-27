@@ -39,7 +39,7 @@ class AuditController {
       console.error('Error en getAuditLogs:', error);
       return res.status(500).json({
         success: false,
-        error: { message: error.message || 'Error al consultar logs de auditoría' }
+        error: { message: 'Error al consultar logs de auditoría' }
       });
     }
   }
@@ -49,7 +49,6 @@ class AuditController {
     try {
       const { id } = req.params;
 
-      // Validar UUID estándar (v1-v7)
       const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
       if (!id || !uuidRegex.test(id)) {
         return res.status(400).json({
@@ -81,31 +80,26 @@ class AuditController {
     }
   }
 
-  // POST /audit/logs - Registrar nueva acción
+  // POST /audit/logs - Registrar nueva acción (Auditoría con actorId)
   async createAuditLog(req, res, next) {
     try {
-      const schema = createAuditLogSchema || null;
-      let logPayload = req.body;
-
-      if (schema) {
-        const { error, value } = schema.validate(req.body);
-        if (error) {
-          return res.status(400).json({
-            success: false,
-            error: {
-              message: 'Datos de auditoría inválidos',
-              details: error.details.map(d => d.message)
-            }
-          });
-        }
-        logPayload = value;
+      const { error, value: logPayload } = createAuditLogSchema.validate(req.body);
+      
+      if (error) {
+        return res.status(400).json({
+          success: false,
+          error: {
+            message: 'Datos de auditoría inválidos',
+            details: error.details.map(d => d.message)
+          }
+        });
       }
 
       const clientIp = req.headers['x-forwarded-for']?.split(',')[0].trim() || req.ip;
 
       const logData = {
-        actorId: req.user?.id || null,
-        electionId: logPayload.electionId,
+        actorId: req.user?.id || null, // Registro explícito de identidad en auditoría
+        electionId: logPayload.electionId || null,
         action: logPayload.action,
         ipAddress: clientIp,
         metadata: logPayload.metadata || {}
@@ -136,7 +130,7 @@ class AuditController {
   }
 
   /**
-   * ONE-TIME TOKENS - CONTROLADORES
+   * VOTING / ONE-TIME TOKENS - CONTROLADORES
    */
 
   // POST /audit/tokens - Crear token de un solo uso
@@ -161,7 +155,7 @@ class AuditController {
         });
       }
 
-      if (req.user.userId !== value.userId && !isAdminRole(req.user.role)) {
+      if (req.user.id !== value.userId && !isAdminRole(req.user.role)) {
         return res.status(403).json({
           success: false,
           error: { message: 'No tiene permisos para crear tokens para este usuario' }
@@ -193,7 +187,7 @@ class AuditController {
     }
   }
 
-  // POST /audit/tokens/consume - Consumir token (votación)
+  // POST /audit/tokens/consume - Consumir token para proceso electoral
   async consumeOneTimeToken(req, res, next) {
     try {
       const { error, value } = consumeOneTimeTokenSchema.validate(req.body);
@@ -208,15 +202,16 @@ class AuditController {
         });
       }
 
-      const result = await auditService.consumeOneTimeToken(
+      await auditService.consumeOneTimeToken(
         value.rawToken,
         value.electionId
       );
 
+      // Respuesta disociada de userId para resguardar la privacidad del voto
       return res.status(200).json({
         success: true,
         data: {
-          userId: result.userId,
+          consumed: true,
           message: 'Token consumido exitosamente. Puede proceder a votar.'
         }
       });
@@ -256,25 +251,15 @@ class AuditController {
   // GET /audit/tokens/status - Verificar estado de token (sin consumirlo)
   async checkTokenStatus(req, res, next) {
     try {
-      const schema = checkTokenStatusSchema || null;
-      let queryParams = req.query;
-
-      if (schema) {
-        const { error, value } = schema.validate(req.query);
-        if (error) {
-          return res.status(400).json({
-            success: false,
-            error: {
-              message: 'Parámetros de consulta inválidos',
-              details: error.details.map(d => d.message)
-            }
-          });
-        }
-        queryParams = value;
-      } else if (!queryParams.token || !queryParams.electionId) {
+      const { error, value: queryParams } = checkTokenStatusSchema.validate(req.query);
+      
+      if (error) {
         return res.status(400).json({
           success: false,
-          error: { message: 'Token y electionId son requeridos' }
+          error: {
+            message: 'Parámetros de consulta inválidos',
+            details: error.details.map(d => d.message)
+          }
         });
       }
 
@@ -296,7 +281,7 @@ class AuditController {
   // DELETE /audit/tokens/cleanup - Limpieza de tokens expirados (admin/cron)
   async cleanupExpiredTokens(req, res, next) {
     try {
-      if (!req.user?.isAdmin && !req.internal) {
+      if (!isAdminRole(req.user?.role) && !req.internal) {
         return res.status(403).json({
           success: false,
           error: { message: 'Acceso denegado' }

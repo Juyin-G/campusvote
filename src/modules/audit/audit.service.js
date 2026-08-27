@@ -39,39 +39,28 @@ class AuditService {
       metadata = {}
     } = logData;
 
+    if (!Object.values(AUDIT_ACTIONS).includes(action)) {
+      throw new Error(`Acción de auditoría inválida: ${action}`);
+    }
+
+    // Sanitización estricta de anonimato para votación
+    const isCastVote = action === AUDIT_ACTIONS.CAST_VOTE;
+    const cleanActorId = isCastVote ? null : actorId;
+    const cleanIpAddress = isCastVote ? null : ipAddress;
+    const cleanMetadata = isCastVote ? this._sanitizeVoteMetadata(metadata) : metadata;
+
+    // HMAC generado sobre el contenido del evento.
+    // La base de datos asignará de forma determinista previous_hash y current_hash.
+    const payloadToSign = `${action}:${cleanActorId || ''}:${electionId || ''}:${JSON.stringify(cleanMetadata)}`;
+    const signature = this._signPayload(payloadToSign);
+
     try {
-      if (!Object.values(AUDIT_ACTIONS).includes(action)) {
-        throw new Error(`Acción de auditoría inválida: ${action}`);
-      }
-
-      const lastLog = await this.getLastAuditLog();
-      const previousHash = lastLog ? lastLog.currentHash : '';
-      
-      const currentContent = JSON.stringify({
-        actorId,
-        electionId,
-        action,
-        timestamp: new Date().toISOString(),
-        ipAddress,
-        metadata,
-        previousHash
-      });
-      
-      const currentHash = crypto
-        .createHash('sha256')
-        .update(currentContent)
-        .digest('hex');
-
-      const signature = this._signHash(currentHash);
-
       return await auditRepository.createAuditLog({
-        actorId,
+        actorId: cleanActorId,
         electionId,
         action,
-        ipAddress,
-        metadata,
-        previousHash,
-        currentHash,
+        ipAddress: cleanIpAddress,
+        metadata: cleanMetadata,
         signature
       });
     } catch (error) {
@@ -80,17 +69,20 @@ class AuditService {
     }
   }
 
-  async getLastAuditLog() {
-    const result = await auditRepository.findAuditLogs({ page: 1, limit: 1 });
-    return result.data[0] || null;
+  _signPayload(payload) {
+    const secret = process.env.AUDIT_SECRET_KEY;
+    if (!secret) {
+      throw new Error('AUDIT_SECRET_KEY no está configurada');
+    }
+    return crypto
+      .createHmac('sha256', secret)
+      .update(payload)
+      .digest('hex');
   }
 
-  _signHash(hash) {
-    const secret = process.env.AUDIT_SECRET_KEY || 'default-secret';
-    return crypto
-      .createHash('sha256')
-      .update(hash + secret)
-      .digest('hex');
+  _sanitizeVoteMetadata(metadata) {
+    const { voter_email, voter_name, ip, user_id, ...safeMetadata } = metadata;
+    return safeMetadata;
   }
 
   /**
@@ -101,18 +93,13 @@ class AuditService {
     const { userId, electionId, expiresAt } = tokenData;
 
     try {
-      const existingToken = await auditRepository.findActiveToken(userId, electionId);
-      if (existingToken) {
-        throw new Error('Ya existe un token activo para este usuario y elección');
-      }
-
       const rawToken = crypto.randomBytes(32).toString('hex');
-      
       const tokenHash = crypto
         .createHash('sha256')
         .update(rawToken)
         .digest('hex');
 
+      // Inserción directa delegando la atomicidad al índice único de la BD
       const tokenRecord = await auditRepository.createOneTimeToken({
         tokenHash,
         userId,
@@ -131,6 +118,9 @@ class AuditService {
         }
       };
     } catch (error) {
+      if (error.code === 'P2002' || error.message?.includes('uq_vat_user_election_active')) {
+        throw new Error('Ya existe un token activo para este usuario y elección');
+      }
       console.error('Error al crear one-time token:', error);
       throw error;
     }
@@ -142,6 +132,7 @@ class AuditService {
     }
 
     try {
+      // Procedimiento almacenado atómico
       const userId = await auditRepository.consumeTokenSQL(rawToken, electionId);
 
       if (!userId) {
@@ -154,8 +145,7 @@ class AuditService {
         actorId: null,
         ipAddress: null,
         metadata: {
-          tokenConsumed: true,
-          timestamp: new Date().toISOString()
+          tokenConsumed: true
         }
       });
 

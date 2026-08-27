@@ -1,7 +1,11 @@
+-- // // 003_academic_periods.sql (Refactorizado)
+
 BEGIN;
 
--- TABLA: PERIODOS ACADÉMICOS
+-- Garantiza disponibilidad de la extensión antes de evaluar la tabla
+CREATE EXTENSION IF NOT EXISTS btree_gist;
 
+-- TABLA: PERIODOS ACADÉMICOS
 CREATE TABLE IF NOT EXISTS academic_periods (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name VARCHAR(50) NOT NULL,
@@ -15,7 +19,7 @@ CREATE TABLE IF NOT EXISTS academic_periods (
     CONSTRAINT chk_academic_periods_name_not_empty CHECK (length(trim(name)) > 0),
 
     -- Exclusión thread-safe nativa para evitar superposición de fechas
-    -- en periodos activos
+    -- en periodos activos (requiere btree_gist)
     CONSTRAINT ex_academic_periods_no_overlap
         EXCLUDE USING gist (
             daterange(start_date, end_date, '[]') WITH &&
@@ -23,7 +27,6 @@ CREATE TABLE IF NOT EXISTS academic_periods (
 );
 
 -- ÍNDICES: ACADEMIC_PERIODS
-
 CREATE INDEX IF NOT EXISTS idx_academic_periods_is_active
     ON academic_periods (is_active)
     WHERE is_active = TRUE;
@@ -32,7 +35,6 @@ CREATE INDEX IF NOT EXISTS idx_academic_periods_dates
     ON academic_periods (start_date, end_date);
 
 -- TRIGGER: ACTUALIZAR updated_at EN ACADEMIC_PERIODS
-
 DROP TRIGGER IF EXISTS trg_academic_periods_updated_at ON academic_periods;
 
 CREATE TRIGGER trg_academic_periods_updated_at

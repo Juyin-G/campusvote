@@ -1,3 +1,5 @@
+-- // 001_faculties.sql (Refactorizado)
+
 BEGIN;
 
 -- TABLA: FACULTADES

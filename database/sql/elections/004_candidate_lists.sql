@@ -1,6 +1,6 @@
-BEGIN;
+-- // 004_candidate_lists.sql (Refactorizado)
 
--- TABLA: LISTAS CANDIDATAS (CANDIDATE LISTS)
+BEGIN;
 
 CREATE TABLE IF NOT EXISTS candidate_lists (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -14,20 +14,23 @@ CREATE TABLE IF NOT EXISTS candidate_lists (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT uq_candidate_lists_election_name UNIQUE (election_id, name),
-    -- Requerido para la FK compuesta en candidacies
+    CONSTRAINT uq_candidate_lists_election_acronym UNIQUE (election_id, acronym),
     CONSTRAINT uq_candidate_lists_id_election UNIQUE (id, election_id),
     CONSTRAINT chk_candidate_lists_name_not_empty CHECK (length(trim(name)) > 0),
     CONSTRAINT chk_candidate_lists_acronym_not_empty CHECK (acronym IS NULL OR length(trim(acronym)) > 0),
-    CONSTRAINT chk_candidate_lists_motto_not_empty CHECK (motto IS NULL OR length(trim(motto)) > 0)
+    CONSTRAINT chk_candidate_lists_motto_not_empty CHECK (motto IS NULL OR length(trim(motto)) > 0),
+    CONSTRAINT chk_candidate_lists_logo_not_empty CHECK (logo IS NULL OR length(trim(logo)) > 0)
 );
 
--- TRIGGER: ACTUALIZAR updated_at EN CANDIDATE_LISTS
+CREATE INDEX IF NOT EXISTS idx_candidate_lists_election_id ON candidate_lists (election_id);
 
 DROP TRIGGER IF EXISTS trg_candidate_lists_updated_at ON candidate_lists;
-
 CREATE TRIGGER trg_candidate_lists_updated_at
-BEFORE UPDATE ON candidate_lists
-FOR EACH ROW
-EXECUTE FUNCTION set_updated_at();
+BEFORE UPDATE ON candidate_lists FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+DROP TRIGGER IF EXISTS trg_candidate_lists_lock ON candidate_lists;
+CREATE TRIGGER trg_candidate_lists_lock
+BEFORE INSERT OR UPDATE OR DELETE ON candidate_lists
+FOR EACH ROW EXECUTE FUNCTION enforce_election_immutability();
 
 COMMIT;

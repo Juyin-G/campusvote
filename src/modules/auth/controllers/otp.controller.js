@@ -1,9 +1,8 @@
-import * as otpService from '../services/otp.service.js';
+import * as otpService from '../services/auth.totp.service.js';
 import { sendSuccess, asyncHandler } from '../../../shared/utils/index.js';
-import { ApiError } from '../../../shared/errors/ApiError.js';
 import { HTTP_STATUS } from '../../../constants/index.js';
 
-// El JWT se firma con userId; se acepta id como respaldo (igual que en users)
+// El JWT se firma con userId; se acepta id como respaldo.
 const actorId = (user) => user?.userId ?? user?.id;
 
 export const setupTotp = asyncHandler(async (req, res) => {
@@ -25,9 +24,7 @@ export const setupTotp = asyncHandler(async (req, res) => {
 
 export const verifyTotp = asyncHandler(async (req, res) => {
   const userId = actorId(req.user);
-  const { code } = req.body;
-
-  const result = await otpService.verifyAndEnableTotp(userId, code);
+  const result = await otpService.verifyAndEnableTotp(userId, req.body.code);
 
   return sendSuccess(
     res,
@@ -42,17 +39,9 @@ export const verifyTotp = asyncHandler(async (req, res) => {
 
 export const verifyLoginTotp = asyncHandler(async (req, res) => {
   const userId = actorId(req.user);
-  const { code, backupCode } = req.body;
 
-  let result;
-
-  if (backupCode) {
-    result = await otpService.verifyBackupCodeLogin(userId, backupCode);
-  } else if (code) {
-    result = await otpService.verifyLoginTotp(userId, code);
-  } else {
-    throw ApiError.badRequest('Se requiere code o backupCode');
-  }
+  // Delegación unificada al servicio (maneja internamente code o backupCode).
+  const result = await otpService.verifyLoginTotp(userId, req.body);
 
   return sendSuccess(
     res,
@@ -65,7 +54,9 @@ export const verifyLoginTotp = asyncHandler(async (req, res) => {
 
 export const disableTotp = asyncHandler(async (req, res) => {
   const userId = actorId(req.user);
-  const result = await otpService.disableTotp(userId);
+
+  // Envía la contraseña obligatoria para verificar identidad antes de deshabilitar 2FA.
+  const result = await otpService.disableTotp(userId, req.body.password);
 
   return sendSuccess(
     res,

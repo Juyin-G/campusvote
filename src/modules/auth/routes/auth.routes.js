@@ -4,7 +4,11 @@
  */
 import { Router } from 'express';
 import * as authController from '../controllers/auth.controller.js';
-import { authenticate, authenticateAllowPending, requireTotpPending } from '../../../middlewares/auth.middleware.js';
+import {
+  authenticate,
+  authenticateAllowPending,
+  requireTotpPending,
+} from '../../../middlewares/auth.middleware.js';
 import { validate } from '../../../middlewares/validate.middleware.js';
 import { authLimiter, loginLimiter } from '../../../middlewares/rateLimiter.middleware.js';
 import {
@@ -12,6 +16,7 @@ import {
   registerSchema,
   verifyTotpSchema,
   verifyLoginTotpSchema,
+  disableTotpSchema,
   requestPasswordResetSchema,
   resetPasswordSchema,
   verifyEmailSchema,
@@ -39,7 +44,7 @@ router.post(
   authController.login
 );
 
-// Paso 2 del Login: Verificación TOTP
+// Paso 2 del Login: Verificación TOTP (o Código de Respaldo)
 router.post(
   '/totp/login-verify',
   loginLimiter,
@@ -90,18 +95,28 @@ router.post(
 router.post('/logout', authenticate, authController.logout);
 router.get('/me', authenticate, authController.getProfile);
 
-// Configuración y Activación 2FA
+// Configuración, Activación y Desactivación 2FA
 router.post(
   '/totp/setup',
   authenticate,
+  authLimiter,
   authController.setupTotp
 );
 
 router.post(
   '/totp/verify',
   authenticate,
+  authLimiter,
   validate(verifyTotpSchema),
   authController.verifyTotp
+);
+
+router.post(
+  '/totp/disable',
+  authenticate,
+  authLimiter,
+  validate(disableTotpSchema),
+  authController.disableTotp
 );
 
 export default router;

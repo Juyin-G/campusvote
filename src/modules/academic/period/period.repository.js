@@ -43,6 +43,13 @@ export const checkOverlap = async (startDate, endDate, excludeId = null) => {
   });
 };
 
+export const hasAssociatedRegistries = async (periodId) => {
+  const count = await prisma.voter_registries.count({
+    where: { period_id: periodId },
+  });
+  return count > 0;
+};
+
 export const create = (data) => 
   prisma.academic_periods.create({ data, select: PERIOD_SELECT });
 

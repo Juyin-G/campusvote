@@ -1,6 +1,6 @@
 /**
  * Auth Repository
- * Interacción directa con tabla users + funciones SQL nativas
+ * Interacción directa con tabla users, refresh_tokens + funciones SQL nativas
  */
 import { prisma } from '../../../database/prisma.js';
 
@@ -19,6 +19,9 @@ const userAuthSelect = {
   lastName: true,
   institutionalId: true,
   organizationId: true,
+  facultyId: true,
+  programId: true,
+  currentCycle: true,
   mustChangePassword: true,
   twoFactorEnabled: true,
   twoFactorSecret: true,
@@ -54,6 +57,9 @@ export const findById = async (id) => {
       lastName: true,
       institutionalId: true,
       organizationId: true,
+      facultyId: true,
+      programId: true,
+      currentCycle: true,
       mustChangePassword: true,
       twoFactorEnabled: true,
       lastLogin: true,
@@ -74,7 +80,7 @@ export const findByGoogleId = async (googleId) => {
   });
 };
 
-// CREACIÓN
+// CREACIÓN DE USUARIO CON CONSTRAINTS ACADÉMICOS
 
 export const createUser = async (data) => {
   return prisma.user.create({
@@ -89,7 +95,13 @@ export const createUser = async (data) => {
       authProvider: data.authProvider || 'LOCAL',
       googleId: data.googleId || null,
       organizationId: data.organizationId || null,
-      mustChangePassword: data.mustChangePassword ?? true,
+      facultyId: data.facultyId || null,
+      programId: data.programId || null,
+      currentCycle: data.currentCycle || null,
+      admissionPeriodId: data.admissionPeriodId || null,
+      specialty: data.specialty || null,
+      department: data.department || null,
+      mustChangePassword: data.mustChangePassword ?? false,
     },
     select: {
       id: true,
@@ -102,7 +114,7 @@ export const createUser = async (data) => {
   });
 };
 
-// FUNCIONES SQL NATIVAS - LOGIN SECURITY
+// FUNCIONES SQL NATIVAS - LOGIN SECURITY & AUDITORÍA
 
 export const loginIsAllowed = async (email) => {
   const result = await prisma.$queryRaw`
@@ -118,9 +130,13 @@ export const registerFailedLogin = async (email) => {
   `;
 };
 
-export const registerSuccessfulLogin = async (email) => {
+export const registerSuccessfulLogin = async (email, ipAddress = null, userAgent = null) => {
   await prisma.$executeRaw`
-    SELECT register_successful_login(${email}::text::citext)
+    SELECT register_successful_login(
+      ${email}::text::citext, 
+      ${ipAddress}::inet, 
+      ${userAgent}::text
+    )
   `;
 };
 
@@ -160,7 +176,40 @@ export const verifyEmailWithToken = async (token) => {
   return result[0]?.success ?? false;
 };
 
-// ACTUALIZACIONES
+// GESTIÓN DE REFRESH TOKENS (SESIONES)
+
+export const createRefreshToken = async ({ userId, tokenHash, expiresAt, ipAddress = null, userAgent = null }) => {
+  return prisma.refreshToken.create({
+    data: {
+      userId,
+      tokenHash,
+      expiresAt,
+      ipAddress,
+      userAgent,
+    },
+  });
+};
+
+export const findRefreshToken = async (tokenHash) => {
+  return prisma.refreshToken.findUnique({
+    where: { tokenHash },
+    include: { user: true },
+  });
+};
+
+export const revokeRefreshToken = async (tokenHash) => {
+  return prisma.refreshToken.deleteMany({
+    where: { tokenHash },
+  });
+};
+
+export const revokeAllUserRefreshTokens = async (userId) => {
+  return prisma.refreshToken.deleteMany({
+    where: { userId },
+  });
+};
+
+// ACTUALIZACIONES DE USUARIO
 
 export const updateLastLogin = async (userId) => {
   return prisma.user.update({

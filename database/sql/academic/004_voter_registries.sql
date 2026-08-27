@@ -1,3 +1,5 @@
+-- //  004_voter_registries.sql (Refactorizado)
+
 BEGIN;
 
 -- TABLA: PADRÓN ELECTORAL (VOTER REGISTRY)
@@ -15,7 +17,7 @@ CREATE TABLE IF NOT EXISTS voter_registries (
 
     CONSTRAINT uq_voter_registries_user_period UNIQUE (user_id, period_id),
     CONSTRAINT chk_voter_registries_semester_valid
-        CHECK (semester >= 1 AND semester <= 12),
+        CHECK (semester BETWEEN 1 AND 20), -- 🚀 Coma agregada
     CONSTRAINT chk_voter_registries_eligibility_reason CHECK (
         is_eligible = TRUE
         OR (

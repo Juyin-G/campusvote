@@ -1,7 +1,7 @@
 import { prisma } from '../../../database/prisma.js';
 
 /**
- * Obtiene información 2FA del usuario
+ * Obtiene información de 2FA y credenciales de seguridad del usuario
  */
 export const getUserWithTwoFactor = async (userId) => {
   return prisma.user.findUnique({
@@ -10,6 +10,7 @@ export const getUserWithTwoFactor = async (userId) => {
       id: true,
       email: true,
       username: true,
+      password: true, // Incluido para permitir validación en disableTotp
       twoFactorEnabled: true,
       twoFactorSecret: true,
       twoFactorBackupCodes: true,
@@ -44,7 +45,7 @@ export const enableTwoFactor = async (userId, hashedBackupCodes) => {
 };
 
 /**
- * Deshabilita 2FA completamente
+ * Deshabilita 2FA completamente limpiando secretos y códigos
  */
 export const disableTwoFactor = async (userId) => {
   return prisma.user.update({
@@ -58,7 +59,7 @@ export const disableTwoFactor = async (userId) => {
 };
 
 /**
- * Actualiza los códigos de respaldo (ej. al consumir uno)
+ * Actualiza la lista de códigos de respaldo al consumir uno
  */
 export const updateBackupCodes = async (userId, backupCodes) => {
   return prisma.user.update({

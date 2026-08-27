@@ -1,3 +1,4 @@
+// src/routes/index.js
 import { Router } from 'express';
 
 import authRoutes from '../modules/auth/routes/auth.routes.js';
@@ -6,10 +7,14 @@ import userRoutes from '../modules/users/user.routes.js';
 import healthRoutes from '../modules/health/health.routes.js';
 import organizationRoutes from '../modules/organizations/organization.routes.js';
 import academicRoutes from '../modules/academic/academic.routes.js';
-import electionRoutes from '../modules/elections/election.routes.js';
+import electionRoutes from '../modules/elections/elections/election.routes.js';
 import ballotRoutes from '../modules/ballots/ballot.routes.js';
 import resultsRoutes from '../modules/results/results.routes.js';
 import auditRoutes from '../modules/audit/audit.routes.js';
+import platformTranslationRoutes from '../modules/PlatformTranslation/PlatformTranslation.routes.js';
+
+// ⚠️ NUEVO: Importar rutas de notificaciones
+import notificationRoutes from '../modules/notification/notification.routes.js';
 
 const router = Router();
 
@@ -28,11 +33,15 @@ router.use('/academic', academicRoutes);
 // Proceso Electoral
 router.use('/elections', electionRoutes);
 router.use('/ballots', ballotRoutes);
-
-// Resultados (S7): certify, publish, tally, live, final
-router.use(resultsRoutes);
+router.use('/results', resultsRoutes); 
 
 // Auditoría y Tokens de Un Solo Uso
 router.use('/audit', auditRoutes);
+
+// Internacionalización
+router.use('/platform/translations', platformTranslationRoutes);
+
+//  Montar rutas de notificaciones
+router.use('/notifications', notificationRoutes);
 
 export default router;

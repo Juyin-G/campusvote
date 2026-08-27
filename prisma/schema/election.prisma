@@ -1,200 +1,220 @@
-model elections {
-  id                   String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  title                String                @db.VarChar(255)
-  description          String                @default("")
-  process_type         election_process_type @default(VOTE)
-  election_type        election_scope_type
-  period_id            String                @db.Uuid
-  faculty_id           String?               @db.Uuid
-  program_id           String?               @db.Uuid
-  start_at             DateTime              @db.Timestamptz(6)
-  end_at               DateTime              @db.Timestamptz(6)
-  status               election_status_type  @default(DRAFT)
-  created_by           String                @db.Uuid
-  created_at           DateTime              @default(now()) @db.Timestamptz(6)
-  updated_at           DateTime              @default(now()) @db.Timestamptz(6)
-  form_structure       Json?
-  is_anonymous_allowed Boolean               @default(false)
-  audit_logs           audit_logs[]
-  ballots              ballots[]
-  candidacies          candidacies[]
-  candidate_lists      candidate_lists[]
-  election_results     election_results?
-  election_rules       election_rules?
-  user                 User                  @relation(fields: [created_by], references: [id], onUpdate: NoAction)
-  faculties            faculties?            @relation(fields: [faculty_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  academic_periods     academic_periods      @relation(fields: [period_id], references: [id], onUpdate: NoAction)
-  programs             programs?             @relation(fields: [program_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  one_time_tokens      one_time_tokens[]
-  positions            positions[]
-  tallies              tallies[]
-  votes                votes[]
-  voting_sessions      voting_sessions[]
+// ------------------------------------------------------
+// ENUMS
+// ------------------------------------------------------
 
-  @@index([created_by], map: "idx_elections_created_by")
-  @@index([period_id], map: "idx_elections_period")
-  @@index([status], map: "idx_elections_status")
-}
-
-model election_rules {
-  id                       String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  election_id              String    @unique @db.Uuid
-  min_turnout_percentage   Decimal   @default(0) @db.Decimal(5, 2)
-  allow_blank_vote         Boolean   @default(true)
-  allow_null_vote          Boolean   @default(true)
-  max_positions_per_ballot Int       @default(1) @db.SmallInt
-  requires_2fa             Boolean   @default(true)
-  created_at               DateTime  @default(now()) @db.Timestamptz(6)
-  updated_at               DateTime  @default(now()) @db.Timestamptz(6)
-  elections                elections @relation(fields: [election_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-}
-
-model election_results {
-  id                 String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  election_id        String    @unique @db.Uuid
-  total_voters       Int       @default(0)
-  total_votes_cast   Int       @default(0)
-  turnout_percentage Decimal   @default(0) @db.Decimal(5, 2)
-  blank_votes        Int       @default(0)
-  null_votes         Int       @default(0)
-  certified_at       DateTime? @db.Timestamptz(6)
-  published_at       DateTime? @db.Timestamptz(6)
-  report_pdf         String?   @db.VarChar(500)
-  report_hash        String?   @db.VarChar(64)
-  report_signature   String?
-  created_at         DateTime  @default(now()) @db.Timestamptz(6)
-  updated_at         DateTime  @default(now()) @db.Timestamptz(6)
-  elections          elections @relation(fields: [election_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-}
-
-model positions {
-  id               String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  election_id      String             @db.Uuid
-  name             String             @db.VarChar(120)
-  description      String?
-  seats            Int                @default(1) @db.SmallInt
-  created_at       DateTime           @default(now()) @db.Timestamptz(6)
-  updated_at       DateTime           @default(now()) @db.Timestamptz(6)
-  ballot_positions ballot_positions[]
-  candidacies      candidacies[]
-  elections        elections          @relation(fields: [election_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  tallies          tallies[]
-
-  @@unique([election_id, name], map: "uq_positions_election_name")
-}
-
-model candidate_lists {
-  id             String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  election_id    String           @db.Uuid
-  name           String           @db.VarChar(120)
-  acronym        String?          @db.VarChar(20)
-  motto          String?          @db.VarChar(255)
-  logo           String?          @db.VarChar(500)
-  created_at     DateTime         @default(now()) @db.Timestamptz(6)
-  updated_at     DateTime         @default(now()) @db.Timestamptz(6)
-  ballot_options ballot_options[]
-  candidacies    candidacies[]
-  elections      elections        @relation(fields: [election_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-
-  @@unique([election_id, name], map: "uq_candidate_lists_election_name")
-  @@unique([id, election_id], map: "uq_candidate_lists_id_election")
-}
-
-model candidacies {
-  id                String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  election_id       String          @db.Uuid
-  candidate_list_id String          @db.Uuid
-  position_id       String?         @db.Uuid
-  user_id           String          @db.Uuid
-  order_index       Int             @default(1) @db.SmallInt
-  is_principal      Boolean         @default(true)
-  created_at        DateTime        @default(now()) @db.Timestamptz(6)
-  updated_at        DateTime        @default(now()) @db.Timestamptz(6)
-  elections         elections       @relation(fields: [election_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  positions         positions?      @relation(fields: [position_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  user              User            @relation(fields: [user_id], references: [id], onUpdate: NoAction)
-  candidate_lists   candidate_lists @relation(fields: [candidate_list_id, election_id], references: [id, election_id], onDelete: Cascade, onUpdate: NoAction, map: "fk_candidacies_candidate_list_election")
-
-  @@unique([election_id, user_id], map: "uq_candidacies_election_user")
-  @@unique([position_id, user_id], map: "uq_candidacies_position_user")
-  @@index([candidate_list_id], map: "idx_candidacies_candidate_list_id")
-  @@index([user_id], map: "idx_candidacies_user_id")
-}
-
-model ballots {
-  id               String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  election_id      String             @db.Uuid
-  version          Int                @default(1)
-  is_active        Boolean            @default(true)
-  generated_at     DateTime           @default(now()) @db.Timestamptz(6)
-  created_at       DateTime           @default(now()) @db.Timestamptz(6)
-  updated_at       DateTime           @default(now()) @db.Timestamptz(6)
-  ballot_positions ballot_positions[]
-  elections        elections          @relation(fields: [election_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-
-  @@unique([election_id, version], map: "uq_ballots_election_version")
-  @@index([election_id], map: "idx_ballots_election_id")
-  @@index([generated_at(sort: Desc)], map: "idx_ballots_generated_at")
-}
-
-model ballot_positions {
-  id             String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  ballot_id      String           @db.Uuid
-  position_id    String           @db.Uuid
-  order_index    Int              @default(1) @db.SmallInt
-  created_at     DateTime         @default(now()) @db.Timestamptz(6)
-  updated_at     DateTime         @default(now()) @db.Timestamptz(6)
-  ballot_options ballot_options[]
-  ballots        ballots          @relation(fields: [ballot_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  positions      positions        @relation(fields: [position_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-
-  @@unique([ballot_id, order_index], map: "uq_ballot_positions_ballot_order")
-  @@unique([ballot_id, position_id], map: "uq_ballot_positions_ballot_position")
-  @@index([position_id], map: "idx_ballot_positions_position_id")
-}
-
-model ballot_options {
-  id                 String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  ballot_position_id String             @db.Uuid
-  option_type        ballot_option_type @default(CANDIDATE_LIST)
-  candidate_list_id  String?            @db.Uuid
-  label              String             @db.VarChar(120)
-  created_at         DateTime           @default(now()) @db.Timestamptz(6)
-  updated_at         DateTime           @default(now()) @db.Timestamptz(6)
-  ballot_positions   ballot_positions   @relation(fields: [ballot_position_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  candidate_lists    candidate_lists?   @relation(fields: [candidate_list_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  tallies            tallies[]
-  vote_selections    vote_selections[]
-
-  @@unique([ballot_position_id, candidate_list_id], map: "uq_ballot_options_position_candidate")
-  @@index([candidate_list_id], map: "idx_ballot_options_candidate_list_id")
-  @@index([option_type], map: "idx_ballot_options_type")
-}
-
-enum election_process_type {
+enum ElectionProcessType {
   VOTE
   FAIR
   FEEDBACK
   FORM
+
+  @@map("election_process_type")
+}
+enum CandidacyStatusType {
+  PENDING
+  APPROVED
+  REJECTED
+
+  @@map("candidacy_status_type")
 }
 
-enum election_scope_type {
+enum ElectionScopeType {
   UNIVERSITY
   FACULTY
   PROGRAM
+
+  @@map("election_scope_type")
 }
 
-enum election_status_type {
+enum ElectionStatusType {
   DRAFT
   SCHEDULED
   OPEN
   CLOSED
   CERTIFIED
   PUBLISHED
+
+  @@map("election_status_type")
 }
 
-enum ballot_option_type {
-  CANDIDATE_LIST
-  BLANK
-  NULL
+enum CandidacyDocumentType {
+  WORK_PLAN
+  CV
+  ID_CARD
+  OTHER
+
+  @@map("candidacy_document_type")
+}
+
+// ------------------------------------------------------
+// MODELS
+// ------------------------------------------------------
+
+model AcademicPeriod {
+  id        String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  elections Election[]
+
+  @@map("academic_periods")
+}
+
+model Faculty {
+  id        String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  elections Election[]
+
+  @@map("faculties")
+}
+
+model Program {
+  id        String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  elections Election[]
+
+  @@map("programs")
+}
+
+model User {
+  id          String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  elections   Election[]  @relation("CreatedElections")
+  candidacies Candidacy[]
+
+  @@map("users")
+}
+
+model Election {
+  id                 String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title              String             @db.VarChar(255)
+  description        String             @default("") @db.Text
+  processType        ElectionProcessType @default(VOTE) @map("process_type")
+  scopeType          ElectionScopeType  @map("scope_type")
+  periodId           String             @map("period_id") @db.Uuid
+  facultyId          String?            @map("faculty_id") @db.Uuid
+  programId          String?            @map("program_id") @db.Uuid
+  startAt            DateTime           @map("start_at") @db.Timestamptz
+  endAt              DateTime           @map("end_at") @db.Timestamptz
+  status             ElectionStatusType @default(DRAFT)
+  createdBy          String             @map("created_by") @db.Uuid
+  createdAt          DateTime           @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt          DateTime           @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  formStructure      Json?              @map("form_structure")
+  isAnonymousAllowed Boolean            @default(false) @map("is_anonymous_allowed")
+
+  // Relaciones
+  period         AcademicPeriod  @relation(fields: [periodId], references: [id], onDelete: Restrict)
+  faculty        Faculty?        @relation(fields: [facultyId], references: [id], onDelete: Restrict)
+  program        Program?        @relation(fields: [programId], references: [id], onDelete: Restrict)
+  creator        User            @relation("CreatedElections", fields: [createdBy], references: [id], onDelete: Restrict)
+  positions      Position[]
+  candidateLists CandidateList[]
+  candidacies    Candidacy[]
+  electionRule   ElectionRule?
+
+  @@index([status], map: "idx_elections_status")
+  @@index([periodId], map: "idx_elections_period")
+  @@index([facultyId], map: "idx_elections_faculty")
+  @@index([programId], map: "idx_elections_program")
+  @@index([createdBy], map: "idx_elections_created_by")
+  @@index([startAt, endAt], map: "idx_elections_active_window")
+  @@map("elections")
+}
+
+model Position {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  electionId  String   @map("election_id") @db.Uuid
+  name        String   @db.VarChar(120)
+  description String?  @db.Text
+  seats       Int      @default(1) @db.SmallInt
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  // Relaciones
+  election    Election    @relation(fields: [electionId], references: [id], onDelete: Cascade)
+  candidacies Candidacy[]
+
+  @@unique([electionId, name], map: "uq_positions_election_name")
+  @@unique([id, electionId], map: "uq_positions_id_election")
+  @@index([electionId], map: "idx_positions_election_id")
+  @@map("positions")
+}
+
+model CandidateList {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  electionId  String   @map("election_id") @db.Uuid
+  name        String   @db.VarChar(120)
+  acronym     String?  @db.VarChar(20)
+  motto       String?  @db.VarChar(255)
+  logo        String?  @db.VarChar(500)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  // Relaciones
+  election    Election    @relation(fields: [electionId], references: [id], onDelete: Cascade)
+  candidacies Candidacy[]
+
+  @@unique([electionId, name], map: "uq_candidate_lists_election_name")
+  @@unique([electionId, acronym], map: "uq_candidate_lists_election_acronym")
+  @@unique([id, electionId], map: "uq_candidate_lists_id_election")
+  @@index([electionId], map: "idx_candidate_lists_election_id")
+  @@map("candidate_lists")
+}
+
+model Candidacy {
+  id              String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  electionId      String                @map("election_id") @db.Uuid
+  candidateListId String                @map("candidate_list_id") @db.Uuid
+  positionId      String?               @map("position_id") @db.Uuid
+  userId          String                @map("user_id") @db.Uuid
+  status          CandidacyStatusType   @default(PENDING) @map("status") // <-- CAMPO AGREGADO
+  orderIndex      Int                   @default(1) @map("order_index") @db.SmallInt
+  isPrincipal     Boolean               @default(true) @map("is_principal")
+  createdAt       DateTime              @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime              @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  // Relaciones
+  election      Election            @relation(fields: [electionId], references: [id], onDelete: Cascade)
+  candidateList CandidateList       @relation(fields: [candidateListId, electionId], references: [id, electionId], onDelete: Cascade)
+  position      Position?           @relation(fields: [positionId, electionId], references: [id, electionId], onDelete: Cascade)
+  user          User                @relation(fields: [userId], references: [id], onDelete: Restrict)
+  documents     CandidacyDocument[]
+
+  @@unique([electionId, userId], map: "uq_candidacies_election_user")
+  @@unique([candidateListId, positionId, orderIndex], map: "uq_candidacies_list_position_order")
+  @@index([userId], map: "idx_candidacies_user_id")
+  @@index([candidateListId], map: "idx_candidacies_candidate_list_id")
+  @@index([positionId], map: "idx_candidacies_position_id")
+  @@map("candidacies")
+}
+
+model ElectionRule {
+  id                   String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  electionId           String   @unique @map("election_id") @db.Uuid
+  minTurnoutPercentage Decimal  @default(0) @map("min_turnout_percentage") @db.Decimal(5, 2)
+  allowBlankVote       Boolean  @default(true) @map("allow_blank_vote")
+  allowNullVote        Boolean  @default(true) @map("allow_null_vote")
+  maxVotesPerPosition  Int      @default(1) @map("max_votes_per_position") @db.SmallInt
+  requires2fa          Boolean  @default(true) @map("requires_2fa")
+  createdAt            DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt            DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  // Relaciones
+  election Election @relation(fields: [electionId], references: [id], onDelete: Cascade)
+
+  @@map("election_rules")
+}
+
+model CandidacyDocument {
+  id            String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  candidacyId   String                @map("candidacy_id") @db.Uuid
+  documentType  CandidacyDocumentType @map("document_type")
+  fileUrl       String                @map("file_url") @db.Text
+  fileHash      String                @map("file_hash") @db.Char(64)
+  fileSizeBytes BigInt                @map("file_size_bytes")
+  mimeType      String                @map("mime_type") @db.VarChar(100)
+  uploadedAt    DateTime              @default(now()) @map("uploaded_at") @db.Timestamptz
+
+
+  // Relaciones
+  candidacy Candidacy @relation(fields: [candidacyId], references: [id], onDelete: Cascade)
+
+  @@unique([candidacyId, documentType], map: "uq_candidacy_documents_type")
+  @@index([candidacyId], map: "idx_candidacy_documents_candidacy")
+  @@map("candidacy_documents")
 }

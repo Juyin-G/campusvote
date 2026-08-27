@@ -1,0 +1,41 @@
+// --- ENUMS ---
+
+enum VoterClaimType {
+  MISSING_FROM_REGISTRY
+  INCORRECT_DATA
+  INELIGIBLE_MARKED_ELIGIBLE
+
+  @@map("voter_claim_type")
+}
+
+enum VoterClaimStatus {
+  PENDING
+  APPROVED
+  REJECTED
+
+  @@map("voter_claim_status")
+}
+
+// --- MODEL ---
+
+model VoterRegistryClaim {
+  id                    String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId                String           @map("user_id") @db.Uuid
+  periodId              String           @map("period_id") @db.Uuid
+  claimType             VoterClaimType   @map("claim_type")
+  description           String           @db.Text
+  supportingDocumentUrl String?          @map("supporting_document_url") @db.Text
+  status                VoterClaimStatus @default(PENDING)
+  reviewedBy            String?          @map("reviewed_by") @db.Uuid
+  reviewedAt            DateTime?        @map("reviewed_at") @db.Timestamptz
+  resolutionNotes       String?          @map("resolution_notes") @db.Text
+  createdAt             DateTime         @default(now()) @map("created_at") @db.Timestamptz
+
+  // Relaciones (Asegúrate de tener definidas las relaciones inversas en los modelos User y AcademicPeriod)
+  user             User           @relation("UserClaims", fields: [userId], references: [id], onDelete: Cascade)
+  academicPeriod   AcademicPeriod @relation(fields: [periodId], references: [id], onDelete: Restrict)
+  reviewer         User?          @relation("ReviewerClaims", fields: [reviewedBy], references: [id], onDelete: SetNull)
+
+  @@index([periodId, status], map: "idx_voter_claims_period_status")
+  @@map("voter_registry_claims")
+}

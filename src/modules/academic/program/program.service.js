@@ -19,12 +19,22 @@ const handleRepositoryError = (error) => {
 export const listPrograms = async (query = {}) => {
   const skip = Math.max(0, Number(query.skip) || 0);
   const take = Math.min(100, Math.max(1, Number(query.take) || 50));
+  const facultyId = query.faculty_id;
 
-  return programRepository.list({
-    faculty_id: query.faculty_id,
-    skip,
-    take,
-  });
+  const [data, total] = await Promise.all([
+    programRepository.list({ faculty_id: facultyId, skip, take }),
+    programRepository.count(facultyId),
+  ]);
+
+  return {
+    data,
+    meta: {
+      total,
+      skip,
+      take,
+      hasMore: skip + data.length < total,
+    },
+  };
 };
 
 export const getProgramById = async (id) => {

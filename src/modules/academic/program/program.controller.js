@@ -4,13 +4,13 @@ import { sendSuccess } from '../../../shared/utils/apiResponse.js';
 import { HTTP_STATUS } from '../../../constants/httpStatus.js';
 
 export const getPrograms = asyncHandler(async (req, res) => {
-  const programs = await programService.listPrograms(req.query);
-  return sendSuccess(res, programs, 'Programas obtenidos correctamente');
+  const { data, meta } = await programService.listPrograms(req.query);
+  return sendSuccess(res, data, 'Programas obtenidos correctamente', meta, HTTP_STATUS.OK);
 });
 
 export const getProgramById = asyncHandler(async (req, res) => {
   const program = await programService.getProgramById(req.params.id);
-  return sendSuccess(res, program, 'Programa obtenido correctamente');
+  return sendSuccess(res, program, 'Programa obtenido correctamente', undefined, HTTP_STATUS.OK);
 });
 
 export const createProgram = asyncHandler(async (req, res) => {
@@ -20,10 +20,10 @@ export const createProgram = asyncHandler(async (req, res) => {
 
 export const updateProgram = asyncHandler(async (req, res) => {
   const program = await programService.updateProgram(req.params.id, req.body);
-  return sendSuccess(res, program, 'Programa actualizado exitosamente');
+  return sendSuccess(res, program, 'Programa actualizado exitosamente', undefined, HTTP_STATUS.OK);
 });
 
 export const deleteProgram = asyncHandler(async (req, res) => {
   await programService.deleteProgram(req.params.id);
-  return res.status(HTTP_STATUS.NO_CONTENT).send();
+  return sendSuccess(res, null, 'Programa eliminado exitosamente', undefined, HTTP_STATUS.OK);
 });

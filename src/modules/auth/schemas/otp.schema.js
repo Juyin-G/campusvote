@@ -1,24 +1,51 @@
 import { z } from 'zod';
 
 /**
+ * Normaliza códigos TOTP y quita espacios
+ */
+const totpCodeSchema = z
+  .string()
+  .trim()
+  .transform((val) => val.replace(/\s+/g, ''))
+  .pipe(
+    z
+      .string()
+      .length(6, 'El código debe tener exactamente 6 dígitos')
+      .regex(/^\d+$/, 'El código solo puede contener números')
+  );
+
+/**
+ * Normaliza códigos de respaldo (elimina guiones y espacios)
+ */
+const backupCodeSchema = z
+  .string()
+  .trim()
+  .transform((val) => val.replace(/[- ]/g, ''))
+  .pipe(
+    z
+      .string()
+      .length(8, 'El código de respaldo debe tener 8 caracteres alfanuméricos')
+      .regex(/^[a-zA-Z0-9]+$/, 'Código de respaldo inválido')
+  );
+
+/**
  * Schema para verificar y activar TOTP durante setup
  */
 export const verifyTotpSchema = z
   .object({
-    code: z
-      .string()
-      .length(6, 'El código debe tener exactamente 6 dígitos')
-      .regex(/^\d+$/, 'El código solo puede contener números')
-      .optional(),
-    token: z
-      .string()
-      .length(6, 'El código debe tener exactamente 6 dígitos')
-      .regex(/^\d+$/, 'El código solo puede contener números')
-      .optional(),
-  })
-  .refine((data) => data.code || data.token, {
-    message: 'Se requiere el código TOTP (campo code o token)',
-    path: ['code'],
+    body: z
+      .object({
+        code: totpCodeSchema.optional(),
+        token: totpCodeSchema.optional(),
+      })
+      .refine((data) => Boolean(data.code || data.token), {
+        message: 'Se requiere el código TOTP (campo code o token)',
+        path: ['code'],
+      })
+      .transform((data) => ({
+        ...data,
+        code: data.code ?? data.token,
+      })),
   });
 
 /**
@@ -26,38 +53,33 @@ export const verifyTotpSchema = z
  */
 export const verifyLoginSchema = z
   .object({
-    code: z
-      .string()
-      .length(6, 'El código debe tener 6 dígitos')
-      .regex(/^\d+$/, 'El código solo puede contener números')
-      .optional(),
-    token: z
-      .string()
-      .length(6, 'El código debe tener 6 dígitos')
-      .regex(/^\d+$/, 'El código solo puede contener números')
-      .optional(),
-    backupCode: z
-      .string()
-      .length(8, 'El código de respaldo debe tener 8 caracteres')
-      .regex(/^[a-zA-Z0-9]+$/, 'Código de respaldo inválido')
-      .optional(),
-  })
-  .refine((data) => data.code || data.token || data.backupCode, {
-    message: 'Se requiere code, token o backupCode',
-    path: ['code'],
+    body: z
+      .object({
+        code: totpCodeSchema.optional(),
+        token: totpCodeSchema.optional(),
+        backupCode: backupCodeSchema.optional(),
+      })
+      .refine((data) => Boolean(data.code || data.token || data.backupCode), {
+        message: 'Se requiere el código TOTP (code/token) o un código de respaldo (backupCode)',
+        path: ['code'],
+      })
+      .transform((data) => ({
+        ...data,
+        code: data.code ?? data.token,
+      })),
   });
 
-// Alias para mantener compatibilidad si se importa con este nombre en auth.routes.js
 export const verifyLoginTotpSchema = verifyLoginSchema;
 
 /**
- * Schema para deshabilitar 2FA
+ * Schema para deshabilitar 2FA (Requiere confirmación de contraseña)
  */
 export const disableTotpSchema = z.object({
-  password: z
-    .string()
-    .min(8, 'Se requiere contraseña válida para deshabilitar 2FA')
-    .optional(),
+  body: z.object({
+    password: z
+      .string()
+      .min(1, 'Se requiere la contraseña actual para deshabilitar 2FA'),
+  }),
 });
 
 export default {

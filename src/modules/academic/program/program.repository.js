@@ -34,14 +34,14 @@ export const list = ({ faculty_id, skip = 0, take = 50 } = {}) =>
     take 
   });
 
-export const count = ({ faculty_id } = {}) => 
+export const count = (faculty_id = null) => 
   prisma.programs.count({ where: faculty_id ? { faculty_id } : undefined });
 
 export const create = async (data) => {
   try {
     return await prisma.programs.create({ data, select: PROGRAM_SELECT });
   } catch (error) {
-    handlePrismaError(error);
+    return handlePrismaError(error);
   }
 };
 

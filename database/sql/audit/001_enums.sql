@@ -1,3 +1,5 @@
+--src/database/sql/audit/001_enums.sql
+
 BEGIN;
 
 -- ENUM: TIPOS DE ACCIONES DE AUDITORÍA

@@ -1,3 +1,4 @@
+// src/config/swagger.js
 import swaggerJsdoc from 'swagger-jsdoc';
 import swaggerUi from 'swagger-ui-express';
 import env from '../env.js';
@@ -58,17 +59,19 @@ const securitySchemes = {
   },
 };
 
-// Categorización global de Endpoints
 const tags = [
   { name: 'Health', description: 'Monitoreo y diagnóstico del estado de la infraestructura' },
   { name: 'Auth', description: 'Gestión de autenticación, sesión y recuperación' },
   { name: 'Users', description: 'Administración de usuarios y perfiles' },
   { name: 'Organizations', description: 'Gestión multitenant de instituciones y organizaciones' },
   { name: 'Elections', description: 'Ciclo de vida y parámetros de procesos electorales' },
+  { name: 'Voter Registry', description: 'Gestión del padrón electoral y reclamos de inscripción' },
   { name: 'Voting', description: 'Registro y validación de votos criptográficos' },
   { name: 'Ballots', description: 'Gestión de cédulas y configuraciones de votación' },
   { name: 'Results', description: 'Escrutinio automatizado y análisis métrico' },
   { name: 'Audit', description: 'Trazabilidad de logs de auditoría y gestión de tokens de un solo uso' },
+  { name: 'Platform Translations', description: 'Gestión del diccionario de internacionalización (i18n) y locales' },
+  { name: 'Notifications', description: 'Gestión de notificaciones del usuario y bandeja de entrada' },
 ];
 
 const options = {
@@ -90,6 +93,8 @@ const options = {
   },
   apis: [
     './src/modules/**/*.docs.js',
+    './src/modules/**/*.routes.js',
+    './src/modules/**/*.route.js',
     './src/config/swagger/schemas/**/*.js',
   ],
 };

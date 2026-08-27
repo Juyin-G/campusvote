@@ -6,6 +6,75 @@
 
 /**
  * @openapi
+ * components:
+ *   schemas:
+ *     Program:
+ *       type: object
+ *       properties:
+ *         id:
+ *           type: string
+ *           format: uuid
+ *           example: "b1f8d2e4-9a3c-4d5e-8f12-3a4b5c6d7e8f"
+ *         faculty_id:
+ *           type: string
+ *           format: uuid
+ *           example: "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11"
+ *         name:
+ *           type: string
+ *           example: "Ingeniería de Sistemas"
+ *         code:
+ *           type: string
+ *           example: "IS"
+ *         created_at:
+ *           type: string
+ *           format: date-time
+ *         updated_at:
+ *           type: string
+ *           format: date-time
+ *
+ *     CreateProgramRequest:
+ *       type: object
+ *       required:
+ *         - faculty_id
+ *         - name
+ *         - code
+ *       properties:
+ *         faculty_id:
+ *           type: string
+ *           format: uuid
+ *           example: "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11"
+ *         name:
+ *           type: string
+ *           minLength: 3
+ *           maxLength: 150
+ *           example: "Ingeniería de Sistemas"
+ *         code:
+ *           type: string
+ *           minLength: 2
+ *           maxLength: 20
+ *           example: "IS"
+ *
+ *     UpdateProgramRequest:
+ *       type: object
+ *       properties:
+ *         faculty_id:
+ *           type: string
+ *           format: uuid
+ *           example: "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11"
+ *         name:
+ *           type: string
+ *           minLength: 3
+ *           maxLength: 150
+ *           example: "Ingeniería del Software"
+ *         code:
+ *           type: string
+ *           minLength: 2
+ *           maxLength: 20
+ *           example: "ISOFT"
+ */
+
+/**
+ * @openapi
  * /api/academic/programs:
  *   get:
  *     summary: Obtener lista de programas académicos (paginada)
@@ -16,7 +85,8 @@
  *       - in: query
  *         name: faculty_id
  *         schema:
- *           $ref: '#/components/schemas/UUID'
+ *           type: string
+ *           format: uuid
  *         description: Filtrar programas por ID de facultad (opcional)
  *       - in: query
  *         name: skip
@@ -44,6 +114,8 @@
  *                       type: array
  *                       items:
  *                         $ref: '#/components/schemas/Program'
+ *                     meta:
+ *                       $ref: '#/components/schemas/PaginationMeta'
  *       401:
  *         $ref: '#/components/responses/UnauthorizedResponse'
  *       403:
@@ -97,7 +169,8 @@
  *         name: id
  *         required: true
  *         schema:
- *           $ref: '#/components/schemas/UUID'
+ *           type: string
+ *           format: uuid
  *         description: ID del programa académico
  *     responses:
  *       200:
@@ -128,7 +201,8 @@
  *         name: id
  *         required: true
  *         schema:
- *           $ref: '#/components/schemas/UUID'
+ *           type: string
+ *           format: uuid
  *     requestBody:
  *       required: true
  *       content:
@@ -171,10 +245,15 @@
  *         name: id
  *         required: true
  *         schema:
- *           $ref: '#/components/schemas/UUID'
+ *           type: string
+ *           format: uuid
  *     responses:
- *       204:
- *         description: Programa eliminado exitosamente (Sin contenido)
+ *       200:
+ *         description: Programa eliminado exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/responses/SuccessResponse'
  *       401:
  *         $ref: '#/components/responses/UnauthorizedResponse'
  *       403:

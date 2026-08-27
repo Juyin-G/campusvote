@@ -140,3 +140,14 @@ export const validateBallotCompleteness = asyncHandler(
     );
   }
 );
+
+export default {
+  listBallots,
+  getBallotById,
+  createBallot,
+  updateBallot,
+  deleteBallot,
+  getActiveBallot,
+  createBallotVersion,
+  validateBallotCompleteness,
+};

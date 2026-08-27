@@ -4,8 +4,8 @@ import { sendSuccess } from '../../../shared/utils/apiResponse.js';
 import { HTTP_STATUS } from '../../../constants/httpStatus.js';
 
 export const getPeriods = asyncHandler(async (req, res) => {
-  const periods = await periodService.listPeriods(req.query);
-  return sendSuccess(res, periods, 'Periodos obtenidos exitosamente', undefined, HTTP_STATUS.OK);
+  const { data, meta } = await periodService.listPeriods(req.query);
+  return sendSuccess(res, data, 'Periodos obtenidos exitosamente', meta, HTTP_STATUS.OK);
 });
 
 export const getPeriodById = asyncHandler(async (req, res) => {
@@ -25,11 +25,10 @@ export const updatePeriod = asyncHandler(async (req, res) => {
 
 export const setActivePeriod = asyncHandler(async (req, res) => {
   const period = await periodService.setActivePeriod(req.params.id);
-  return sendSuccess(res, period, 'Periodo marcado como activo', undefined, HTTP_STATUS.OK);
+  return sendSuccess(res, period, 'Periodo marcado como activo exitosamente', undefined, HTTP_STATUS.OK);
 });
 
 export const deletePeriod = asyncHandler(async (req, res) => {
   await periodService.deletePeriod(req.params.id);
   return sendSuccess(res, null, 'Periodo eliminado exitosamente', undefined, HTTP_STATUS.OK);
 });
-

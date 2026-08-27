@@ -12,7 +12,7 @@
 // NO escribe en election_results (responsabilidad de FASE 7).
 // NO conoce HTTP.
 
-import * as electionRepository from '../../elections/election.repository.js';
+import * as electionRepository from '../../elections/elections/election.repository.js';
 import * as tallyRepository from './tally.repository.js';
 import { ApiError } from '../../../shared/errors/ApiError.js';
 import MESSAGES from '../../../constants/messages.js';

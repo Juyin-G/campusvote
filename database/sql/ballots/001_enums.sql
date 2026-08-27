@@ -1,16 +1,16 @@
-BEGIN;
+-- // 001_enums.sql (Refactorizado)
 
--- ENUM: TIPOS DE OPCIONES DE BOLETA
+BEGIN;
 
 DO $$
 BEGIN
-    CREATE TYPE ballot_option_type AS ENUM (
-        'CANDIDATE_LIST',
-        'BLANK',
-        'NULL'
-    );
-EXCEPTION
-    WHEN duplicate_object THEN NULL;
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'ballot_option_type') THEN
+        CREATE TYPE ballot_option_type AS ENUM (
+            'CANDIDATE_LIST',
+            'BLANK',
+            'VOID'
+        );
+    END IF;
 END $$;
 
 COMMIT;

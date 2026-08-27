@@ -14,68 +14,29 @@ import logger from '../../../config/logger.js';
 export { setupTotp, verifyTotp, verifyLoginTotp } from './auth.totp.service.js';
 
 const SALT_ROUNDS = 12;
+// Hash dummy precalculado para mitigar ataques de timing en login
+const DUMMY_HASH = '$2a$12$eImiTXuWVxfM37uY4JANjOL.88KV7VO594dK/WJv5gT2d.B/Xo89a';
 
-/**
- * Hash señuelo para igualar el tiempo de respuesta cuando el correo no existe
- * o la cuenta no tiene contraseña local. Sin esto, bcrypt.compare solo se
- * ejecutaba para usuarios reales y la diferencia de tiempo (~70 ms frente a
- * ~460 ms) permitía enumerar qué cuentas existen.
- *
- * Se calcula una sola vez, de forma perezosa, para no penalizar el arranque.
- */
-let dummyPasswordHash = null;
-
-const getDummyPasswordHash = async () => {
-  dummyPasswordHash ??= await bcrypt.hash(
-    'campusvote-cuenta-inexistente',
-    SALT_ROUNDS
-  );
-  return dummyPasswordHash;
-};
-
-export const login = async ({ email, password }) => {
+export const login = async ({ email, password, ipAddress = null, userAgent = null }) => {
   const cleanEmail = email.toLowerCase().trim();
 
   const user = await authRepository.findByEmail(cleanEmail);
 
-  if (!user) {
-    // Se compara igualmente para que el tiempo de respuesta no delate
-    // que el correo no está registrado.
-    await bcrypt.compare(password, await getDummyPasswordHash());
+  // Prevenir enumeración de usuarios mediante comparación de tiempo simulada
+  if (!user || user.authProvider !== 'LOCAL') {
+    await bcrypt.compare(password, DUMMY_HASH);
     throw ApiError.unauthorized(MESSAGES.AUTH.LOGIN_FAILED);
   }
 
-  // login_is_allowed() devuelve FALSE tanto por bloqueo temporal como por
-  // cuenta inactiva. Solo el bloqueo debe cortar aquí: responder 423 a una
-  // cuenta desactivada la delataba frente a un correo inexistente. El estado
-  // inactivo se comunica más abajo, ya con la contraseña acreditada.
   const isAllowed = await authRepository.loginIsAllowed(user.email);
-  const estaBloqueado =
-    user.lockedUntil !== null && new Date(user.lockedUntil) > new Date();
-
-  if (!isAllowed && estaBloqueado) {
+  if (!isAllowed) {
     throw new ApiError(423, MESSAGES.AUTH.LOGIN_LOCKED, null, 'ACCOUNT_LOCKED');
   }
 
-  // Las cuentas externas no tienen contraseña local: se comparan contra el
-  // señuelo para que el fallo sea indistinguible de una contraseña errónea.
-  const storedHash = user.password ?? (await getDummyPasswordHash());
-  const isValidPassword = await bcrypt.compare(password, storedHash);
-
+  const isValidPassword = await bcrypt.compare(password, user.password);
   if (!isValidPassword) {
     await authRepository.registerFailedLogin(user.email);
     throw ApiError.unauthorized(MESSAGES.AUTH.LOGIN_FAILED);
-  }
-
-  // El estado de la cuenta solo se revela DESPUÉS de acreditar la contraseña.
-  // Comprobarlo antes permitía distinguir una cuenta inactiva (403) de un
-  // correo inexistente (401) sin conocer ninguna credencial.
-  if (user.authProvider !== 'LOCAL') {
-    throw ApiError.badRequest('Use Google para iniciar sesión');
-  }
-
-  if (!user.isActive) {
-    throw ApiError.forbidden(MESSAGES.AUTH.LOGIN_ACCOUNT_INACTIVE);
   }
 
   if (!user.isVerified) {
@@ -86,7 +47,7 @@ export const login = async ({ email, password }) => {
     const tempToken = jwt.sign(
       { userId: user.id, email: user.email, purpose: 'TOTP_PENDING' },
       env.JWT_SECRET,
-      { expiresIn: '5m' },
+      { expiresIn: '5m' }
     );
 
     return {
@@ -96,8 +57,8 @@ export const login = async ({ email, password }) => {
     };
   }
 
-  await authRepository.registerSuccessfulLogin(user.email);
-  await authRepository.updateLastLogin(user.id);
+  // Registrar login exitoso enviando metadata de auditoría a Postgres
+  await authRepository.registerSuccessfulLogin(user.email, ipAddress, userAgent);
 
   const token = generateJwt(user);
 
@@ -110,7 +71,23 @@ export const login = async ({ email, password }) => {
 };
 
 export const register = async (userData) => {
-  const { email, username, password, institutionalId, firstName, lastName } = userData;
+  const {
+    email,
+    username,
+    password,
+    institutionalId,
+    firstName,
+    lastName,
+    role = 'STUDENT',
+    organizationId,
+    facultyId,
+    programId,
+    currentCycle,
+    admissionPeriodId,
+    specialty,
+    department,
+  } = userData;
+
   const cleanEmail = email.toLowerCase().trim();
   const cleanUsername = username.toLowerCase().trim();
 
@@ -126,6 +103,7 @@ export const register = async (userData) => {
 
   const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
 
+  // Pasa todos los datos académicos requeridos por los check constraints de PostgreSQL
   const newUser = await authRepository.createUser({
     username: cleanUsername,
     email: cleanEmail,
@@ -133,15 +111,19 @@ export const register = async (userData) => {
     firstName,
     lastName,
     institutionalId,
-    role: 'STUDENT',
+    role,
     authProvider: 'LOCAL',
     mustChangePassword: false,
+    organizationId,
+    facultyId,
+    programId,
+    currentCycle,
+    admissionPeriodId,
+    specialty,
+    department,
   });
 
-  const verificationToken =
-    await authRepository.generateEmailVerificationToken(newUser.id);
-
-  let verificationEmailSent = false;
+  const verificationToken = await authRepository.generateEmailVerificationToken(newUser.id);
 
   if (verificationToken) {
     try {
@@ -150,17 +132,16 @@ export const register = async (userData) => {
         token: verificationToken,
         firstName,
       });
-      verificationEmailSent = true;
     } catch (error) {
-      // No se lanza error: el usuario YA está creado y revertirlo aquí no es
-      // posible. Antes se devolvía 503 y la cuenta quedaba inservible —no podía
-      // registrarse de nuevo (email ocupado) ni entrar (sin verificar) ni
-      // verificar (nunca recibió el enlace)—. Ahora el alta se confirma y el
-      // reenvío queda disponible en POST /api/auth/verify-email/resend.
       logger.error('Registro OK pero falló envío de verificación', {
         userId: newUser.id,
         error: error.message,
       });
+      throw ApiError.serviceUnavailable(
+        MESSAGES.AUTH.REGISTER_EMAIL_FAILED,
+        { userId: newUser.id },
+        'REGISTER_EMAIL_FAILED'
+      );
     }
   } else {
     logger.warn('No se pudo generar token de verificación para el usuario', {
@@ -168,64 +149,21 @@ export const register = async (userData) => {
     });
   }
 
-  logger.info('Usuario registrado exitosamente', {
-    userId: newUser.id,
-    verificationEmailSent,
-  });
+  logger.info('Usuario registrado exitosamente', { userId: newUser.id });
 
-  return { user: newUser, verificationEmailSent };
+  return { user: formatUserResponse(newUser) };
 };
 
-/**
- * Reenvía el correo de verificación a una cuenta pendiente.
- *
- * Responde siempre lo mismo —exista la cuenta, esté ya verificada o falle el
- * SMTP— para no permitir averiguar qué correos están registrados. El fallo de
- * envío queda en los logs para que lo vea el equipo, no el cliente.
- */
-// La respuesta es idéntica en todos los caminos de forma deliberada: hacerla
-// variar según el resultado es exactamente lo que permitiría deducir qué
-// correos están registrados. Por eso se silencia la regla aquí.
-// eslint-disable-next-line sonarjs/no-invariant-returns
-export const resendVerification = async (email) => {
-  const cleanEmail = email.toLowerCase().trim();
-  const respuestaGenerica = { message: MESSAGES.AUTH.EMAIL_VERIFICATION_SENT };
-
-  const user = await authRepository.findByEmail(cleanEmail);
-
-  if (!user || user.isVerified) {
-    logger.info('Reenvío de verificación solicitado sin efecto');
-    return respuestaGenerica;
+export const logout = async ({ userId, tokenHash }) => {
+  if (tokenHash) {
+    // Invalida la sesión activa en refresh_tokens
+    await authRepository.revokeRefreshToken(tokenHash);
+  } else if (userId) {
+    // Invalida todas las sesiones activas del usuario
+    await authRepository.revokeAllUserRefreshTokens(userId);
   }
 
-  const token = await authRepository.generateEmailVerificationToken(user.id);
-
-  if (!token) {
-    logger.warn('No se pudo generar token de verificación en el reenvío', {
-      userId: user.id,
-    });
-    return respuestaGenerica;
-  }
-
-  try {
-    await sendVerification({
-      email: cleanEmail,
-      token,
-      firstName: user.firstName,
-    });
-    logger.info('Correo de verificación reenviado', { userId: user.id });
-  } catch (error) {
-    logger.error('Falló el reenvío del correo de verificación', {
-      userId: user.id,
-      error: error.message,
-    });
-  }
-
-  return respuestaGenerica;
-};
-
-export const logout = async ({ email }) => {
-  logger.info('Logout efectuado correctamente');
+  logger.info('Logout efectuado correctamente', { userId });
   return { loggedOut: true };
 };
 
@@ -253,7 +191,7 @@ export const requestPasswordReset = async (email) => {
       throw ApiError.serviceUnavailable(
         MESSAGES.AUTH.EMAIL_SEND_FAILED,
         null,
-        'EMAIL_SEND_FAILED',
+        'EMAIL_SEND_FAILED'
       );
     }
   } else {

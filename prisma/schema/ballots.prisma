@@ -1,0 +1,62 @@
+enum BallotOptionType {
+  CANDIDATE_LIST
+  BLANK
+  VOID
+
+  @@map("ballot_option_type")
+}
+
+model Ballots {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  electionId  String   @map("election_id") @db.Uuid
+  version     Int      @default(1)
+  isActive    Boolean  @default(true) @map("is_active")
+  generatedAt DateTime @default(now()) @map("generated_at") @db.Timestamptz
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime @default(now()) @map("updated_at") @db.Timestamptz
+
+  ballotPositions BallotPositions[]
+
+  @@unique([electionId, version], map: "uq_ballots_election_version")
+  @@unique([id, electionId], map: "uq_ballots_id_election")
+  @@index([generatedAt(sort: Desc)], map: "idx_ballots_generated_at")
+  @@map("ballots")
+}
+
+model BallotPositions {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ballotId   String   @map("ballot_id") @db.Uuid
+  positionId String   @map("position_id") @db.Uuid
+  electionId String   @map("election_id") @db.Uuid
+  orderIndex Int      @map("order_index") @db.SmallInt
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt  DateTime @default(now()) @map("updated_at") @db.Timestamptz
+
+  ballot        Ballots         @relation(fields: [ballotId, electionId], references: [id, electionId], onDelete: Cascade, onUpdate: NoAction, map: "fk_ballot_positions_ballot_election")
+  ballotOptions BallotOptions[]
+
+  @@unique([ballotId, positionId], map: "uq_ballot_positions_ballot_position")
+  @@unique([ballotId, orderIndex], map: "uq_ballot_positions_ballot_order")
+  @@unique([id, electionId], map: "uq_ballot_positions_id_election")
+  @@index([positionId], map: "idx_ballot_positions_position_id")
+  @@map("ballot_positions")
+}
+
+model BallotOptions {
+  id              String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ballotPositionId String           @map("ballot_position_id") @db.Uuid
+  electionId      String           @map("election_id") @db.Uuid
+  optionType      BallotOptionType @default(CANDIDATE_LIST) @map("option_type")
+  candidateListId String?          @map("candidate_list_id") @db.Uuid
+  label           String           @db.VarChar(120)
+  orderIndex      Int              @map("order_index") @db.SmallInt
+  createdAt       DateTime         @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime         @default(now()) @map("updated_at") @db.Timestamptz
+
+  ballotPosition BallotPositions @relation(fields: [ballotPositionId, electionId], references: [id, electionId], onDelete: Cascade, onUpdate: NoAction, map: "fk_ballot_options_position_election")
+
+  @@unique([ballotPositionId, candidateListId], map: "uq_ballot_options_position_candidate")
+  @@unique([ballotPositionId, orderIndex], map: "uq_ballot_options_position_order")
+  @@index([candidateListId], map: "idx_ballot_options_candidate_list_id")
+  @@map("ballot_options")
+}

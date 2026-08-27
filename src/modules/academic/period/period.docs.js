@@ -1,6 +1,3 @@
-// src/modules/academic/period/period.docs.js
-
-
 /**
  * @file period.docs.js
  * @description Documentación OpenAPI para los endpoints de Periodos Académicos
@@ -12,6 +9,79 @@
  * tags:
  *   name: Academic
  *   description: Gestión de facultades, programas y periodos académicos
+ *
+ * components:
+ *   schemas:
+ *     AcademicPeriod:
+ *       type: object
+ *       properties:
+ *         id:
+ *           type: string
+ *           format: uuid
+ *           example: "8f12c8a1-5c3b-410a-93bd-61bc8945a001"
+ *         name:
+ *           type: string
+ *           example: "2026-I"
+ *         start_date:
+ *           type: string
+ *           format: date
+ *           example: "2026-03-01"
+ *         end_date:
+ *           type: string
+ *           format: date
+ *           example: "2026-07-15"
+ *         is_active:
+ *           type: boolean
+ *           example: true
+ *         created_at:
+ *           type: string
+ *           format: date-time
+ *         updated_at:
+ *           type: string
+ *           format: date-time
+ *
+ *     CreatePeriodRequest:
+ *       type: object
+ *       required:
+ *         - name
+ *         - start_date
+ *         - end_date
+ *       properties:
+ *         name:
+ *           type: string
+ *           minLength: 3
+ *           maxLength: 50
+ *           example: "2026-I"
+ *         start_date:
+ *           type: string
+ *           format: date
+ *           example: "2026-03-01"
+ *         end_date:
+ *           type: string
+ *           format: date
+ *           example: "2026-07-15"
+ *         is_active:
+ *           type: boolean
+ *           default: false
+ *
+ *     UpdatePeriodRequest:
+ *       type: object
+ *       properties:
+ *         name:
+ *           type: string
+ *           minLength: 3
+ *           maxLength: 50
+ *           example: "2026-I Modificado"
+ *         start_date:
+ *           type: string
+ *           format: date
+ *           example: "2026-03-15"
+ *         end_date:
+ *           type: string
+ *           format: date
+ *           example: "2026-07-30"
+ *         is_active:
+ *           type: boolean
  */
 
 /**
@@ -35,11 +105,6 @@
  *           type: integer
  *           default: 50
  *         description: Cantidad de registros a obtener
- *       - in: query
- *         name: is_active
- *         schema:
- *           type: boolean
- *         description: Filtrar solo periodos activos o inactivos (opcional)
  *     responses:
  *       200:
  *         description: Lista de periodos obtenida exitosamente
@@ -54,6 +119,8 @@
  *                       type: array
  *                       items:
  *                         $ref: '#/components/schemas/AcademicPeriod'
+ *                     meta:
+ *                       $ref: '#/components/schemas/PaginationMeta'
  *       401:
  *         $ref: '#/components/responses/UnauthorizedResponse'
  *       403:
@@ -102,7 +169,8 @@
  *         name: id
  *         required: true
  *         schema:
- *           $ref: '#/components/schemas/UUID'
+ *           type: string
+ *           format: uuid
  *         description: ID del periodo académico
  *     responses:
  *       200:
@@ -133,7 +201,8 @@
  *         name: id
  *         required: true
  *         schema:
- *           $ref: '#/components/schemas/UUID'
+ *           type: string
+ *           format: uuid
  *     requestBody:
  *       required: true
  *       content:
@@ -173,10 +242,15 @@
  *         name: id
  *         required: true
  *         schema:
- *           $ref: '#/components/schemas/UUID'
+ *           type: string
+ *           format: uuid
  *     responses:
- *       204:
- *         $ref: '#/components/responses/NoContentResponse'
+ *       200:
+ *         description: Periodo eliminado exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/responses/SuccessResponse'
  *       401:
  *         $ref: '#/components/responses/UnauthorizedResponse'
  *       403:
@@ -184,7 +258,6 @@
  *       404:
  *         $ref: '#/components/responses/NotFoundResponse'
  *       409:
- *         description: Conflicto - El periodo tiene registros asociados (ej. padrón electoral)
  *         $ref: '#/components/responses/ConflictResponse'
  *
  * /api/academic/periods/{id}/active:
@@ -201,7 +274,8 @@
  *         name: id
  *         required: true
  *         schema:
- *           $ref: '#/components/schemas/UUID'
+ *           type: string
+ *           format: uuid
  *         description: ID del periodo a activar
  *     responses:
  *       200:

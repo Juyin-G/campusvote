@@ -1,4 +1,9 @@
+--src/database/sql/organizations/001_enums.sql
+
 BEGIN;
+
+-- EXTENSIONES NECESARIAS
+CREATE EXTENSION IF NOT EXISTS unaccent;
 
 -- ENUMS PARA ORGANIZACIONES
 

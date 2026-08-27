@@ -1,3 +1,6 @@
+-- src/database/sql/organizations/002_organizations.sql
+
+
 BEGIN;
 
 -- TABLA: ORGANIZACIONES (TENANTS)
@@ -37,7 +40,6 @@ CREATE TABLE IF NOT EXISTS organizations (
 
 -- ÍNDICES: ORGANIZATIONS
 
--- Índice parcial optimizado (sin columna redundante is_active en la clave)
 CREATE INDEX IF NOT EXISTS idx_organizations_type_active
     ON organizations (org_type)
     WHERE is_active = TRUE;

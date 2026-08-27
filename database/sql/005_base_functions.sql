@@ -1,3 +1,5 @@
+-- src/database/sql/005_base_functions.sql
+
 CREATE OR REPLACE FUNCTION set_updated_at()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -11,8 +13,8 @@ $$;
 -- Función para generar slugs
 CREATE OR REPLACE FUNCTION generate_slug(text)
 RETURNS text AS $$
-  SELECT lower(regexp_replace($1, '[^a-zA-Z0-9]+', '-', 'g'));
-$$ LANGUAGE sql IMMUTABLE;
+  SELECT trim(both '-' from lower(regexp_replace($1, '[^a-zA-Z0-9]+', '-', 'g')));
+$$ LANGUAGE sql IMMUTABLE;[cite: 1]
 
 -- Función para normalizar emails
 CREATE OR REPLACE FUNCTION normalize_email(email text)

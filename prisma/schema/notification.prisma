@@ -1,0 +1,69 @@
+enum NotificationType {
+  ELECTION_OPENING
+  VOTE_CONFIRMATION
+  RESULTS_PUBLISHED
+  CANDIDACY_APPROVED
+  SYSTEM_ALERT
+
+  @@map("notification_type")
+}
+
+enum DeliveryChannel {
+  IN_APP
+  EMAIL
+  PUSH
+
+  @@map("delivery_channel")
+}
+
+enum DeliveryStatus {
+  PENDING
+  SENT
+  FAILED
+
+  @@map("delivery_status")
+}
+
+model Notification {
+  id        String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String           @map("user_id") @db.Uuid
+  type      NotificationType @map("type")
+  title     String           @db.VarChar(150)
+  message   String           @db.Text
+  metadata  Json             @default("{}") @map("metadata") // Prisma mapea esto a JSONB en Postgres
+  readAt    DateTime?        @map("read_at") @db.Timestamptz
+  createdAt DateTime         @default(now()) @map("created_at") @db.Timestamptz
+
+  // Relaciones
+  user       User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deliveries NotificationDelivery[]
+
+  // Índices básicos (Los índices parciales y GIN los maneja tu script SQL)
+  @@index([userId, createdAt(sort: Desc)], map: "idx_notifications_user_inbox")
+  @@index([metadata], map: "idx_notifications_metadata") 
+  
+  @@map("notifications")
+}
+
+model NotificationDelivery {
+  id             String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  notificationId String          @map("notification_id") @db.Uuid
+  channel        DeliveryChannel @map("channel")
+  status         DeliveryStatus  @default(PENDING) @map("status")
+  attemptCount   Int             @default(0) @map("attempt_count")
+  nextAttemptAt  DateTime        @default(now()) @map("next_attempt_at") @db.Timestamptz
+  errorMessage   String?         @map("error_message") @db.Text
+  sentAt         DateTime?       @map("sent_at") @db.Timestamptz
+  createdAt      DateTime        @default(now()) @map("created_at") @db.Timestamptz
+
+  // Relaciones
+  notification   Notification    @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+
+  // Constraints e Índices
+  @@unique([notificationId, channel], map: "uq_notification_channel")
+  
+  // Índice para el worker de cola (El WHERE status = 'PENDING' lo aplica tu SQL)
+  @@index([nextAttemptAt, createdAt], map: "idx_deliveries_pending") 
+
+  @@map("notification_deliveries")
+}

@@ -5,9 +5,10 @@ import { authenticate, authorize } from '../../middlewares/auth.middleware.js';
 
 const router = Router();
 
+// Limitador estricto para operaciones de tokens de votación/sensibles
 const tokenRateLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 30,
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  max: 30, // 30 intentos por ventana
   standardHeaders: true,
   legacyHeaders: false,
   message: {
@@ -16,61 +17,66 @@ const tokenRateLimiter = rateLimit({
   }
 });
 
+// Middleware para envolver handlers asíncronos sin repetir try/catch
 const asyncHandler = (fn) => (req, res, next) => {
   Promise.resolve(fn(req, res, next)).catch(next);
 };
 
 /**
- * RUTAS DE AUDIT LOGS
+ * RUTAS DE AUDIT LOGS (Trazabilidad e historial)
  */
 
 router.get(
   '/logs',
   authenticate,
-  authorize(['admin', 'auditor']),
+  authorize(['SUPER_ADMIN', 'ADMIN', 'AUDITOR']),
   asyncHandler(auditController.getAuditLogs.bind(auditController))
 );
 
 router.get(
   '/logs/:id',
   authenticate,
-  authorize(['admin', 'auditor']),
+  authorize(['SUPER_ADMIN', 'ADMIN', 'AUDITOR']),
   asyncHandler(auditController.getAuditLogById.bind(auditController))
 );
 
 router.post(
   '/logs',
   authenticate,
-  authorize(['admin', 'system']),
+  authorize(['SUPER_ADMIN', 'ADMIN', 'SYSTEM']),
   asyncHandler(auditController.createAuditLog.bind(auditController))
 );
 
 /**
- * RUTAS DE ONE-TIME TOKENS
+ * RUTAS DE ONE-TIME TOKENS / VOTING TOKENS
  */
 
+// Generar token para un usuario (requiere sesión autenticada)
 router.post(
   '/tokens',
   authenticate,
   asyncHandler(auditController.createOneTimeToken.bind(auditController))
 );
 
+// Consumir token en cabina/proceso de votación (protegido por Rate Limit)
 router.post(
   '/tokens/consume',
   tokenRateLimiter,
   asyncHandler(auditController.consumeOneTimeToken.bind(auditController))
 );
 
+// Consultar validez de token sin consumirlo
 router.get(
   '/tokens/status',
   tokenRateLimiter,
   asyncHandler(auditController.checkTokenStatus.bind(auditController))
 );
 
+// Mantenimiento y depuración de tokens vencidos (Solo administradores)
 router.delete(
   '/tokens/cleanup',
   authenticate,
-  authorize(['admin']),
+  authorize(['SUPER_ADMIN', 'ADMIN']),
   asyncHandler(auditController.cleanupExpiredTokens.bind(auditController))
 );
 

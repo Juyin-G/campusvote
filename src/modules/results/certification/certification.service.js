@@ -1,20 +1,7 @@
 // src/modules/results/certification/certification.service.js
-// S7-03 — Servicio de certificación de elecciones.
-//
-// Responsabilidades:
-//   - Recalcular tallies ANTES de certificar (necesario porque
-//     certify_election() SQL LEE tallies para blank/null).
-//   - Reutilizar electionService.changeStatus() para conservar
-//     ALLOWED_TRANSITIONS, assertTransitionRules y
-//     translateCertifyError.
-//   - Registrar CERTIFY_RESULT en audit SOLO después de una
-//     certificación exitosa.
-//
-// NO accede a Prisma directamente.
-// NO invoca directamente la funcion SQL certify_election.
-// NO conoce HTTP.
 
-import * as electionService from '../../elections/election.service.js';
+
+import * as electionService from '../../elections/elections/election.service.js';
 import * as tallyService from '../tally/tally.service.js';
 import auditService from '../../audit/audit.service.js';
 import { AUDIT_ACTIONS } from '../../audit/audit.schema.js';

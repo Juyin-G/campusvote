@@ -1,3 +1,5 @@
+-- // 002_programs.sql (Refactorizado)
+
 BEGIN;
 
 -- TABLA: PROGRAMAS ACADÉMICOS
