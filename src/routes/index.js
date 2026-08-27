@@ -8,6 +8,7 @@ import organizationRoutes from '../modules/organizations/organization.routes.js'
 import academicRoutes from '../modules/academic/academic.routes.js';
 import electionRoutes from '../modules/elections/election.routes.js';
 import ballotRoutes from '../modules/ballots/ballot.routes.js';
+import resultsRoutes from '../modules/results/results.routes.js';
 import auditRoutes from '../modules/audit/audit.routes.js';
 
 const router = Router();
@@ -27,6 +28,9 @@ router.use('/academic', academicRoutes);
 // Proceso Electoral
 router.use('/elections', electionRoutes);
 router.use('/ballots', ballotRoutes);
+
+// Resultados (S7): certify, publish, tally, live, final
+router.use(resultsRoutes);
 
 // Auditoría y Tokens de Un Solo Uso
 router.use('/audit', auditRoutes);

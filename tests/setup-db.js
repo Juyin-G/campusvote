@@ -99,6 +99,7 @@ export default async function setupTestDB() {
     console.log('12. Creando auditoría...');
 
     await executeFile('audit/002_audit_logs.sql');
+    await executeFile('audit/003_audit_protection.sql');
     await executeFile('audit/004_one_time_tokens.sql');
 
     console.log('13. Creando resultados...');
