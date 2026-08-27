@@ -4,7 +4,7 @@ import { prisma } from '../../../database/prisma.js';
 
 /**
  * Se incluye un resumen del usuario candidato y el nuevo campo 'status'.
- * ⚠️ IMPORTANTE: Prisma Client usa los nombres de campo en camelCase (definidos en el modelo),
+ * IMPORTANTE: Prisma Client usa los nombres de campo en camelCase (definidos en el modelo),
  * NO los nombres mapeados a la BD con @map (snake_case).
  */
 const CANDIDACY_SELECT = {

@@ -1,7 +1,6 @@
--- 999_foreign_keys.sql (Versión Idempotente)
-
 BEGIN;
 
+-- OrganizationRequests -> Users (Revisor)
 DO $$
 BEGIN
     IF NOT EXISTS (
@@ -18,8 +17,6 @@ BEGIN
 END $$;
 
 -- Users -> Organizations
--- No se permite eliminar una organización mientras
--- existan usuarios asociados a ella.
 DO $$
 BEGIN
     IF NOT EXISTS (
@@ -35,9 +32,7 @@ BEGIN
     END IF;
 END $$;
 
-
 -- Users -> Faculties
--- Si se elimina la facultad, faculty_id queda en NULL.
 DO $$
 BEGIN
     IF NOT EXISTS (
@@ -53,9 +48,7 @@ BEGIN
     END IF;
 END $$;
 
-
 -- Users -> Programs
--- Si se elimina el programa, program_id queda en NULL.
 DO $$
 BEGIN
     IF NOT EXISTS (
@@ -70,6 +63,5 @@ BEGIN
             ON DELETE SET NULL;
     END IF;
 END $$;
-
 
 COMMIT;

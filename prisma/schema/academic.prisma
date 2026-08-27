@@ -7,7 +7,9 @@ model Faculty {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
+  // Relaciones
   programs Program[]
+  users    User[] // Necesario para la FK faculty_id en User
 
   @@map("faculties")
 }
@@ -23,8 +25,10 @@ model Program {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
+  // Relaciones
   faculty         Faculty         @relation(fields: [facultyId], references: [id], onDelete: Restrict)
   voterRegistries VoterRegistry[]
+  users           User[]          // Necesario para la FK program_id en User
 
   @@unique([facultyId, name], name: "uq_programs_faculty_name")
   @@map("programs")
@@ -42,6 +46,7 @@ model AcademicPeriod {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
+  // Relaciones
   voterRegistries VoterRegistry[]
 
   @@map("academic_periods")
@@ -61,6 +66,7 @@ model VoterRegistry {
   createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt         DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
+  // Relaciones
   user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   program        Program        @relation(fields: [programId], references: [id], onDelete: Restrict)
   academicPeriod AcademicPeriod @relation(fields: [periodId], references: [id], onDelete: Restrict)

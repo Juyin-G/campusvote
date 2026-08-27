@@ -21,12 +21,11 @@ const maxVotesPerPosition = z.coerce
   .min(1, 'Debe permitirse al menos 1 voto por cargo')
   .max(32767, 'Excede el máximo permitido de SMALLINT');
 
-/** Todos los campos son opcionales: la BD ya define valores por defecto. */
 const rulesBody = {
   min_turnout_percentage: turnoutPercentage.optional(),
   allow_blank_vote: z.boolean().optional(),
   allow_null_vote: z.boolean().optional(),
-  max_votes_per_position: maxVotesPerPosition.optional(), // ⚠️ CORRECCIÓN
+  max_votes_per_position: maxVotesPerPosition.optional(), 
   requires_2fa: z.boolean().optional(),
 };
 

@@ -1,11 +1,11 @@
-//  src/modules/organizations/organization.controller.js
+// src/modules/organizations/organization.controller.js
 
-import organizationService from './organization.service.js';
-import asyncHandler from '../../shared/utils/asyncHandler.js';
-import { sendSuccess, sendPaginated } from '../../shared/utils/apiResponse.js';
-import { HTTP_STATUS } from '../../constants/httpStatus.js';
-import MESSAGES from '../../constants/messages.js';
-import logger from '../../config/logger.js';
+import organizationService from './organization.service.js'; 
+import asyncHandler from '../../../shared/utils/asyncHandler.js';
+import { sendSuccess, sendPaginated } from '../../../shared/utils/apiResponse.js';
+import { HTTP_STATUS } from '../../../constants/httpStatus.js';
+import MESSAGES from '../../../constants/messages.js';
+import logger from '../../../config/logger.js'; 
 
 export const getOrganizations = asyncHandler(async (req, res) => {
   const { organizations, pagination } = await organizationService.listOrganizations(req.query);
@@ -64,7 +64,7 @@ export const deleteOrganization = asyncHandler(async (req, res) => {
 
   return sendSuccess(
     res,
-    null,
+    { deleted: true }, // Mejor retornar un objeto que null para consistencia
     MESSAGES.ORGANIZATION?.DELETED_SUCCESS || 'Organización eliminada exitosamente',
     { requestId: req.requestId },
     HTTP_STATUS.OK
@@ -72,7 +72,10 @@ export const deleteOrganization = asyncHandler(async (req, res) => {
 });
 
 export const updateOnboarding = asyncHandler(async (req, res) => {
-  const organization = await organizationService.updateOrganization(req.params.id, req.body);
+
+  // Validar que la organización exista y que el onboarding no esté completado
+
+  const organization = await organizationService.updateOnboarding(req.params.id, req.body);
 
   return sendSuccess(
     res,

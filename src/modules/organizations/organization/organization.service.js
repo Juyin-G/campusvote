@@ -1,16 +1,16 @@
-import orgRepository from './organization.repository.js';
-import { ApiError } from '../../shared/errors/index.js';
+// src/modules/organizations/organization/organization.service.js
 
-/**
- * Listar organizaciones paginadas usando el repositorio
- */
+import orgRepository from './organization.repository.js';
+import { ApiError } from '../../../shared/errors/index.js';
+
+
 export const listOrganizations = async (query = {}) => {
   const page = Math.max(1, parseInt(query.page) || 1);
   const limit = Math.max(1, Math.min(100, parseInt(query.limit) || 10));
   const skip = (page - 1) * limit;
 
   const filters = {
-    is_active: query.is_active,
+    isActive: query.is_active === 'true' ? true : query.is_active === 'false' ? false : undefined,
     search: query.search,
     skip,
     take: limit,
@@ -59,10 +59,10 @@ export const createOrganization = async (data = {}) => {
   return orgRepository.createOrg({
     name: data.name.trim(),
     code: normalizedCode,
-    org_type: data.org_type ?? 'UNIVERSITY',
+    orgType: data.org_type ?? 'UNIVERSITY',
     logo: data.logo || null,
-    primary_color: data.primary_color || '#0066CC',
-    secondary_color: data.secondary_color || '#FFD700',
+    primaryColor: data.primary_color || '#0066CC',
+    secondaryColor: data.secondary_color || '#FFD700',
     country: data.country?.trim() || 'Perú',
     timezone: data.timezone?.trim() || 'America/Lima',
   });
@@ -92,17 +92,17 @@ export const updateOrganization = async (id, data = {}) => {
     updateData.code = normalizedCode;
   }
 
-  if (data.org_type !== undefined) updateData.org_type = data.org_type;
+  if (data.org_type !== undefined) updateData.orgType = data.org_type;
   if (data.logo !== undefined) updateData.logo = data.logo || null;
-  if (data.primary_color !== undefined) updateData.primary_color = data.primary_color;
-  if (data.secondary_color !== undefined) updateData.secondary_color = data.secondary_color;
+  if (data.primary_color !== undefined) updateData.primaryColor = data.primary_color;
+  if (data.secondary_color !== undefined) updateData.secondaryColor = data.secondary_color;
   if (data.country !== undefined) updateData.country = data.country.trim();
   if (data.timezone !== undefined) updateData.timezone = data.timezone.trim();
-  if (data.is_active !== undefined) updateData.is_active = data.is_active;
+  if (data.is_active !== undefined) updateData.isActive = data.is_active;
 
   if (data.onboarding_completed !== undefined) {
-    updateData.onboarding_completed = data.onboarding_completed;
-    updateData.onboarding_completed_at = data.onboarding_completed ? new Date() : null;
+    updateData.onboardingCompleted = data.onboarding_completed;
+    updateData.onboardingCompletedAt = data.onboarding_completed ? new Date() : null;
   }
 
   if (Object.keys(updateData).length === 0) {
@@ -137,8 +137,8 @@ export const updateOnboarding = async (organizationId, data = {}) => {
 
   if (data.name !== undefined) updateData.name = data.name.trim();
   if (data.logo !== undefined) updateData.logo = data.logo || null;
-  if (data.primary_color !== undefined) updateData.primary_color = data.primary_color;
-  if (data.secondary_color !== undefined) updateData.secondary_color = data.secondary_color;
+  if (data.primary_color !== undefined) updateData.primaryColor = data.primary_color;
+  if (data.secondary_color !== undefined) updateData.secondaryColor = data.secondary_color;
   if (data.country !== undefined) updateData.country = data.country.trim();
   if (data.timezone !== undefined) updateData.timezone = data.timezone.trim();
 
@@ -158,7 +158,7 @@ export const completeOnboarding = async (organizationId) => {
     throw ApiError.notFound('Organización no encontrada');
   }
 
-  if (existingOrg.onboarding_completed) {
+  if (existingOrg.onboardingCompleted) { 
     throw ApiError.badRequest('El onboarding de esta organización ya fue completado');
   }
 

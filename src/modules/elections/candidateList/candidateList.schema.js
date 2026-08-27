@@ -17,7 +17,7 @@ export const listCandidateListSchema = z.object({
   }),
 });
 
-// ⚠️ ESTA ES LA EXPORTACIÓN QUE ESTABA FALLANDO ⚠️
+// ESTA ES LA EXPORTACIÓN QUE ESTABA FALLANDO 
 export const candidateListParamsSchema = z.object({
   params: z.object({
     electionId: uuid('ID de elección'),

@@ -1,3 +1,5 @@
+// ENUMS
+
 enum NotificationType {
   ELECTION_OPENING
   VOTE_CONFIRMATION
@@ -24,24 +26,25 @@ enum DeliveryStatus {
   @@map("delivery_status")
 }
 
+// MODELOS
+
 model Notification {
   id        String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   userId    String           @map("user_id") @db.Uuid
   type      NotificationType @map("type")
   title     String           @db.VarChar(150)
   message   String           @db.Text
-  metadata  Json             @default("{}") @map("metadata") // Prisma mapea esto a JSONB en Postgres
+  metadata  Json             @default("{}") @map("metadata") @db.Jsonb
   readAt    DateTime?        @map("read_at") @db.Timestamptz
   createdAt DateTime         @default(now()) @map("created_at") @db.Timestamptz
 
   // Relaciones
-  user       User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user       User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
   deliveries NotificationDelivery[]
 
-  // Índices básicos (Los índices parciales y GIN los maneja tu script SQL)
+  // Índices
   @@index([userId, createdAt(sort: Desc)], map: "idx_notifications_user_inbox")
-  @@index([metadata], map: "idx_notifications_metadata") 
-  
+  @@index([metadata], map: "idx_notifications_metadata")
   @@map("notifications")
 }
 
@@ -57,13 +60,10 @@ model NotificationDelivery {
   createdAt      DateTime        @default(now()) @map("created_at") @db.Timestamptz
 
   // Relaciones
-  notification   Notification    @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  notification Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
 
   // Constraints e Índices
   @@unique([notificationId, channel], map: "uq_notification_channel")
-  
-  // Índice para el worker de cola (El WHERE status = 'PENDING' lo aplica tu SQL)
-  @@index([nextAttemptAt, createdAt], map: "idx_deliveries_pending") 
-
+  @@index([nextAttemptAt, createdAt], map: "idx_deliveries_pending")
   @@map("notification_deliveries")
 }

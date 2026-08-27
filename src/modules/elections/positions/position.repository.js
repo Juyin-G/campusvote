@@ -4,7 +4,7 @@
 import { prisma } from '../../../database/prisma.js';
 
 /**
- * ⚠️ IMPORTANTE: Prisma Client usa los nombres de campo en camelCase (definidos en el modelo),
+ * IMPORTANTE: Prisma Client usa los nombres de campo en camelCase (definidos en el modelo),
  * NO los nombres mapeados a la BD con @map (snake_case).
  * El modelo se llama 'position' (singular).
  */

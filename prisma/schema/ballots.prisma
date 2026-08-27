@@ -6,16 +6,18 @@ enum BallotOptionType {
   @@map("ballot_option_type")
 }
 
-model Ballots {
+model Ballot {
   id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   electionId  String   @map("election_id") @db.Uuid
   version     Int      @default(1)
   isActive    Boolean  @default(true) @map("is_active")
   generatedAt DateTime @default(now()) @map("generated_at") @db.Timestamptz
   createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt   DateTime @default(now()) @map("updated_at") @db.Timestamptz
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
-  ballotPositions BallotPositions[]
+  // Relaciones
+  election        Election         @relation(fields: [electionId], references: [id], onDelete: Cascade)
+  ballotPositions BallotPosition[]
 
   @@unique([electionId, version], map: "uq_ballots_election_version")
   @@unique([id, electionId], map: "uq_ballots_id_election")
@@ -23,17 +25,19 @@ model Ballots {
   @@map("ballots")
 }
 
-model BallotPositions {
+model BallotPosition {
   id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   ballotId   String   @map("ballot_id") @db.Uuid
   positionId String   @map("position_id") @db.Uuid
   electionId String   @map("election_id") @db.Uuid
   orderIndex Int      @map("order_index") @db.SmallInt
   createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt  DateTime @default(now()) @map("updated_at") @db.Timestamptz
+  updatedAt  DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
-  ballot        Ballots         @relation(fields: [ballotId, electionId], references: [id, electionId], onDelete: Cascade, onUpdate: NoAction, map: "fk_ballot_positions_ballot_election")
-  ballotOptions BallotOptions[]
+  // Relaciones
+  ballot        Ballot         @relation(fields: [ballotId, electionId], references: [id, electionId], onDelete: Cascade, onUpdate: NoAction, map: "fk_ballot_positions_ballot_election")
+  position      Position       @relation(fields: [positionId], references: [id], onDelete: Restrict)
+  ballotOptions BallotOption[]
 
   @@unique([ballotId, positionId], map: "uq_ballot_positions_ballot_position")
   @@unique([ballotId, orderIndex], map: "uq_ballot_positions_ballot_order")
@@ -42,18 +46,19 @@ model BallotPositions {
   @@map("ballot_positions")
 }
 
-model BallotOptions {
-  id              String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+model BallotOption {
+  id               String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   ballotPositionId String           @map("ballot_position_id") @db.Uuid
-  electionId      String           @map("election_id") @db.Uuid
-  optionType      BallotOptionType @default(CANDIDATE_LIST) @map("option_type")
-  candidateListId String?          @map("candidate_list_id") @db.Uuid
-  label           String           @db.VarChar(120)
-  orderIndex      Int              @map("order_index") @db.SmallInt
-  createdAt       DateTime         @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt       DateTime         @default(now()) @map("updated_at") @db.Timestamptz
+  electionId       String           @map("election_id") @db.Uuid
+  optionType       BallotOptionType @default(CANDIDATE_LIST) @map("option_type")
+  candidateListId  String?          @map("candidate_list_id") @db.Uuid
+  label            String           @db.VarChar(120)
+  orderIndex       Int              @map("order_index") @db.SmallInt
+  createdAt        DateTime         @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
-  ballotPosition BallotPositions @relation(fields: [ballotPositionId, electionId], references: [id, electionId], onDelete: Cascade, onUpdate: NoAction, map: "fk_ballot_options_position_election")
+  // Relaciones
+  ballotPosition BallotPosition @relation(fields: [ballotPositionId, electionId], references: [id, electionId], onDelete: Cascade, onUpdate: NoAction, map: "fk_ballot_options_position_election")
 
   @@unique([ballotPositionId, candidateListId], map: "uq_ballot_options_position_candidate")
   @@unique([ballotPositionId, orderIndex], map: "uq_ballot_options_position_order")

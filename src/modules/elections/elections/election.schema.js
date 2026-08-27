@@ -94,7 +94,7 @@ export const createElectionSchema = z.object({
       title: nonEmptyText(255, 'El título'),
       description: z.string().max(5000).optional().default(''),
       process_type: z.enum(PROCESS_TYPES).optional().default('VOTE'),
-      scope_type: z.enum(SCOPE_TYPES), // ⚠️ CORRECCIÓN
+      scope_type: z.enum(SCOPE_TYPES), 
       period_id: uuid('period_id'),
       faculty_id: uuid('faculty_id').nullable().optional(),
       program_id: uuid('program_id').nullable().optional(),
@@ -117,7 +117,7 @@ export const updateElectionSchema = z.object({
       title: nonEmptyText(255, 'El título').optional(),
       description: z.string().max(5000).optional(),
       process_type: z.enum(PROCESS_TYPES).optional(),
-      scope_type: z.enum(SCOPE_TYPES).optional(), // ⚠️ CORRECCIÓN
+      scope_type: z.enum(SCOPE_TYPES).optional(), 
       period_id: uuid('period_id').optional(),
       faculty_id: uuid('faculty_id').nullable().optional(),
       program_id: uuid('program_id').nullable().optional(),
@@ -133,7 +133,7 @@ export const updateElectionSchema = z.object({
     .superRefine((data, ctx) => {
       if (data.scope_type) applyScopeRules(data, ctx);
       applyDateRules(data, ctx);
-      applyFormStructureRules(data, ctx); // ⚠️ NUEVO
+      applyFormStructureRules(data, ctx); 
     }),
 });
 

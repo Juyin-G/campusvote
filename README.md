@@ -1,6 +1,6 @@
 # Sistema Electoral API
 
-## ⚠️ Security Notice
+## Security Notice
 
 **IMPORTANT**: This application has been updated with enhanced database security measures. Please read the [Database Security Configuration](SECURITY-DATABASE.md) document before deploying.
 

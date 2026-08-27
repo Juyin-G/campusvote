@@ -2,13 +2,13 @@ model PlatformTranslation {
   id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   translationKey String   @unique @map("translation_key") @db.VarChar(150)
   category       String   @default("general") @map("category") @db.VarChar(50)
-  values         Json     @map("values") // Prisma usa esto para JSONB en Postgres
+  values         Json     @map("values") @db.Jsonb
   createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz
+  updatedAt      DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
   // Índices
   @@index([category], map: "idx_translations_category")
-  
+
   // Nombre de la tabla en la BD
   @@map("platform_translations")
 }

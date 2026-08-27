@@ -55,7 +55,7 @@ const requireDraftElection = async (electionId) => {
 const requireListInElection = async (electionId, listId) => {
   const list = await candidateListRepository.findCandidateListById(listId);
 
-  // ⚠️ CORRECCIÓN: Prisma devuelve 'electionId' (camelCase), no 'election_id'
+  // CORRECCIÓN: Prisma devuelve 'electionId' (camelCase), no 'election_id'
   if (!list || list.electionId !== electionId) {
     throw ApiError.notFound('La lista solicitada no existe en esta elección');
   }
@@ -78,8 +78,7 @@ export const getCandidateListById = async (electionId, listId) => {
 
 export const createCandidateList = async (electionId, body = {}) => {
   await requireDraftElection(electionId);
-
-  // ⚠️ CORRECCIÓN: Usar camelCase para que Prisma lo entienda
+  
   const data = {
     electionId: electionId, 
     name: asText(body.name),
@@ -122,7 +121,6 @@ export const deleteCandidateList = async (electionId, listId) => {
   await requireDraftElection(electionId);
   await requireListInElection(electionId, listId);
 
-  // ¡Excelente medida de seguridad! Evita el borrado en cascada accidental de candidaturas.
   const candidaturas = await candidateListRepository.countCandidaciesByList(listId);
 
   if (candidaturas > 0) {

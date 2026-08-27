@@ -5,7 +5,7 @@ import authRoutes from '../modules/auth/routes/auth.routes.js';
 import otpRoutes from '../modules/auth/routes/otp.routes.js';
 import userRoutes from '../modules/users/user.routes.js';
 import healthRoutes from '../modules/health/health.routes.js';
-import organizationRoutes from '../modules/organizations/organization.routes.js';
+import organizationRoutes from '../modules/organizations/organization/organization.routes.js';
 import academicRoutes from '../modules/academic/academic.routes.js';
 import electionRoutes from '../modules/elections/elections/election.routes.js';
 import ballotRoutes from '../modules/ballots/ballot.routes.js';
@@ -13,7 +13,6 @@ import resultsRoutes from '../modules/results/results.routes.js';
 import auditRoutes from '../modules/audit/audit.routes.js';
 import platformTranslationRoutes from '../modules/PlatformTranslation/PlatformTranslation.routes.js';
 
-// ⚠️ NUEVO: Importar rutas de notificaciones
 import notificationRoutes from '../modules/notification/notification.routes.js';
 
 const router = Router();

@@ -15,7 +15,6 @@ const ALLOWED_TRANSITIONS = Object.freeze({
   PUBLISHED: [],
 });
 
-// ⚠️ CORRECCIÓN: Alineado con el trigger de la BD y los módulos de listas/candidaturas
 const EDITABLE_STATUSES = ['DRAFT', 'SCHEDULED'];
 
 const asText = (value) => (typeof value === 'string' ? value.trim() : '');
@@ -95,7 +94,7 @@ const buildUpdateData = (body = {}) => {
   if (body.title !== undefined) data.title = asText(body.title);
   if (body.description !== undefined) data.description = asText(body.description);
   if (body.process_type !== undefined) data.processType = body.process_type;
-  if (body.scope_type !== undefined) data.scopeType = body.scope_type; // ⚠️ CORRECCIÓN
+  if (body.scope_type !== undefined) data.scopeType = body.scope_type; 
   if (body.period_id !== undefined) data.periodId = body.period_id;
   if (body.faculty_id !== undefined) data.facultyId = body.faculty_id ?? null;
   if (body.program_id !== undefined) data.programId = body.program_id ?? null;
@@ -158,7 +157,7 @@ const assertTransitionRules = async (election, target) => {
     throw ApiError.badRequest('No se puede programar una elección que no tiene cargos definidos');
   }
 
-  if (new Date(election.endAt) <= new Date()) { // ⚠️ CORRECCIÓN: camelCase
+  if (new Date(election.endAt) <= new Date()) { 
     throw ApiError.badRequest(MESSAGES.ELECTION.INVALID_DATES || 'La fecha de fin ya pasó');
   }
 };

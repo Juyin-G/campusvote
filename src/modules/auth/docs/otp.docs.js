@@ -265,7 +265,7 @@ export const otpDocs = {
           backupCodes: {
             type: 'array',
             items: { type: 'string' },
-            description: '⚠️ CÓDIGOS DE RESPALDO DEFINITIVOS - Guárdalos en un lugar seguro',
+            description: 'CÓDIGOS DE RESPALDO DEFINITIVOS - Guárdalos en un lugar seguro',
             example: ['a1b2c3d4', 'e5f6g7h8', 'i9j0k1l2', 'm3n4o5p6'],
           },
         },

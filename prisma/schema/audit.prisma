@@ -1,4 +1,4 @@
-enum audit_action_type {
+enum AuditActionType {
   LOGIN
   VERIFY_2FA
   CREATE_ELECTION
@@ -7,42 +7,48 @@ enum audit_action_type {
   CLOSE_ELECTION
   CERTIFY_RESULT
   PUBLISH_RESULT
+
+  @@map("audit_action_type")
 }
 
-model audit_logs {
-  id            String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  sequence_num  BigInt            @unique @default(autoincrement())
-  actor_id      String?           @db.Uuid
-  election_id   String?           @db.Uuid
-  action        audit_action_type
-  timestamp     DateTime          @default(now()) @db.Timestamptz(6)
-  ip_address    String?           @db.Inet
-  metadata      Json              @default("{}")
-  previous_hash String            @default("") @db.VarChar(64)
-  current_hash  String            @default("") @db.VarChar(64)
-  signature     String            @default("")
+model AuditLog {
+  id           String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sequenceNum  BigInt          @unique @default(autoincrement()) @map("sequence_num")
+  actorId      String?         @map("actor_id") @db.Uuid
+  electionId   String?         @map("election_id") @db.Uuid
+  action       AuditActionType
+  timestamp    DateTime        @default(now()) @db.Timestamptz(6)
+  ipAddress    String?         @map("ip_address") @db.Inet
+  metadata     Json            @default("{}")
+  previousHash String          @default("") @map("previous_hash") @db.VarChar(64)
+  currentHash  String          @default("") @map("current_hash") @db.VarChar(64)
+  signature    String          @default("")
 
-  user          User?             @relation(fields: [actor_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
-  elections     elections?        @relation(fields: [election_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  // Relaciones
+  user     User?     @relation(fields: [actorId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  election Election? @relation(fields: [electionId], references: [id], onDelete: SetNull, onUpdate: NoAction)
 
   @@index([action, timestamp(sort: Desc)], map: "idx_audit_logs_action_timestamp")
-  @@index([election_id, timestamp(sort: Desc)], map: "idx_audit_logs_election_timestamp")
-  @@index([actor_id, timestamp(sort: Desc)], map: "idx_audit_logs_actor_timestamp")
+  @@index([electionId, timestamp(sort: Desc)], map: "idx_audit_logs_election_timestamp")
+  @@index([actorId, timestamp(sort: Desc)], map: "idx_audit_logs_actor_timestamp")
   @@index([timestamp(sort: Desc)], map: "idx_audit_logs_timestamp_desc")
+  @@map("audit_logs")
 }
 
-model voting_access_tokens {
-  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  token_hash  String    @unique @db.VarChar(64)
-  user_id     String    @db.Uuid
-  election_id String    @db.Uuid
-  created_at  DateTime  @default(now()) @db.Timestamptz(6)
-  expires_at  DateTime  @db.Timestamptz(6)
-  used_at     DateTime? @db.Timestamptz(6)
+model VotingAccessToken {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tokenHash  String    @unique @map("token_hash") @db.VarChar(64)
+  userId     String    @map("user_id") @db.Uuid
+  electionId String    @map("election_id") @db.Uuid
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  expiresAt  DateTime  @map("expires_at") @db.Timestamptz(6)
+  usedAt     DateTime? @map("used_at") @db.Timestamptz(6)
 
-  user        User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  election    elections @relation(fields: [election_id], references: [id], onDelete: Cascade)
+  // Relaciones
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  election Election @relation(fields: [electionId], references: [id], onDelete: Cascade)
 
-  @@index([user_id, election_id], map: "idx_vat_user_election")
-  @@index([election_id], map: "idx_vat_election")
+  @@index([userId, electionId], map: "idx_vat_user_election")
+  @@index([electionId], map: "idx_vat_election")
+  @@map("voting_access_tokens")
 }

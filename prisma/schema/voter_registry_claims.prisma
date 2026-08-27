@@ -1,4 +1,4 @@
-// --- ENUMS ---
+// ENUMS
 
 enum VoterClaimType {
   MISSING_FROM_REGISTRY
@@ -16,7 +16,7 @@ enum VoterClaimStatus {
   @@map("voter_claim_status")
 }
 
-// --- MODEL ---
+// MODELOS
 
 model VoterRegistryClaim {
   id                    String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
@@ -26,16 +26,22 @@ model VoterRegistryClaim {
   description           String           @db.Text
   supportingDocumentUrl String?          @map("supporting_document_url") @db.Text
   status                VoterClaimStatus @default(PENDING)
+
+  // Auditoría y Revisión
   reviewedBy            String?          @map("reviewed_by") @db.Uuid
   reviewedAt            DateTime?        @map("reviewed_at") @db.Timestamptz
   resolutionNotes       String?          @map("resolution_notes") @db.Text
+
   createdAt             DateTime         @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt             DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
-  // Relaciones (Asegúrate de tener definidas las relaciones inversas en los modelos User y AcademicPeriod)
-  user             User           @relation("UserClaims", fields: [userId], references: [id], onDelete: Cascade)
-  academicPeriod   AcademicPeriod @relation(fields: [periodId], references: [id], onDelete: Restrict)
-  reviewer         User?          @relation("ReviewerClaims", fields: [reviewedBy], references: [id], onDelete: SetNull)
+  // Relaciones
+  user                  User             @relation("UserClaims", fields: [userId], references: [id], onDelete: Cascade)
+  academicPeriod        AcademicPeriod   @relation(fields: [periodId], references: [id], onDelete: Restrict)
+  reviewer              User?            @relation("ReviewerClaims", fields: [reviewedBy], references: [id], onDelete: SetNull)
 
+  // Índices
   @@index([periodId, status], map: "idx_voter_claims_period_status")
+  @@index([userId], map: "idx_voter_claims_user")
   @@map("voter_registry_claims")
 }

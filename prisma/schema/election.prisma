@@ -1,6 +1,4 @@
-// ------------------------------------------------------
 // ENUMS
-// ------------------------------------------------------
 
 enum ElectionProcessType {
   VOTE
@@ -10,6 +8,7 @@ enum ElectionProcessType {
 
   @@map("election_process_type")
 }
+
 enum CandidacyStatusType {
   PENDING
   APPROVED
@@ -46,66 +45,40 @@ enum CandidacyDocumentType {
   @@map("candidacy_document_type")
 }
 
-// ------------------------------------------------------
-// MODELS
-// ------------------------------------------------------
-
-model AcademicPeriod {
-  id        String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  elections Election[]
-
-  @@map("academic_periods")
-}
-
-model Faculty {
-  id        String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  elections Election[]
-
-  @@map("faculties")
-}
-
-model Program {
-  id        String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  elections Election[]
-
-  @@map("programs")
-}
-
-model User {
-  id          String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  elections   Election[]  @relation("CreatedElections")
-  candidacies Candidacy[]
-
-  @@map("users")
-}
+// MODELOS
 
 model Election {
-  id                 String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  title              String             @db.VarChar(255)
-  description        String             @default("") @db.Text
+  id                 String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title              String              @db.VarChar(255)
+  description        String              @default("") @db.Text
   processType        ElectionProcessType @default(VOTE) @map("process_type")
-  scopeType          ElectionScopeType  @map("scope_type")
-  periodId           String             @map("period_id") @db.Uuid
-  facultyId          String?            @map("faculty_id") @db.Uuid
-  programId          String?            @map("program_id") @db.Uuid
-  startAt            DateTime           @map("start_at") @db.Timestamptz
-  endAt              DateTime           @map("end_at") @db.Timestamptz
-  status             ElectionStatusType @default(DRAFT)
-  createdBy          String             @map("created_by") @db.Uuid
-  createdAt          DateTime           @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt          DateTime           @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
-  formStructure      Json?              @map("form_structure")
-  isAnonymousAllowed Boolean            @default(false) @map("is_anonymous_allowed")
+  scopeType          ElectionScopeType   @map("scope_type")
+  periodId           String              @map("period_id") @db.Uuid
+  facultyId          String?             @map("faculty_id") @db.Uuid
+  programId          String?             @map("program_id") @db.Uuid
+  startAt            DateTime            @map("start_at") @db.Timestamptz
+  endAt              DateTime            @map("end_at") @db.Timestamptz
+  status             ElectionStatusType  @default(DRAFT)
+  createdBy          String              @map("created_by") @db.Uuid
+  createdAt          DateTime            @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt          DateTime            @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  formStructure      Json?               @map("form_structure")
+  isAnonymousAllowed Boolean             @default(false) @map("is_anonymous_allowed")
 
-  // Relaciones
-  period         AcademicPeriod  @relation(fields: [periodId], references: [id], onDelete: Restrict)
-  faculty        Faculty?        @relation(fields: [facultyId], references: [id], onDelete: Restrict)
-  program        Program?        @relation(fields: [programId], references: [id], onDelete: Restrict)
-  creator        User            @relation("CreatedElections", fields: [createdBy], references: [id], onDelete: Restrict)
-  positions      Position[]
-  candidateLists CandidateList[]
-  candidacies    Candidacy[]
-  electionRule   ElectionRule?
+  // Relaciones internas
+  period             AcademicPeriod      @relation(fields: [periodId], references: [id], onDelete: Restrict)
+  faculty            Faculty?            @relation(fields: [facultyId], references: [id], onDelete: Restrict)
+  program            Program?            @relation(fields: [programId], references: [id], onDelete: Restrict)
+  creator            User                @relation("CreatedElections", fields: [createdBy], references: [id], onDelete: Restrict)
+  positions          Position[]
+  candidateLists     CandidateList[]
+  candidacies        Candidacy[]
+  electionRule       ElectionRule?
+
+  // Relaciones con otros módulos (audit, voting, ballots)
+  ballots            Ballot[]
+  auditLogs          AuditLog[]
+  votingAccessTokens VotingAccessToken[]
 
   @@index([status], map: "idx_elections_status")
   @@index([periodId], map: "idx_elections_period")
@@ -126,8 +99,9 @@ model Position {
   updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
   // Relaciones
-  election    Election    @relation(fields: [electionId], references: [id], onDelete: Cascade)
-  candidacies Candidacy[]
+  election        Election         @relation(fields: [electionId], references: [id], onDelete: Cascade)
+  candidacies     Candidacy[]
+  ballotPositions BallotPosition[]
 
   @@unique([electionId, name], map: "uq_positions_election_name")
   @@unique([id, electionId], map: "uq_positions_id_election")
@@ -157,16 +131,16 @@ model CandidateList {
 }
 
 model Candidacy {
-  id              String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  electionId      String                @map("election_id") @db.Uuid
-  candidateListId String                @map("candidate_list_id") @db.Uuid
-  positionId      String?               @map("position_id") @db.Uuid
-  userId          String                @map("user_id") @db.Uuid
-  status          CandidacyStatusType   @default(PENDING) @map("status") // <-- CAMPO AGREGADO
-  orderIndex      Int                   @default(1) @map("order_index") @db.SmallInt
-  isPrincipal     Boolean               @default(true) @map("is_principal")
-  createdAt       DateTime              @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt       DateTime              @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  id              String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  electionId      String              @map("election_id") @db.Uuid
+  candidateListId String              @map("candidate_list_id") @db.Uuid
+  positionId      String?             @map("position_id") @db.Uuid
+  userId          String              @map("user_id") @db.Uuid
+  status          CandidacyStatusType @default(PENDING) @map("status")
+  orderIndex      Int                 @default(1) @map("order_index") @db.SmallInt
+  isPrincipal     Boolean             @default(true) @map("is_principal")
+  createdAt       DateTime            @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime            @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
   // Relaciones
   election      Election            @relation(fields: [electionId], references: [id], onDelete: Cascade)
@@ -209,7 +183,6 @@ model CandidacyDocument {
   fileSizeBytes BigInt                @map("file_size_bytes")
   mimeType      String                @map("mime_type") @db.VarChar(100)
   uploadedAt    DateTime              @default(now()) @map("uploaded_at") @db.Timestamptz
-
 
   // Relaciones
   candidacy Candidacy @relation(fields: [candidacyId], references: [id], onDelete: Cascade)

@@ -33,7 +33,7 @@ CREATE TABLE IF NOT EXISTS users (
     role user_role NOT NULL DEFAULT 'STUDENT',
     is_verified BOOLEAN NOT NULL DEFAULT FALSE,
 
-    -- Tenant y Contexto Académico General (Desacoplados: FKs gestionadas en 999_foreign_keys.sql)
+    -- Tenant y Contexto Académico General (FKs gestionadas en 999_foreign_keys.sql)
     organization_id UUID NULL,
     faculty_id UUID NULL,
     program_id UUID NULL,
@@ -70,7 +70,7 @@ CREATE TABLE IF NOT EXISTS users (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     -- Auditoría de Sesión Última
-    last_login_ip VARCHAR(45) NULL, -- Compatible con IPv4 e IPv6
+    last_login_ip VARCHAR(45) NULL,
     last_login_user_agent TEXT NULL,
 
     -- CHECKS DE VALIDACIÓN Y REGLAS DE NEGOCIO

@@ -1,15 +1,10 @@
-/**
- * Organization Request Controller
- * Capa HTTP: recibe request, delega a request.service, responde JSON.
- *
- * Alcance: registro y consulta de solicitudes de organización.
- * La aprobación/rechazo vive en approval.service.js (tarea aparte).
- */
+// src/modules/organizations/organization-request/request.controller.js
+
 import * as requestService from './request.service.js';
-import asyncHandler from '../../shared/utils/asyncHandler.js';
-import { sendSuccess, sendPaginated } from '../../shared/utils/apiResponse.js';
-import { HTTP_STATUS } from '../../constants/httpStatus.js';
-import MESSAGES from '../../constants/messages.js';
+import asyncHandler from '../../../shared/utils/asyncHandler.js';
+import { sendSuccess, sendPaginated } from '../../../shared/utils/apiResponse.js';
+import { HTTP_STATUS } from '../../../constants/httpStatus.js';
+import MESSAGES from '../../../constants/messages.js';
 
 /**
  * Registrar una nueva solicitud de organización

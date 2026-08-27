@@ -1,16 +1,18 @@
-import { ApiError } from '../../shared/errors/ApiError.js';
-import * as orgRepository from './organization.repository.js';
+// src/modules/organizations/organization-request/approval.service.js
 
-// Validacion basica de UUID (defensa antes de llegar a la BD)
+import { ApiError } from '../../../shared/errors/ApiError.js';
+import * as orgRepository from '../organization/organization.repository.js'; 
+
+// import * as requestRepository from './request.repository.js'; // Ajusta la ruta si es necesario
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const assertUuid = (id) => {
   if (!UUID_REGEX.test(id)) {
-    throw ApiError.badRequest('El ID debe ser un UUID valido');
+    throw ApiError.badRequest('El ID debe ser un UUID válido');
   }
 };
 
-// Carga la solicitud y valida que este en estado PENDING (rechaza procesadas)
+// Carga la solicitud y valida que esté en estado PENDING (rechaza procesadas)
 const assertPending = async (requestId) => {
   const request = await orgRepository.findRequestById(requestId);
   if (!request) {
@@ -24,7 +26,7 @@ const assertPending = async (requestId) => {
   return request;
 };
 
-// Aprueba una solicitud delegando en la funcion SQL nativa (bloqueo pesimista)
+// Aprueba una solicitud delegando en la función SQL nativa (bloqueo pesimista)
 export const approveRequest = async (requestId, reviewerId) => {
   assertUuid(requestId);
   await assertPending(requestId);
@@ -35,7 +37,7 @@ export const approveRequest = async (requestId, reviewerId) => {
   );
 
   if (!newOrg) {
-    throw ApiError.conflict('La solicitud no genero una organizacion (posible condicion de carrera)');
+    throw ApiError.conflict('La solicitud no generó una organización (posible condición de carrera o error en la función SQL)');
   }
 
   return newOrg;
