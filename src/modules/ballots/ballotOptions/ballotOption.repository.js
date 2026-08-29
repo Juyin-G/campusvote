@@ -4,55 +4,55 @@ import { prisma } from '../../../database/prisma.js';
 
 const BALLOT_OPTION_SELECT = {
   id: true,
-  ballot_position_id: true,
-  election_id: true,
-  option_type: true,
-  candidate_list_id: true,
+  ballotPositionId: true,
+  electionId: true,
+  optionType: true,
+  candidateListId: true,
   label: true,
-  order_index: true,
-  created_at: true,
-  updated_at: true,
+  orderIndex: true,
+  createdAt: true,
+  updatedAt: true,
 };
 
 export const findBallotOptionById = (id) =>
-  prisma.ballot_options.findUnique({
+  prisma.ballotOption.findUnique({
     where: { id },
     select: BALLOT_OPTION_SELECT,
   });
 
 export const findBallotOptionsByPosition = (ballotPositionId) =>
-  prisma.ballot_options.findMany({
+  prisma.ballotOption.findMany({
     where: {
-      ballot_position_id: ballotPositionId,
+      ballotPositionId: ballotPositionId,
     },
     select: BALLOT_OPTION_SELECT,
     orderBy: {
-      order_index: 'asc',
+      orderIndex: 'asc',
     },
   });
 
 export const countBallotOptionsByPosition = (ballotPositionId) =>
-  prisma.ballot_options.count({
+  prisma.ballotOption.count({
     where: {
-      ballot_position_id: ballotPositionId,
+      ballotPositionId: ballotPositionId,
     },
   });
 
 export const createBallotOption = (data) =>
-  prisma.ballot_options.create({
+  prisma.ballotOption.create({
     data,
     select: BALLOT_OPTION_SELECT,
   });
 
 export const updateBallotOption = (id, data) =>
-  prisma.ballot_options.update({
+  prisma.ballotOption.update({
     where: { id },
     data,
     select: BALLOT_OPTION_SELECT,
   });
 
 export const deleteBallotOptionById = (id) =>
-  prisma.ballot_options.delete({
+  prisma.ballotOption.delete({
     where: { id },
     select: {
       id: true,
@@ -67,10 +67,10 @@ export const findByPositionAndCandidateList = (
   ballotPositionId,
   candidateListId,
 ) =>
-  prisma.ballot_options.findFirst({
+  prisma.ballotOption.findFirst({
     where: {
-      ballot_position_id: ballotPositionId,
-      candidate_list_id: candidateListId,
+      ballotPositionId: ballotPositionId,
+      candidateListId: candidateListId,
     },
     select: BALLOT_OPTION_SELECT,
   });
@@ -83,10 +83,10 @@ export const findSpecialOptionByType = (
   ballotPositionId,
   optionType,
 ) =>
-  prisma.ballot_options.findFirst({
+  prisma.ballotOption.findFirst({
     where: {
-      ballot_position_id: ballotPositionId,
-      option_type: optionType,
+      ballotPositionId: ballotPositionId,
+      optionType: optionType,
     },
     select: BALLOT_OPTION_SELECT,
   });

@@ -11,7 +11,7 @@ const userAuthSelect = {
   password: true,
   authProvider: true,
   role: true,
-  isActive: true,
+  status: true,
   isVerified: true,
   isStaff: true,
   isSuperuser: true,
@@ -49,7 +49,7 @@ export const findById = async (id) => {
       username: true,
       authProvider: true,
       role: true,
-      isActive: true,
+      status: true,
       isVerified: true,
       isStaff: true,
       isSuperuser: true,
@@ -108,7 +108,7 @@ export const createUser = async (data) => {
       username: true,
       email: true,
       role: true,
-      isActive: true,
+      status: true,
       dateJoined: true,
     },
   });
@@ -134,7 +134,7 @@ export const registerSuccessfulLogin = async (email, ipAddress = null, userAgent
   await prisma.$executeRaw`
     SELECT register_successful_login(
       ${email}::text::citext, 
-      ${ipAddress}::inet, 
+      ${ipAddress}::text, 
       ${userAgent}::text
     )
   `;
@@ -185,7 +185,7 @@ export const createRefreshToken = async ({ userId, tokenHash, expiresAt, ipAddre
       tokenHash,
       expiresAt,
       ipAddress,
-      userAgent,
+      deviceInfo: userAgent ? { userAgent } : undefined,
     },
   });
 };

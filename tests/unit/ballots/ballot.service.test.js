@@ -112,9 +112,9 @@ describe('Ballot Service — CRUD', () => {
     });
 
     expect(mockCreateBallot).toHaveBeenCalledWith({
-      election_id: ELECTION,
+      electionId: ELECTION,
       version: 1,
-      is_active: true,
+      isActive: true,
     });
   });
 

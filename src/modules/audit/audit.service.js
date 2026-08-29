@@ -183,7 +183,6 @@ class AuditService {
       return {
         exists: true,
         status: 'ACTIVE',
-        userId: token.userId,
         electionId: token.electionId,
         createdAt: token.createdAt,
         expiresAt: token.expiresAt

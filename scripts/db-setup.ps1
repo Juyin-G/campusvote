@@ -13,6 +13,9 @@ $migrationOrder = @(
     @{ Path = "database/sql/000_extensions.sql"; Label = "Extensiones" },
     @{ Path = "database/sql/005_base_functions.sql"; Label = "Funciones base" },
 
+    # 0b. Rol de la aplicación (app_user) - requerido por todos los GRANT TO app_user
+    @{ Path = "database/sql/user/000_roles.sql"; Label = "User - Rol app_user" },
+
     # 2. Organizations - Base
     @{ Path = "database/sql/organizations/001_enums.sql"; Label = "Org - Enums" },
     @{ Path = "database/sql/organizations/002_organizations.sql"; Label = "Org - Tabla" },
@@ -22,10 +25,11 @@ $migrationOrder = @(
     @{ Path = "database/sql/user/002_users_table.sql"; Label = "User - Tabla" },
     @{ Path = "database/sql/user/003_users_indexes.sql"; Label = "User - Índices" },
     @{ Path = "database/sql/user/004_users_triggers.sql"; Label = "User - Triggers" },
-    @{ Path = "database/sql/user/005_password_reset.sql"; Label = "User - Password Reset" },
-    @{ Path = "database/sql/user/006_email_verification.sql"; Label = "User - Email Verification" },
-    @{ Path = "database/sql/user/007_login_security.sql"; Label = "User - Login Security" },
-    @{ Path = "database/sql/user/008_cleanup_tokens.sql"; Label = "User - Cleanup" },
+    @{ Path = "database/sql/user/005_refresh_tokens.sql"; Label = "User - Refresh Tokens" },
+    @{ Path = "database/sql/user/006_password_reset.sql"; Label = "User - Password Reset" },
+    @{ Path = "database/sql/user/007_email_verification.sql"; Label = "User - Email Verification" },
+    @{ Path = "database/sql/user/008_login_security.sql"; Label = "User - Login Security" },
+    @{ Path = "database/sql/user/009_cleanup_tokens.sql"; Label = "User - Cleanup" },
 
     # 4. Organizations - Solicitudes y Aprobaciones (Depende de users)
     @{ Path = "database/sql/organizations/003_organization_requests.sql"; Label = "Org - Requests" },
@@ -39,6 +43,7 @@ $migrationOrder = @(
     @{ Path = "database/sql/academic/005_voter_validation.sql"; Label = "Academic - Validation" },
     @{ Path = "database/sql/academic/006_views.sql"; Label = "Academic - Views" },
     @{ Path = "database/sql/academic/007_functions.sql"; Label = "Academic - Functions" },
+    @{ Path = "database/sql/academic/008_sis_sync.sql"; Label = "Academic - SIS Sync" },
 
     # 6. Elections
     @{ Path = "database/sql/elections/001_enums.sql"; Label = "Elections - Enums" },
@@ -47,6 +52,7 @@ $migrationOrder = @(
     @{ Path = "database/sql/elections/004_candidate_lists.sql"; Label = "Elections - Lists" },
     @{ Path = "database/sql/elections/005_candidacies.sql"; Label = "Elections - Candidacies" },
     @{ Path = "database/sql/elections/006_election_rules.sql"; Label = "Elections - Rules" },
+    @{ Path = "database/sql/elections/007_candidacy_documents.sql"; Label = "Elections - Candidacy Docs" },
 
     # 7. Ballots
     @{ Path = "database/sql/ballots/001_enums.sql"; Label = "Ballots - Enums" },
@@ -60,14 +66,16 @@ $migrationOrder = @(
     @{ Path = "database/sql/audit/001_enums.sql"; Label = "Audit - Enums" },
     @{ Path = "database/sql/audit/002_audit_logs.sql"; Label = "Audit - Logs" },
     @{ Path = "database/sql/audit/003_audit_protection.sql"; Label = "Audit - Protection" },
-    @{ Path = "database/sql/audit/004_one_time_tokens.sql"; Label = "Audit - Tokens" },
+    @{ Path = "database/sql/audit/004_voting_access_tokens.sql"; Label = "Audit - Tokens" },
     @{ Path = "database/sql/audit/005_token_consumption.sql"; Label = "Audit - Consumption" },
+    @{ Path = "database/sql/audit/006_audit_permissions.sql"; Label = "Audit - Permissions" },
 
     # 9. Results
     @{ Path = "database/sql/results/001_tallies.sql"; Label = "Results - Tallies" },
     @{ Path = "database/sql/results/002_election_results.sql"; Label = "Results - Results" },
     @{ Path = "database/sql/results/003_turnout_trigger.sql"; Label = "Results - Turnout" },
-    @{ Path = "database/sql/results/004_certify_election.sql"; Label = "Results - Certify" },
+    @{ Path = "database/sql/results/004_tally_votes.sql"; Label = "Results - Tally Votes" },
+    @{ Path = "database/sql/results/005_certify_election.sql"; Label = "Results - Certify" },
 
     # 10. Voting
     @{ Path = "database/sql/voting/001_voting_sessions.sql"; Label = "Voting - Sessions" },
@@ -75,8 +83,15 @@ $migrationOrder = @(
     @{ Path = "database/sql/voting/003_vote_selections.sql"; Label = "Voting - Selections" },
     @{ Path = "database/sql/voting/004_start_session.sql"; Label = "Voting - Start Session" },
     @{ Path = "database/sql/voting/005_cast_vote.sql"; Label = "Voting - Cast Vote" },
+    @{ Path = "database/sql/voting/006_session_management.sql"; Label = "Voting - Session Mgmt" },
+    @{ Path = "database/sql/voting/007_vote_integrity.sql"; Label = "Voting - Integridad" },
+    @{ Path = "database/sql/voting/008_scrutiny.sql"; Label = "Voting - Escrutinio" },
 
-    # 11. Claves foraneas que cruzan modulos (deben ir al final,
+    # 11. Notificaciones e i18n (dependen de users/organizations)
+    @{ Path = "database/sql/notifications/001_notifications.sql"; Label = "Notifications" },
+    @{ Path = "database/sql/i18n/001_locales_and_translations.sql"; Label = "i18n" },
+
+    # 12. Claves foraneas que cruzan modulos (deben ir al final,
     #     cuando todas las tablas ya existen)
     @{ Path = "database/sql/999_foreign_keys.sql"; Label = "Foreign Keys" }
 )

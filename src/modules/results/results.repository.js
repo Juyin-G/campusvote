@@ -12,38 +12,38 @@ import { prisma } from '../../database/prisma.js';
 
 const ELECTION_RESULT_SELECT = {
   id: true,
-  election_id: true,
-  total_voters: true,
-  total_votes_cast: true,
-  turnout_percentage: true,
-  blank_votes: true,
-  null_votes: true,
-  certified_at: true,
-  published_at: true,
-  report_pdf: true,
-  report_hash: true,
-  report_signature: true,
-  created_at: true,
-  updated_at: true,
+  electionId: true,
+  totalVoters: true,
+  totalVotesCast: true,
+  turnoutPercentage: true,
+  blankVotes: true,
+  nullVotes: true,
+  certifiedAt: true,
+  publishedAt: true,
+  reportPdf: true,
+  reportHash: true,
+  reportSignature: true,
+  createdAt: true,
+  updatedAt: true,
 };
 
 const TALLY_FULL_SELECT = {
   id: true,
-  election_id: true,
-  position_id: true,
-  option_id: true,
-  votes_count: true,
-  updated_at: true,
-  ballot_options: {
+  electionId: true,
+  positionId: true,
+  optionId: true,
+  votesCount: true,
+  updatedAt: true,
+  ballotOption: {
     select: {
       id: true,
-      option_type: true,
+      optionType: true,
       label: true,
-      candidate_list_id: true,
-      ballot_positions: {
+      candidateListId: true,
+      ballotPosition: {
         select: {
-          position_id: true,
-          positions: {
+          positionId: true,
+          position: {
             select: {
               id: true,
               name: true,
@@ -61,8 +61,8 @@ const TALLY_FULL_SELECT = {
  * una elección. Si no existe, devuelve null.
  */
 export const findElectionResult = (electionId) =>
-  prisma.election_results.findUnique({
-    where: { election_id: electionId },
+  prisma.electionResult.findUnique({
+    where: { electionId },
     select: ELECTION_RESULT_SELECT,
   });
 
@@ -71,17 +71,17 @@ export const findElectionResult = (electionId) =>
  * ballot_position. Sirve para componer /results/live y /results/final.
  */
 export const findTalliesWithContext = (electionId) =>
-  prisma.tallies.findMany({
-    where: { election_id: electionId },
+  prisma.tally.findMany({
+    where: { electionId },
     select: TALLY_FULL_SELECT,
-    orderBy: [{ position_id: 'asc' }, { option_id: 'asc' }],
+    orderBy: [{ positionId: 'asc' }, { optionId: 'asc' }],
   });
 
 /**
  * Devuelve el estado actual de una elección (solo status).
  */
 export const findElectionStatus = (electionId) =>
-  prisma.elections.findUnique({
+  prisma.election.findUnique({
     where: { id: electionId },
     select: { id: true, status: true },
   });

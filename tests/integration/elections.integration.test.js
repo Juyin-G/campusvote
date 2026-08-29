@@ -37,7 +37,7 @@ let electionId;
 let positionId;
 let listId;
 
-const crearUsuario = async (rol, prefijo) => {
+const crearUsuario = async (rol, prefijo, programId) => {
   const hash = await bcrypt.hash(PASSWORD, 12);
   return prisma.user.create({
     data: {
@@ -50,8 +50,10 @@ const crearUsuario = async (rol, prefijo) => {
       role: rol,
       authProvider: 'LOCAL',
       isVerified: true,
-      isActive: true,
+      status: 'ACTIVE',
       mustChangePassword: false,
+      programId: programId ?? null,
+      currentCycle: rol === 'STUDENT' ? 5 : null,
     },
   });
 };
@@ -69,24 +71,32 @@ const comoAdmin = (metodo, url) =>
 
 describe('Elections Integration (HTTP + DB)', () => {
   beforeAll(async () => {
+    const faculty = await prisma.faculty.create({
+      data: { name: `Facultad Test ${runId}`, code: `FT${runId}`.slice(0, 20) },
+    });
+    facultyId = faculty.id;
+
+    const program = await prisma.program.create({
+      data: {
+        facultyId: faculty.id,
+        name: `Programa Test ${runId}`.slice(0, 149),
+        code: `PT${runId}`.slice(0, 20),
+      },
+    });
+
     const admin = await crearUsuario('ADMIN', 'admin');
     adminId = admin.id;
-    const student = await crearUsuario('STUDENT', 'student');
+    const student = await crearUsuario('STUDENT', 'student', program.id);
     studentId = student.id;
 
     adminToken = await token(admin.email);
     studentToken = await token(student.email);
 
-    const faculty = await prisma.faculties.create({
-      data: { name: `Facultad Test ${runId}`, code: `FT${runId}`.slice(0, 20) },
-    });
-    facultyId = faculty.id;
-
-    const period = await prisma.academic_periods.create({
+    const period = await prisma.academicPeriod.create({
       data: {
         name: `P-${runId}`.slice(0, 50),
-        start_date: new Date('2026-01-01'),
-        end_date: new Date('2026-12-31'),
+        startDate: new Date('2026-01-01'),
+        endDate: new Date('2026-12-31'),
       },
     });
     periodId = period.id;
@@ -96,10 +106,10 @@ describe('Elections Integration (HTTP + DB)', () => {
     // Las elecciones se borran primero: candidacies y elections referencian
     // users y faculties con ON DELETE RESTRICT.
     if (electionId) {
-      await prisma.elections.deleteMany({ where: { id: electionId } }).catch(() => {});
+      await prisma.election.deleteMany({ where: { id: electionId } }).catch(() => {});
     }
-    await prisma.academic_periods.deleteMany({ where: { id: periodId } }).catch(() => {});
-    await prisma.faculties.deleteMany({ where: { id: facultyId } }).catch(() => {});
+    await prisma.academicPeriod.deleteMany({ where: { id: periodId } }).catch(() => {});
+    await prisma.faculty.deleteMany({ where: { id: facultyId } }).catch(() => {});
     await prisma.user
       .deleteMany({ where: { id: { in: [adminId, studentId].filter(Boolean) } } })
       .catch(() => {});

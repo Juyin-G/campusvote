@@ -8,7 +8,7 @@ export const USER_PUBLIC_SELECT = {
   lastName: true,
   institutionalId: true,
   role: true,
-  isActive: true,
+  status: true,
   isVerified: true,
   isStaff: true,
   isSuperuser: true,
@@ -23,7 +23,10 @@ const buildWhere = ({ organizationId, role, search, isActive } = {}) => {
   const where = {};
   if (organizationId) where.organizationId = organizationId;
   if (role) where.role = role;
-  if (isActive !== undefined) where.isActive = isActive === 'true' || isActive === true;
+  if (isActive !== undefined) {
+    const active = isActive === 'true' || isActive === true;
+    where.status = active ? 'ACTIVE' : { not: 'ACTIVE' };
+  }
   if (search) {
     where.OR = [
       { username: { contains: search, mode: 'insensitive' } },
@@ -97,7 +100,7 @@ export const updateRole = (id, role) =>
 export const setActive = (id, isActive) =>
   prisma.user.update({
     where: { id },
-    data: { isActive },
+    data: { status: isActive ? 'ACTIVE' : 'SUSPENDED' },
     select: USER_PUBLIC_SELECT,
   });
 

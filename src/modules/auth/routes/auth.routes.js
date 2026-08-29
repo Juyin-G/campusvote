@@ -21,6 +21,7 @@ import {
   resetPasswordSchema,
   verifyEmailSchema,
   resendVerificationSchema,
+  refreshSchema,
 } from '../schemas/auth.schema.js';
 
 const router = Router();
@@ -86,6 +87,14 @@ router.post(
   authLimiter,
   validate(resendVerificationSchema),
   authController.resendVerification
+);
+
+// Renovación de sesión (access token) a partir de un refresh token válido
+router.post(
+  '/refresh',
+  authLimiter,
+  validate(refreshSchema),
+  authController.refreshTokens
 );
 
 // ═══════════════════════════════════════════

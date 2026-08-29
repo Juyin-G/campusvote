@@ -5,7 +5,11 @@
 
 import dotenv from 'dotenv';
 
-dotenv.config();
+if (process.env.NODE_ENV === 'test') {
+  dotenv.config({ path: '.env.test' });
+} else {
+  dotenv.config();
+}
 
 const INSECURE_DEFAULT_SECRETS = [
   'dev-secret-change-me-in-production',

@@ -2,8 +2,11 @@ import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
 import auditController from './audit.controller.js';
 import { authenticate, authorize } from '../../middlewares/auth.middleware.js';
+import { ROLES } from '../../constants/roles.js';
 
 const router = Router();
+
+const GESTORES = [ROLES.ADMIN, ROLES.ELECTORAL_COMMISSION];
 
 // Limitador estricto para operaciones de tokens de votación/sensibles
 const tokenRateLimiter = rateLimit({
@@ -29,21 +32,21 @@ const asyncHandler = (fn) => (req, res, next) => {
 router.get(
   '/logs',
   authenticate,
-  authorize(['SUPER_ADMIN', 'ADMIN', 'AUDITOR']),
+  authorize(GESTORES),
   asyncHandler(auditController.getAuditLogs.bind(auditController))
 );
 
 router.get(
   '/logs/:id',
   authenticate,
-  authorize(['SUPER_ADMIN', 'ADMIN', 'AUDITOR']),
+  authorize(GESTORES),
   asyncHandler(auditController.getAuditLogById.bind(auditController))
 );
 
 router.post(
   '/logs',
   authenticate,
-  authorize(['SUPER_ADMIN', 'ADMIN', 'SYSTEM']),
+  authorize(GESTORES),
   asyncHandler(auditController.createAuditLog.bind(auditController))
 );
 
@@ -76,7 +79,7 @@ router.get(
 router.delete(
   '/tokens/cleanup',
   authenticate,
-  authorize(['SUPER_ADMIN', 'ADMIN']),
+  authorize([ROLES.ADMIN]),
   asyncHandler(auditController.cleanupExpiredTokens.bind(auditController))
 );
 

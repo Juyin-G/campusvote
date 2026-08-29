@@ -14,4 +14,5 @@ export default {
   verbose: true,
   testTimeout: 30000,
   globalSetup: '<rootDir>/tests/setup-db.js',
+  setupFiles: ['<rootDir>/tests/setup-env.js'],
 };

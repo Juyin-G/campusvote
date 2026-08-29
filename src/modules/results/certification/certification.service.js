@@ -35,14 +35,16 @@ export const certifyElection = async (electionId, actor = {}, ipAddress = null) 
   await tallyService.recalculateTallies(electionId);
 
   // 2. Cambiar estado via la capa de servicio (conserva reglas).
+  const actorId = actor.userId ?? actor.id ?? null;
   const certified = await electionService.changeStatus(
     electionId,
-    'CERTIFIED'
+    'CERTIFIED',
+    actorId
   );
 
   // 3. Solo tras éxito, registrar audit.
   await auditService.logAction({
-    actorId: actor.userId ?? actor.id ?? null,
+    actorId,
     electionId,
     action: AUDIT_ACTIONS.CERTIFY_RESULT,
     ipAddress,

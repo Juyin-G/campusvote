@@ -4,6 +4,7 @@
 import { jest } from '@jest/globals';
 import bcrypt from 'bcryptjs';
 import request from 'supertest';
+import { createAcademicFixture } from './academic.fixture.js';
 
 jest.unstable_mockModule('../../src/middlewares/rateLimiter.middleware.js', () => ({
   loginLimiter: (_req, _res, next) => next(),
@@ -21,6 +22,7 @@ let studentId;
 let targetId;
 let adminToken;
 let studentToken;
+let programId;
 
 const login = async (email) => {
   const res = await request(app)
@@ -32,6 +34,8 @@ const login = async (email) => {
 describe('Users Integration (HTTP + DB)', () => {
   beforeAll(async () => {
     const hash = await bcrypt.hash(PASSWORD, 12);
+    const { program } = await createAcademicFixture(runId);
+    programId = program.id;
 
     const admin = await prisma.user.create({
       data: {
@@ -44,7 +48,7 @@ describe('Users Integration (HTTP + DB)', () => {
         role: 'ADMIN',
         authProvider: 'LOCAL',
         isVerified: true,
-        isActive: true,
+        status: 'ACTIVE',
         mustChangePassword: false,
       },
     });
@@ -61,8 +65,10 @@ describe('Users Integration (HTTP + DB)', () => {
         role: 'STUDENT',
         authProvider: 'LOCAL',
         isVerified: true,
-        isActive: true,
+        status: 'ACTIVE',
         mustChangePassword: false,
+        programId,
+        currentCycle: 5,
       },
     });
     studentId = student.id;
@@ -78,8 +84,10 @@ describe('Users Integration (HTTP + DB)', () => {
         role: 'STUDENT',
         authProvider: 'LOCAL',
         isVerified: true,
-        isActive: true,
+        status: 'ACTIVE',
         mustChangePassword: false,
+        programId,
+        currentCycle: 5,
         failedLoginAttempts: 5,
         lockedUntil: new Date(Date.now() + 60_000),
       },

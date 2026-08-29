@@ -76,16 +76,30 @@ export const resendVerification = asyncHandler(async (req, res) => {
 
 export const logout = asyncHandler(async (req, res) => {
   const tokenHash = req.tokenHash || null;
+  const refreshToken = req.body?.refreshToken || null;
 
   await authService.logout({
     userId: req.user?.userId,
     tokenHash,
+    refreshToken,
   });
 
   return sendSuccess(
     res,
     { loggedOut: true },
     MESSAGES.AUTH.LOGOUT_SUCCESS,
+    { requestId: req.requestId },
+    HTTP_STATUS.OK
+  );
+});
+
+export const refreshTokens = asyncHandler(async (req, res) => {
+  const result = await authService.refreshSession(req.body.refreshToken);
+
+  return sendSuccess(
+    res,
+    result,
+    MESSAGES.AUTH.TOKEN_REFRESH_SUCCESS,
     { requestId: req.requestId },
     HTTP_STATUS.OK
   );

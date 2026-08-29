@@ -10,7 +10,7 @@ const mockFindExistingTallies = jest.fn();
 const mockReplaceTallies = jest.fn();
 
 jest.unstable_mockModule(
-  '../../../src/modules/elections/election.repository.js',
+  '../../../src/modules/elections/elections/election.repository.js',
   () => ({
     findElectionById: mockFindElectionById,
   })
@@ -50,35 +50,35 @@ describe('Tally Service — recalculateTallies', () => {
   const fakeOptions = [
     {
       id: OPTION_CANDIDATE,
-      ballot_position_id: 'bp-1',
-      option_type: 'CANDIDATE_LIST',
-      candidate_list_id: 'cl-1',
+      ballotPositionId: 'bp-1',
+      optionType: 'CANDIDATE_LIST',
+      candidateListId: 'cl-1',
       label: 'Lista A',
-      ballot_positions: { position_id: POSITION_ID },
+      ballotPosition: { positionId: POSITION_ID },
     },
     {
       id: OPTION_BLANK,
-      ballot_position_id: 'bp-1',
-      option_type: 'BLANK',
-      candidate_list_id: null,
+      ballotPositionId: 'bp-1',
+      optionType: 'BLANK',
+      candidateListId: null,
       label: 'Voto en blanco',
-      ballot_positions: { position_id: POSITION_ID },
+      ballotPosition: { positionId: POSITION_ID },
     },
     {
       id: OPTION_NULL,
-      ballot_position_id: 'bp-1',
-      option_type: 'NULL',
-      candidate_list_id: null,
+      ballotPositionId: 'bp-1',
+      optionType: 'NULL',
+      candidateListId: null,
       label: 'Voto nulo',
-      ballot_positions: { position_id: POSITION_ID },
+      ballotPosition: { positionId: POSITION_ID },
     },
     {
       id: OPTION_EMPTY,
-      ballot_position_id: 'bp-1',
-      option_type: 'CANDIDATE_LIST',
-      candidate_list_id: 'cl-2',
+      ballotPositionId: 'bp-1',
+      optionType: 'CANDIDATE_LIST',
+      candidateListId: 'cl-2',
       label: 'Lista B (sin votos)',
-      ballot_positions: { position_id: POSITION_ID },
+      ballotPosition: { positionId: POSITION_ID },
     },
   ];
 
@@ -142,12 +142,12 @@ describe('Tally Service — recalculateTallies', () => {
     mockFindElectionById.mockResolvedValue({ id: ELECTION_ID, status: 'CLOSED' });
     mockFindBallotOptionsByElection.mockResolvedValue(fakeOptions);
     mockCountSelectionsByBallotOption.mockResolvedValue([
-      { ballot_option_id: OPTION_CANDIDATE, _count: { _all: 12 } },
-      { ballot_option_id: OPTION_BLANK, _count: { _all: 2 } },
-      { ballot_option_id: OPTION_NULL, _count: { _all: 1 } },
+      { ballotOptionId: OPTION_CANDIDATE, _count: { _all: 12 } },
+      { ballotOptionId: OPTION_BLANK, _count: { _all: 2 } },
+      { ballotOptionId: OPTION_NULL, _count: { _all: 1 } },
     ]);
     mockReplaceTallies.mockResolvedValue({
-      election_id: ELECTION_ID,
+      electionId: ELECTION_ID,
       deleted: 4,
       inserted: 4,
     });
@@ -155,32 +155,32 @@ describe('Tally Service — recalculateTallies', () => {
     const result = await service.recalculateTallies(ELECTION_ID);
 
     expect(result).toEqual({
-      election_id: ELECTION_ID,
+      electionId: ELECTION_ID,
       deleted: 4,
       inserted: 4,
-      options_processed: 4,
-      positions_processed: 1,
+      optionsProcessed: 4,
+      positionsProcessed: 1,
     });
 
     expect(mockReplaceTallies).toHaveBeenCalledWith(
       ELECTION_ID,
       expect.arrayContaining([
         expect.objectContaining({
-          election_id: ELECTION_ID,
-          option_id: OPTION_CANDIDATE,
-          votes_count: 12,
+          electionId: ELECTION_ID,
+          optionId: OPTION_CANDIDATE,
+          votesCount: 12,
         }),
         expect.objectContaining({
-          option_id: OPTION_BLANK,
-          votes_count: 2,
+          optionId: OPTION_BLANK,
+          votesCount: 2,
         }),
         expect.objectContaining({
-          option_id: OPTION_NULL,
-          votes_count: 1,
+          optionId: OPTION_NULL,
+          votesCount: 1,
         }),
         expect.objectContaining({
-          option_id: OPTION_EMPTY,
-          votes_count: 0,
+          optionId: OPTION_EMPTY,
+          votesCount: 0,
         }),
       ])
     );
@@ -190,10 +190,10 @@ describe('Tally Service — recalculateTallies', () => {
     mockFindElectionById.mockResolvedValue({ id: ELECTION_ID, status: 'CLOSED' });
     mockFindBallotOptionsByElection.mockResolvedValue(fakeOptions);
     mockCountSelectionsByBallotOption.mockResolvedValue([
-      { ballot_option_id: OPTION_CANDIDATE, _count: { _all: 5 } },
+      { ballotOptionId: OPTION_CANDIDATE, _count: { _all: 5 } },
     ]);
     mockReplaceTallies.mockResolvedValue({
-      election_id: ELECTION_ID,
+      electionId: ELECTION_ID,
       deleted: 0,
       inserted: 4,
     });
@@ -201,8 +201,8 @@ describe('Tally Service — recalculateTallies', () => {
     await service.recalculateTallies(ELECTION_ID);
 
     const records = mockReplaceTallies.mock.calls[0][1];
-    const emptyRecord = records.find((r) => r.option_id === OPTION_EMPTY);
-    expect(emptyRecord.votes_count).toBe(0);
+    const emptyRecord = records.find((r) => r.optionId === OPTION_EMPTY);
+    expect(emptyRecord.votesCount).toBe(0);
   });
 
   it('maneja elección sin votos (records con 0)', async () => {
@@ -210,7 +210,7 @@ describe('Tally Service — recalculateTallies', () => {
     mockFindBallotOptionsByElection.mockResolvedValue(fakeOptions);
     mockCountSelectionsByBallotOption.mockResolvedValue([]);
     mockReplaceTallies.mockResolvedValue({
-      election_id: ELECTION_ID,
+      electionId: ELECTION_ID,
       deleted: 0,
       inserted: 4,
     });
@@ -219,7 +219,7 @@ describe('Tally Service — recalculateTallies', () => {
 
     const records = mockReplaceTallies.mock.calls[0][1];
     expect(records).toHaveLength(4);
-    expect(records.every((r) => r.votes_count === 0)).toBe(true);
+    expect(records.every((r) => r.votesCount === 0)).toBe(true);
     expect(result.inserted).toBe(4);
   });
 
@@ -227,11 +227,11 @@ describe('Tally Service — recalculateTallies', () => {
     mockFindElectionById.mockResolvedValue({ id: ELECTION_ID, status: 'CLOSED' });
     mockFindBallotOptionsByElection.mockResolvedValue(fakeOptions);
     mockCountSelectionsByBallotOption.mockResolvedValue([
-      { ballot_option_id: OPTION_CANDIDATE, _count: { _all: 7 } },
-      { ballot_option_id: 'ghost-option-id', _count: { _all: 99 } },
+      { ballotOptionId: OPTION_CANDIDATE, _count: { _all: 7 } },
+      { ballotOptionId: 'ghost-option-id', _count: { _all: 99 } },
     ]);
     mockReplaceTallies.mockResolvedValue({
-      election_id: ELECTION_ID,
+      electionId: ELECTION_ID,
       deleted: 0,
       inserted: 4,
     });
@@ -240,7 +240,7 @@ describe('Tally Service — recalculateTallies', () => {
 
     const records = mockReplaceTallies.mock.calls[0][1];
     expect(records).toHaveLength(4);
-    expect(records.find((r) => r.option_id === 'ghost-option-id')).toBeUndefined();
+    expect(records.find((r) => r.optionId === 'ghost-option-id')).toBeUndefined();
   });
 
   it('propaga errores del repository', async () => {
@@ -266,11 +266,11 @@ describe('Tally Service — getExistingTallies', () => {
     const fakeTallies = [
       {
         id: 't1',
-        election_id: ELECTION_ID,
-        position_id: POSITION_ID,
-        option_id: OPTION_CANDIDATE,
-        votes_count: 5,
-        updated_at: new Date(),
+        electionId: ELECTION_ID,
+        positionId: POSITION_ID,
+        optionId: OPTION_CANDIDATE,
+        votesCount: 5,
+        updatedAt: new Date(),
       },
     ];
     mockFindExistingTallies.mockResolvedValue(fakeTallies);

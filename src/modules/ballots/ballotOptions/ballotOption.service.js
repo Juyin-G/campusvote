@@ -67,7 +67,7 @@ const requireOptionInPosition = async (
       optionId
     );
 
-  const currentPositionId = option?.ballotPositionId ?? option?.ballot_position_id;
+  const currentPositionId = option?.ballotPositionId;
 
   if (!option || currentPositionId !== ballotPositionId) {
     throw ApiError.notFound(
@@ -86,7 +86,7 @@ const requireCandidateListForBallot = async (
   ballotPosition,
   candidateListId
 ) => {
-  const ballotId = ballotPosition.ballotId ?? ballotPosition.ballot_id;
+  const ballotId = ballotPosition.ballotId;
 
   const ballot =
     await ballotRepository.findBallotById(ballotId);
@@ -106,8 +106,8 @@ const requireCandidateListForBallot = async (
     );
   }
 
-  const candidateListElectionId = candidateList.electionId ?? candidateList.election_id;
-  const ballotElectionId = ballot.electionId ?? ballot.election_id;
+  const candidateListElectionId = candidateList.electionId;
+  const ballotElectionId = ballot.electionId;
 
   if (candidateListElectionId !== ballotElectionId) {
     throw ApiError.badRequest(
@@ -242,20 +242,15 @@ export const createBallotOption = async (
     candidateListId
   );
 
-  const electionId = ballotPosition.electionId ?? ballotPosition.election_id;
+  const electionId = ballotPosition.electionId;
 
   const data = {
     ballotPositionId,
-    ballot_position_id: ballotPositionId,
     electionId,
-    election_id: electionId,
     optionType,
-    option_type: optionType,
     candidateListId: optionType === 'CANDIDATE_LIST' ? candidateListId : null,
-    candidate_list_id: optionType === 'CANDIDATE_LIST' ? candidateListId : null,
     label: asText(body.label),
     orderIndex: body.orderIndex ?? body.order_index ?? 1,
-    order_index: body.orderIndex ?? body.order_index ?? 1,
   };
 
   try {
@@ -284,8 +279,8 @@ export const updateBallotOption = async (
       optionId
     );
 
-  const currentOptionType = current.optionType ?? current.option_type;
-  const currentCandidateListId = current.candidateListId ?? current.candidate_list_id;
+  const currentOptionType = current.optionType;
+  const currentCandidateListId = current.candidateListId;
 
   const optionType =
     body.optionType ?? body.option_type ?? currentOptionType;
@@ -307,17 +302,14 @@ export const updateBallotOption = async (
 
   if (body.optionType !== undefined || body.option_type !== undefined) {
     data.optionType = optionType;
-    data.option_type = optionType;
 
     if (optionType === 'BLANK' || optionType === 'VOID') {
       data.candidateListId = null;
-      data.candidate_list_id = null;
     }
   }
 
   if (body.candidateListId !== undefined || body.candidate_list_id !== undefined) {
     data.candidateListId = rawCandidateListId;
-    data.candidate_list_id = rawCandidateListId;
   }
 
   if (body.label !== undefined) {
@@ -327,7 +319,6 @@ export const updateBallotOption = async (
   if (body.orderIndex !== undefined || body.order_index !== undefined) {
     const order = body.orderIndex ?? body.order_index;
     data.orderIndex = order;
-    data.order_index = order;
   }
 
   if (Object.keys(data).length === 0) {

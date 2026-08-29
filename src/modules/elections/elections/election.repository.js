@@ -106,9 +106,9 @@ export const deleteElectionById = (id) =>
  * que valida que la elección esté CLOSED, calcula el escrutinio y
  * deja el estado en CERTIFIED dentro de una sola transacción.
  */
-export const certifyElection = async (electionId) => {
+export const certifyElection = async (electionId, actorId) => {
   // Prisma ejecuta esto de forma segura, previniendo inyección SQL
-  await prisma.$queryRaw`SELECT certify_election(${electionId}::uuid)`;
+  await prisma.$queryRaw`SELECT certify_election(${electionId}::uuid, ${actorId}::uuid)`;
   return findElectionById(electionId);
 };
 

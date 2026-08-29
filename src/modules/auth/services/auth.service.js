@@ -6,7 +6,7 @@ import jwt from 'jsonwebtoken';
 import * as authRepository from '../repositories/auth.repository.js';
 import { ApiError } from '../../../shared/errors/ApiError.js';
 import { sendReset, sendVerification } from '../../../shared/services/email.service.js';
-import { generateJwt, formatUserResponse } from './auth.helpers.js';
+import { generateJwt, formatUserResponse, generateRefreshToken, hashToken } from './auth.helpers.js';
 import MESSAGES from '../../../constants/messages.js';
 import env from '../../../config/env.js';
 import logger from '../../../config/logger.js';
@@ -16,6 +16,18 @@ export { setupTotp, verifyTotp, verifyLoginTotp } from './auth.totp.service.js';
 const SALT_ROUNDS = 12;
 // Hash dummy precalculado para mitigar ataques de timing en login
 const DUMMY_HASH = '$2a$12$eImiTXuWVxfM37uY4JANjOL.88KV7VO594dK/WJv5gT2d.B/Xo89a';
+
+// Convierte una duración estilo jsonwebtoken ('30d', '7h', '15m', '3600') a milisegundos
+const durationToMs = (duration) => {
+  const str = String(duration ?? '').trim();
+  if (!str) return 7 * 24 * 60 * 60 * 1000;
+  const match = str.match(/^(\d+)\s*(ms|s|m|h|d)?$/i);
+  if (!match) return 7 * 24 * 60 * 60 * 1000;
+  const value = parseInt(match[1], 10);
+  const unit = (match[2] || 's').toLowerCase();
+  const units = { ms: 1, s: 1000, m: 60 * 1000, h: 60 * 60 * 1000, d: 24 * 60 * 60 * 1000 };
+  return value * units[unit];
+};
 
 export const login = async ({ email, password, ipAddress = null, userAgent = null }) => {
   const cleanEmail = email.toLowerCase().trim();
@@ -62,9 +74,21 @@ export const login = async ({ email, password, ipAddress = null, userAgent = nul
 
   const token = generateJwt(user);
 
+  // Persistir el refresh token para la sesión actual (flujo completo)
+  const { rawToken: refreshToken, tokenHash } = generateRefreshToken();
+  const expiresAt = new Date(Date.now() + durationToMs(env.JWT_REFRESH_EXPIRES_IN));
+  await authRepository.createRefreshToken({
+    userId: user.id,
+    tokenHash,
+    expiresAt,
+    ipAddress,
+    userAgent,
+  });
+
   return {
     requiresTotp: false,
     token,
+    refreshToken,
     mustChangePassword: user.mustChangePassword,
     user: formatUserResponse(user),
   };
@@ -78,7 +102,6 @@ export const register = async (userData) => {
     institutionalId,
     firstName,
     lastName,
-    role = 'STUDENT',
     organizationId,
     facultyId,
     programId,
@@ -87,6 +110,11 @@ export const register = async (userData) => {
     specialty,
     department,
   } = userData;
+
+  // Seguridad: el registro público SIEMPRE crea estudiantes. El rol no se
+  // acepta desde el cliente; cualquier rol privilegiado debe asignarse por
+  // un administrador vía el módulo de usuarios (updateRole/createUser).
+  const role = 'STUDENT';
 
   const cleanEmail = email.toLowerCase().trim();
   const cleanUsername = username.toLowerCase().trim();
@@ -154,8 +182,11 @@ export const register = async (userData) => {
   return { user: formatUserResponse(newUser) };
 };
 
-export const logout = async ({ userId, tokenHash }) => {
-  if (tokenHash) {
+export const logout = async ({ userId, tokenHash, refreshToken }) => {
+  if (refreshToken) {
+    // Invalida la sesión concreta asociada al refresh token proporcionado
+    await authRepository.revokeRefreshToken(hashToken(refreshToken));
+  } else if (tokenHash) {
     // Invalida la sesión activa en refresh_tokens
     await authRepository.revokeRefreshToken(tokenHash);
   } else if (userId) {
@@ -165,6 +196,33 @@ export const logout = async ({ userId, tokenHash }) => {
 
   logger.info('Logout efectuado correctamente', { userId });
   return { loggedOut: true };
+};
+
+/**
+ * Renueva la sesión a partir de un refresh token válido y no revocado.
+ */
+export const refreshSession = async (refreshToken) => {
+  const tokenHash = hashToken(refreshToken);
+  const stored = await authRepository.findRefreshToken(tokenHash);
+
+  const invalid = !stored ||
+    stored.revokedAt ||
+    !stored.user ||
+    stored.user.status !== 'ACTIVE' ||
+    (stored.expiresAt && new Date(stored.expiresAt) < new Date());
+
+  if (invalid) {
+    throw ApiError.unauthorized(MESSAGES.AUTH.TOKEN_INVALID);
+  }
+
+  const user = stored.user;
+  const token = generateJwt(user);
+
+  return {
+    token,
+    refreshToken,
+    user: formatUserResponse(user),
+  };
 };
 
 export const getProfile = async (userId) => {
@@ -226,4 +284,40 @@ export const verifyEmail = async (token) => {
   logger.info('Correo verificado exitosamente');
 
   return { message: MESSAGES.AUTH.EMAIL_VERIFIED_SUCCESS };
+};
+
+export const resendVerification = async (email) => {
+  const cleanEmail = email.toLowerCase().trim();
+  const user = await authRepository.findByEmail(cleanEmail);
+
+  // Siempre responde lo mismo para no revelar qué correos están registrados.
+  if (!user || user.isVerified) {
+    return { message: MESSAGES.AUTH.EMAIL_VERIFICATION_SENT };
+  }
+
+  const token = await authRepository.generateEmailVerificationToken(user.id);
+
+  if (!token) {
+    return { message: MESSAGES.AUTH.EMAIL_VERIFICATION_SENT };
+  }
+
+  try {
+    await sendVerification({
+      email: cleanEmail,
+      token,
+      firstName: user.firstName,
+    });
+  } catch (error) {
+    logger.error('Reenvío de verificación falló', {
+      userId: user.id,
+      error: error.message,
+    });
+    throw ApiError.serviceUnavailable(
+      MESSAGES.AUTH.EMAIL_SEND_FAILED,
+      null,
+      'EMAIL_SEND_FAILED'
+    );
+  }
+
+  return { message: MESSAGES.AUTH.EMAIL_VERIFICATION_SENT };
 };

@@ -150,7 +150,7 @@ export const updateUserRole = async (id, role) => {
 
   if (existing.isSuperuser && !ADMIN_ROLES.includes(role)) {
     const superuserCount = await prisma.user.count({
-      where: { isSuperuser: true, isActive: true },
+      where: { isSuperuser: true, status: 'ACTIVE' },
     });
     if (superuserCount <= 1) {
       throw ApiError.badRequest(
@@ -189,9 +189,9 @@ export const changeMyPassword = async (userId, body = {}) => {
 
   const dbUser = await prisma.user.findUnique({
     where: { id: userId },
-    select: { password: true, isActive: true },
+    select: { password: true, status: true },
   });
-  if (!dbUser?.isActive || !dbUser.password) {
+  if (dbUser?.status !== 'ACTIVE' || !dbUser.password) {
     throw ApiError.notFound(MESSAGES.USER.NOT_FOUND);
   }
 

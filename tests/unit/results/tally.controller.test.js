@@ -28,9 +28,9 @@ const mockRes = () => {
 describe('Tally Controller', () => {
   beforeEach(() => jest.clearAllMocks());
 
-  it('recalculateTallies llama al service con req.params.electionId y responde 200', async () => {
-    mockRecalculateTallies.mockResolvedValue({ election_id: ELECTION_ID, inserted: 4 });
-    const req = { params: { electionId: ELECTION_ID } };
+  it('recalculateTallies llama al service con req.params.id y responde 200', async () => {
+    mockRecalculateTallies.mockResolvedValue({ electionId: ELECTION_ID, inserted: 4 });
+    const req = { params: { id: ELECTION_ID } };
     const res = mockRes();
 
     await controller.recalculateTallies(req, res, jest.fn());
@@ -40,14 +40,14 @@ describe('Tally Controller', () => {
     expect(res.json).toHaveBeenCalledWith(
       expect.objectContaining({
         success: true,
-        data: { election_id: ELECTION_ID, inserted: 4 },
+        data: { electionId: ELECTION_ID, inserted: 4 },
       })
     );
   });
 
   it('getTallies llama al service y responde con la lista', async () => {
-    mockGetExistingTallies.mockResolvedValue([{ id: 't1', votes_count: 5 }]);
-    const req = { params: { electionId: ELECTION_ID } };
+    mockGetExistingTallies.mockResolvedValue([{ id: 't1', votesCount: 5 }]);
+    const req = { params: { id: ELECTION_ID } };
     const res = mockRes();
 
     await controller.getTallies(req, res, jest.fn());
@@ -57,7 +57,7 @@ describe('Tally Controller', () => {
     expect(res.json).toHaveBeenCalledWith(
       expect.objectContaining({
         success: true,
-        data: [{ id: 't1', votes_count: 5 }],
+        data: [{ id: 't1', votesCount: 5 }],
       })
     );
   });
@@ -65,7 +65,7 @@ describe('Tally Controller', () => {
   it('propaga errores al next (asyncHandler)', async () => {
     const customError = new Error('boom');
     mockRecalculateTallies.mockRejectedValue(customError);
-    const req = { params: { electionId: ELECTION_ID } };
+    const req = { params: { id: ELECTION_ID } };
     const res = mockRes();
     const next = jest.fn();
 

@@ -9,73 +9,73 @@ import { prisma } from '../../../database/prisma.js';
  */
 const BALLOT_POSITION_SELECT = {
   id: true,
-  ballot_id: true,
-  position_id: true,
-  order_index: true,
-  created_at: true,
-  updated_at: true,
+  ballotId: true,
+  positionId: true,
+  orderIndex: true,
+  createdAt: true,
+  updatedAt: true,
   position: {
     select: {
       id: true,
-      election_id: true,
+      electionId: true,
       name: true,
       description: true,
-      max_selectable_options: true,
+      seats: true,
     },
   },
-  options: {
+  ballotOptions: {
     select: {
       id: true,
-      option_type: true,
-      candidate_list_id: true,
+      optionType: true,
+      candidateListId: true,
       label: true,
-      order_index: true,
+      orderIndex: true,
     },
     orderBy: {
-      order_index: 'asc',
+      orderIndex: 'asc',
     },
   },
 };
 
 export const findBallotPositionById = (id) =>
-  prisma.ballot_positions.findUnique({
+  prisma.ballotPosition.findUnique({
     where: { id },
     select: BALLOT_POSITION_SELECT,
   });
 
 export const findBallotPositionsByBallot = (ballotId) =>
-  prisma.ballot_positions.findMany({
+  prisma.ballotPosition.findMany({
     where: {
-      ballot_id: ballotId,
+      ballotId: ballotId,
     },
     select: BALLOT_POSITION_SELECT,
     orderBy: {
-      order_index: 'asc',
+      orderIndex: 'asc',
     },
   });
 
 export const countBallotPositionsByBallot = (ballotId) =>
-  prisma.ballot_positions.count({
+  prisma.ballotPosition.count({
     where: {
-      ballot_id: ballotId,
+      ballotId: ballotId,
     },
   });
 
 export const createBallotPosition = (data) =>
-  prisma.ballot_positions.create({
+  prisma.ballotPosition.create({
     data,
     select: BALLOT_POSITION_SELECT,
   });
 
 export const updateBallotPosition = (id, data) =>
-  prisma.ballot_positions.update({
+  prisma.ballotPosition.update({
     where: { id },
     data,
     select: BALLOT_POSITION_SELECT,
   });
 
 export const deleteBallotPositionById = (id) =>
-  prisma.ballot_positions.delete({
+  prisma.ballotPosition.delete({
     where: { id },
     select: {
       id: true,
@@ -90,10 +90,10 @@ export const findByBallotAndPosition = (
   ballotId,
   positionId,
 ) =>
-  prisma.ballot_positions.findFirst({
+  prisma.ballotPosition.findFirst({
     where: {
-      ballot_id: ballotId,
-      position_id: positionId,
+      ballotId: ballotId,
+      positionId: positionId,
     },
     select: BALLOT_POSITION_SELECT,
   });
@@ -106,10 +106,10 @@ export const findByBallotAndOrder = (
   ballotId,
   orderIndex,
 ) =>
-  prisma.ballot_positions.findFirst({
+  prisma.ballotPosition.findFirst({
     where: {
-      ballot_id: ballotId,
-      order_index: orderIndex,
+      ballotId: ballotId,
+      orderIndex: orderIndex,
     },
     select: BALLOT_POSITION_SELECT,
   });

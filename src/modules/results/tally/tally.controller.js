@@ -25,7 +25,7 @@ import MESSAGES from '../../../constants/messages.js';
  * (La ruta exacta se monta en FASE 8.)
  */
 export const recalculateTallies = asyncHandler(async (req, res) => {
-  const { electionId } = req.params;
+  const { id: electionId } = req.params;
   const result = await tallyService.recalculateTallies(electionId);
 
   return sendSuccess(
@@ -40,7 +40,7 @@ export const recalculateTallies = asyncHandler(async (req, res) => {
  * Devuelve los tallies ya almacenados.
  */
 export const getTallies = asyncHandler(async (req, res) => {
-  const { electionId } = req.params;
+  const { id: electionId } = req.params;
   const tallies = await tallyService.getExistingTallies(electionId);
 
   return sendSuccess(

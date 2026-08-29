@@ -13,7 +13,7 @@ const mockFindBallotById = jest.fn();
 const mockFindPositionById = jest.fn();
 
 jest.unstable_mockModule(
-  '../../../src/modules/ballots/ballotPosition.repository.js',
+  '../../../src/modules/ballots/ballotOptions/ballotOption.repository.js',
   () => ({
     findBallotPositionById: mockFindBallotPositionById,
     findBallotPositionsByBallot: mockFindBallotPositionsByBallot,
@@ -34,14 +34,14 @@ jest.unstable_mockModule(
 );
 
 jest.unstable_mockModule(
-  '../../../src/modules/elections/position.repository.js',
+  '../../../src/modules/elections/positions/position.repository.js',
   () => ({
     findPositionById: mockFindPositionById,
   })
 );
 
 const service = await import(
-  '../../../src/modules/ballots/ballotPosition.service.js'
+  '../../../src/modules/ballots/ballotPositions/ballotPosition.service.js'
 );
 
 const BALLOT = '11111111-1111-1111-1111-111111111111';
@@ -74,7 +74,7 @@ describe('BallotPosition Service', () => {
   it('listar devuelve posiciones con total', async () => {
     mockFindBallotById.mockResolvedValue({
       id: BALLOT,
-      election_id: ELECTION,
+      electionId: ELECTION,
     });
 
     mockFindBallotPositionsByBallot.mockResolvedValue([
@@ -90,13 +90,12 @@ describe('BallotPosition Service', () => {
   it('crear rechaza cargo de otra elección', async () => {
     mockFindBallotById.mockResolvedValue({
       id: BALLOT,
-      election_id: ELECTION,
+      electionId: ELECTION,
     });
 
     mockFindPositionById.mockResolvedValue({
       id: POSITION,
-      election_id:
-        '99999999-9999-9999-9999-999999999999',
+      electionId: '99999999-9999-9999-9999-999999999999',
     });
 
     const err = await capturarError(() =>
@@ -111,12 +110,12 @@ describe('BallotPosition Service', () => {
   it('crear rechaza posición duplicada', async () => {
     mockFindBallotById.mockResolvedValue({
       id: BALLOT,
-      election_id: ELECTION,
+      electionId: ELECTION,
     });
 
     mockFindPositionById.mockResolvedValue({
       id: POSITION,
-      election_id: ELECTION,
+      electionId: ELECTION,
     });
 
     mockFindByBallotAndPosition.mockResolvedValue({
@@ -135,12 +134,12 @@ describe('BallotPosition Service', () => {
   it('crear asigna order_index al final si no se envía', async () => {
     mockFindBallotById.mockResolvedValue({
       id: BALLOT,
-      election_id: ELECTION,
+      electionId: ELECTION,
     });
 
     mockFindPositionById.mockResolvedValue({
       id: POSITION,
-      election_id: ELECTION,
+      electionId: ELECTION,
     });
 
     mockFindByBallotAndPosition.mockResolvedValue(
@@ -164,21 +163,21 @@ describe('BallotPosition Service', () => {
     expect(
       mockCreateBallotPosition
     ).toHaveBeenCalledWith({
-      ballot_id: BALLOT,
-      position_id: POSITION,
-      order_index: 3,
+      ballotId: BALLOT,
+      positionId: POSITION,
+      orderIndex: 3,
     });
   });
 
   it('crear rechaza order_index repetido', async () => {
     mockFindBallotById.mockResolvedValue({
       id: BALLOT,
-      election_id: ELECTION,
+      electionId: ELECTION,
     });
 
     mockFindPositionById.mockResolvedValue({
       id: POSITION,
-      election_id: ELECTION,
+      electionId: ELECTION,
     });
 
     mockFindByBallotAndPosition.mockResolvedValue(

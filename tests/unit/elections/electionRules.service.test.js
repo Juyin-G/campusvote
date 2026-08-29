@@ -8,7 +8,7 @@ const mockDeleteRulesByElection = jest.fn();
 const mockFindElectionStatus = jest.fn();
 
 jest.unstable_mockModule(
-  '../../../src/modules/elections/electionRules.repository.js',
+  '../../../src/modules/elections/electionRules/electionRules.repository.js',
   () => ({
     findRulesByElection: mockFindRulesByElection,
     createRules: mockCreateRules,
@@ -18,12 +18,12 @@ jest.unstable_mockModule(
 );
 
 jest.unstable_mockModule(
-  '../../../src/modules/elections/election.repository.js',
+  '../../../src/modules/elections/elections/election.repository.js',
   () => ({ findElectionStatus: mockFindElectionStatus })
 );
 
 const service = await import(
-  '../../../src/modules/elections/electionRules.service.js'
+  '../../../src/modules/elections/electionRules/electionRules.service.js'
 );
 
 const ELECCION = '3f0c2b1e-1c2d-4a5b-8c9d-0e1f2a3b4c5d';
@@ -69,7 +69,7 @@ describe('ElectionRules Service — relación 1:1', () => {
     const err = await capturarError(() => service.createRules(ELECCION, {}));
 
     expect(err.statusCode).toBe(409);
-    expect(err.message).toContain('PUT');
+    expect(err.message).toContain('PATCH');
     expect(mockCreateRules).not.toHaveBeenCalled();
   });
 
@@ -93,9 +93,9 @@ describe('ElectionRules Service — conversión de Decimal', () => {
     eleccionEn('OPEN');
     mockFindRulesByElection.mockResolvedValue({
       id: 'r1',
-      election_id: ELECCION,
-      min_turnout_percentage: new Prisma.Decimal('12.50'),
-      requires_2fa: true,
+      electionId: ELECCION,
+      minTurnoutPercentage: new Prisma.Decimal('12.50'),
+      requires2fa: true,
     });
 
     const rules = await service.getRules(ELECCION);
@@ -124,18 +124,18 @@ describe('ElectionRules Service — escritura solo en DRAFT', () => {
     mockFindRulesByElection.mockResolvedValue(null);
     mockCreateRules.mockResolvedValue({
       id: 'r1',
-      election_id: ELECCION,
-      min_turnout_percentage: new Prisma.Decimal('0'),
+      electionId: ELECCION,
+      minTurnoutPercentage: new Prisma.Decimal('0'),
     });
 
     await service.createRules(ELECCION, { requires_2fa: false });
 
     const data = mockCreateRules.mock.calls[0][0];
-    expect(data.election_id).toBe(ELECCION);
-    expect(data.requires_2fa).toBe(false);
+    expect(data.electionId).toBe(ELECCION);
+    expect(data.requires2fa).toBe(false);
     // Los no enviados no se mandan: los rellena el DEFAULT de la tabla
-    expect(data.allow_blank_vote).toBeUndefined();
-    expect(data.min_turnout_percentage).toBeUndefined();
+    expect(data.allowBlankVote).toBeUndefined();
+    expect(data.minTurnoutPercentage).toBeUndefined();
   });
 
   it('actualizar convierte el quórum a número antes de guardar', async () => {
@@ -149,7 +149,7 @@ describe('ElectionRules Service — escritura solo en DRAFT', () => {
     await service.updateRules(ELECCION, { min_turnout_percentage: '33.33' });
 
     const data = mockUpdateRulesByElection.mock.calls[0][1];
-    expect(data.min_turnout_percentage).toBe(33.33);
+    expect(data.minTurnoutPercentage).toBe(33.33);
   });
 
   it('eliminar falla si la elección ya no es borrador (409)', async () => {

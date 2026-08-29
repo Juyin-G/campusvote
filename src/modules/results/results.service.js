@@ -37,9 +37,9 @@ const composeTalliesByPosition = (talliesWithContext) => {
   const positionsMap = new Map();
 
   for (const t of talliesWithContext) {
-    const bp = t.ballot_options?.ballot_positions;
-    const pos = bp?.positions;
-    if (!bp || !pos) continue;
+    const optionResolved = t.ballotOption;
+    const pos = optionResolved?.ballotPosition?.position;
+    if (!optionResolved || !pos) continue;
 
     if (!positionsMap.has(pos.id)) {
       positionsMap.set(pos.id, {
@@ -51,11 +51,11 @@ const composeTalliesByPosition = (talliesWithContext) => {
     }
 
     positionsMap.get(pos.id).options.push({
-      option_id: t.option_id,
-      label: t.ballot_options.label,
-      option_type: t.ballot_options.option_type,
-      candidate_list_id: t.ballot_options.candidate_list_id,
-      votes_count: t.votes_count,
+      option_id: t.optionId,
+      label: optionResolved.label,
+      option_type: optionResolved.optionType,
+      candidate_list_id: optionResolved.candidateListId,
+      votes_count: t.votesCount,
     });
   }
 

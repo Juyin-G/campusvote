@@ -47,7 +47,7 @@ describe('Elections Workflow Integration (HTTP + DB)', () => {
         role: 'ADMIN',
         authProvider: 'LOCAL',
         isVerified: true,
-        isActive: true,
+        status: 'ACTIVE',
         mustChangePassword: false,
       },
     });
@@ -59,16 +59,16 @@ describe('Elections Workflow Integration (HTTP + DB)', () => {
     expect(login.status).toBe(200);
     adminToken = login.body.data.token;
 
-    const faculty = await prisma.faculties.create({
+    const faculty = await prisma.faculty.create({
       data: { name: `Facultad Flow ${runId}`, code: `FF${runId}`.slice(0, 20) },
     });
     facultyId = faculty.id;
 
-    const period = await prisma.academic_periods.create({
+    const period = await prisma.academicPeriod.create({
       data: {
         name: `PF-${runId}`.slice(0, 50),
-        start_date: new Date('2026-01-01'),
-        end_date: new Date('2026-12-31'),
+        startDate: new Date('2026-01-01'),
+        endDate: new Date('2026-12-31'),
       },
     });
     periodId = period.id;
@@ -87,10 +87,10 @@ describe('Elections Workflow Integration (HTTP + DB)', () => {
 
   afterAll(async () => {
     if (electionId) {
-      await prisma.elections.deleteMany({ where: { id: electionId } }).catch(() => {});
+      await prisma.election.deleteMany({ where: { id: electionId } }).catch(() => {});
     }
-    await prisma.academic_periods.deleteMany({ where: { id: periodId } }).catch(() => {});
-    await prisma.faculties.deleteMany({ where: { id: facultyId } }).catch(() => {});
+    await prisma.academicPeriod.deleteMany({ where: { id: periodId } }).catch(() => {});
+    await prisma.faculty.deleteMany({ where: { id: facultyId } }).catch(() => {});
     await prisma.user.deleteMany({ where: { id: adminId } }).catch(() => {});
     await prisma.$disconnect();
   });
@@ -155,11 +155,11 @@ describe('Elections Workflow Integration (HTTP + DB)', () => {
     expect(res.status).toBe(200);
     expect(res.body.data.status).toBe('CERTIFIED');
 
-    const acta = await prisma.election_results.findUnique({
-      where: { election_id: electionId },
+    const acta = await prisma.electionResult.findUnique({
+      where: { electionId },
     });
     expect(acta).not.toBeNull();
-    expect(acta.certified_at).not.toBeNull();
+    expect(acta.certifiedAt).not.toBeNull();
   });
 
   it('CERTIFIED -> PUBLISHED cierra el ciclo', async () => {

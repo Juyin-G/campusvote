@@ -7,14 +7,14 @@ import { validate } from '../../middlewares/validate.middleware.js';
 import { ROLES } from '../../constants/roles.js';
 import {
   listNotificationsSchema,
-  notificationParamsSchema,
   createNotificationSchema,
   updateNotificationSchema,
 } from './notification.schema.js';
 
 const router = Router();
 
-const NOTIFICATION_CREATORS = [ROLES.ADMIN, ROLES.SYSTEM];
+// Solo gestores pueden crear notificaciones (no existe un rol SYSTEM en el enum)
+const NOTIFICATION_CREATORS = [ROLES.ADMIN, ROLES.ELECTORAL_COMMISSION];
 
 
 

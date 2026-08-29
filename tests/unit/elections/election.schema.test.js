@@ -7,7 +7,7 @@ import {
   STATUS_TYPES,
   SCOPE_TYPES,
   PROCESS_TYPES,
-} from '../../../src/modules/elections/election.schema.js';
+} from '../../../src/modules/elections/elections/election.schema.js';
 
 const UUID = '3f0c2b1e-1c2d-4a5b-8c9d-0e1f2a3b4c5d';
 const OTRO_UUID = '7a2b9c4d-3e5f-4a6b-9c8d-1e2f3a4b5c6d';
@@ -28,7 +28,7 @@ const errorDe = (schema, valor) => {
 
 const eleccionBase = {
   title: 'Elecciones Generales 2026',
-  election_type: 'UNIVERSITY',
+  scope_type: 'UNIVERSITY',
   period_id: UUID,
   start_at: '2026-09-01T08:00:00Z',
   end_at: '2026-09-01T18:00:00Z',
@@ -39,20 +39,20 @@ describe('Election Schema — integridad de alcance (chk_elections_scope_integri
     ['UNIVERSITY sin facultad ni programa', {}, true],
     ['UNIVERSITY con facultad', { faculty_id: UUID }, false],
     ['UNIVERSITY con programa', { program_id: UUID }, false],
-    ['FACULTY con facultad', { election_type: 'FACULTY', faculty_id: UUID }, true],
-    ['FACULTY sin facultad', { election_type: 'FACULTY' }, false],
+    ['FACULTY con facultad', { scope_type: 'FACULTY', faculty_id: UUID }, true],
+    ['FACULTY sin facultad', { scope_type: 'FACULTY' }, false],
     [
       'FACULTY con facultad y programa',
-      { election_type: 'FACULTY', faculty_id: UUID, program_id: OTRO_UUID },
+      { scope_type: 'FACULTY', faculty_id: UUID, program_id: OTRO_UUID },
       false,
     ],
     [
       'PROGRAM con facultad y programa',
-      { election_type: 'PROGRAM', faculty_id: UUID, program_id: OTRO_UUID },
+      { scope_type: 'PROGRAM', faculty_id: UUID, program_id: OTRO_UUID },
       true,
     ],
-    ['PROGRAM solo con facultad', { election_type: 'PROGRAM', faculty_id: UUID }, false],
-    ['PROGRAM solo con programa', { election_type: 'PROGRAM', program_id: UUID }, false],
+    ['PROGRAM solo con facultad', { scope_type: 'PROGRAM', faculty_id: UUID }, false],
+    ['PROGRAM solo con programa', { scope_type: 'PROGRAM', program_id: UUID }, false],
   ];
 
   it.each(casos)('%s', (_nombre, extra, deberiaPasar) => {
@@ -140,10 +140,11 @@ describe('Election Schema — campos y enums', () => {
 
   it('acepta todos los process_type del enum', () => {
     for (const tipo of PROCESS_TYPES) {
-      const error = errorDe(
-        createElectionSchema,
-        envolver({ body: { ...eleccionBase, process_type: tipo } })
-      );
+      const body =
+        tipo === 'FORM'
+          ? { ...eleccionBase, process_type: tipo, form_structure: { campo: 'pregunta' } }
+          : { ...eleccionBase, process_type: tipo };
+      const error = errorDe(createElectionSchema, envolver({ body }));
       expect(error).toBeNull();
     }
   });
@@ -177,8 +178,8 @@ describe('Election Schema — actualización', () => {
     ).toBeNull();
   });
 
-  it('revalida el alcance solo si llega election_type', () => {
-    // Sin election_type no se aplica la regla de alcance
+  it('revalida el alcance solo si llega scope_type', () => {
+    // Sin scope_type no se aplica la regla de alcance
     expect(
       errorDe(
         updateElectionSchema,
@@ -186,12 +187,12 @@ describe('Election Schema — actualización', () => {
       )
     ).toBeNull();
 
-    // Con election_type sí
+    // Con scope_type sí
     const error = errorDe(
       updateElectionSchema,
       envolver({
         params: { id: UUID },
-        body: { election_type: 'UNIVERSITY', faculty_id: UUID },
+        body: { scope_type: 'UNIVERSITY', faculty_id: UUID },
       })
     );
     expect(error).not.toBeNull();

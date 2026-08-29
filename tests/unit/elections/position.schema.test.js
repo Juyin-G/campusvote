@@ -2,7 +2,7 @@ import {
   createPositionSchema,
   updatePositionSchema,
   positionParamsSchema,
-} from '../../../src/modules/elections/position.schema.js';
+} from '../../../src/modules/elections/positions/position.schema.js';
 
 const UUID = '3f0c2b1e-1c2d-4a5b-8c9d-0e1f2a3b4c5d';
 const OTRO = '7a2b9c4d-3e5f-4a6b-9c8d-1e2f3a4b5c6d';

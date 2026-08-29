@@ -98,7 +98,8 @@ class AuditController {
       const clientIp = req.headers['x-forwarded-for']?.split(',')[0].trim() || req.ip;
 
       const logData = {
-        actorId: req.user?.id || null, // Registro explícito de identidad en auditoría
+        // El JWT firma el claim `userId`; rellenar actorId para no romper la cadena
+        actorId: req.user?.userId ?? req.user?.id ?? null,
         electionId: logPayload.electionId || null,
         action: logPayload.action,
         ipAddress: clientIp,
@@ -155,7 +156,8 @@ class AuditController {
         });
       }
 
-      if (req.user.id !== value.userId && !isAdminRole(req.user.role)) {
+      const actorId = req.user?.userId ?? req.user?.id;
+      if (actorId !== value.userId && !isAdminRole(req.user.role)) {
         return res.status(403).json({
           success: false,
           error: { message: 'No tiene permisos para crear tokens para este usuario' }

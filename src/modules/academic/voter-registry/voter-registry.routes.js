@@ -11,19 +11,28 @@ import {
 
 // Asegúrate de ajustar la ruta real de tu validateMiddleware
 import { validate } from '../../../middlewares/validate.middleware.js';
+import { authenticate, authorize } from '../../../middlewares/auth.middleware.js';
+import { ROLES } from '../../../constants/roles.js';
 
 const router = Router();
+
+// Solo gestores (ADMIN / COMISIÓN ELECTORAL) pueden gestionar el padrón.
+const GESTORES = [ROLES.ADMIN, ROLES.ELECTORAL_COMMISSION];
 
 // 1. Sincronización masiva desde SIS
 router.post(
   '/sync-sis',
+  authenticate,
+  authorize(GESTORES),
   validate(syncSisVotersSchema),
   voterRegistryController.syncSisVoters
 );
 
-// 2. Obtener lista paginada y filtrada
+// 2. Obtener lista paginada y filtrada (el padrón es información sensible)
 router.get(
   '/',
+  authenticate,
+  authorize(GESTORES),
   validate(getVoterRegistriesQuerySchema, 'query'),
   voterRegistryController.getVoters
 );
@@ -31,13 +40,17 @@ router.get(
 // 3. Crear votante manualmente
 router.post(
   '/',
+  authenticate,
+  authorize(GESTORES),
   validate(createVoterRegistrySchema),
   voterRegistryController.createVoter
 );
 
-// 4. Obtener votante por ID
+// 4. Obtener votante por ID (datos personales)
 router.get(
   '/:id',
+  authenticate,
+  authorize(GESTORES),
   validate(voterRegistryIdParamSchema, 'params'),
   voterRegistryController.getVoterById
 );
@@ -45,6 +58,8 @@ router.get(
 // 5. Actualizar votante por ID
 router.patch(
   '/:id',
+  authenticate,
+  authorize(GESTORES),
   validate(voterRegistryIdParamSchema, 'params'),
   validate(updateVoterRegistrySchema),
   voterRegistryController.updateVoter
@@ -53,6 +68,8 @@ router.patch(
 // 6. Eliminar votante por ID
 router.delete(
   '/:id',
+  authenticate,
+  authorize(GESTORES),
   validate(voterRegistryIdParamSchema, 'params'),
   voterRegistryController.deleteVoter
 );

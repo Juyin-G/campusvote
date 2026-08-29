@@ -55,7 +55,7 @@ const requireBallotPosition = async (
 
   if (
     !ballotPosition ||
-    ballotPosition.ballot_id !== ballotId
+    ballotPosition.ballotId !== ballotId
   ) {
     throw ApiError.notFound(
       'La posición solicitada no existe en esta boleta'
@@ -80,7 +80,7 @@ const requirePositionForBallot = async (
     throw ApiError.notFound('Cargo no encontrado');
   }
 
-  if (position.election_id !== ballot.election_id) {
+  if (position.electionId !== ballot.electionId) {
     throw ApiError.badRequest(
       'El cargo no pertenece a la misma elección de la boleta'
     );
@@ -182,9 +182,9 @@ export const createBallotPosition = async (
 
   try {
     return await ballotPositionRepository.createBallotPosition({
-      ballot_id: ballotId,
-      position_id: targetPositionId,
-      order_index: Number(targetOrderIndex),
+      ballotId,
+      positionId: targetPositionId,
+      orderIndex: Number(targetOrderIndex),
     });
   } catch (err) {
     throw translatePrismaError(err);
@@ -212,7 +212,7 @@ export const updateBallotPosition = async (
 
   if (
     targetPositionId !== undefined &&
-    targetPositionId !== current.position_id
+    targetPositionId !== current.positionId
   ) {
     await requirePositionForBallot(
       ballot,
@@ -234,12 +234,12 @@ export const updateBallotPosition = async (
       );
     }
 
-    data.position_id = targetPositionId;
+    data.positionId = targetPositionId;
   }
 
   if (
     targetOrderIndex !== undefined &&
-    Number(targetOrderIndex) !== current.order_index
+    Number(targetOrderIndex) !== current.orderIndex
   ) {
     const duplicatedOrder =
       await ballotPositionRepository.findByBallotAndOrder(
@@ -256,7 +256,7 @@ export const updateBallotPosition = async (
       );
     }
 
-    data.order_index = Number(targetOrderIndex);
+    data.orderIndex = Number(targetOrderIndex);
   }
 
   if (Object.keys(data).length === 0) {

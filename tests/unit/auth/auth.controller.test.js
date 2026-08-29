@@ -46,7 +46,7 @@ describe('Auth Controller', () => {
   let req, res, next;
 
   beforeEach(() => {
-    req = { body: {}, requestId: 'test-request-id' };
+    req = { body: {}, requestId: 'test-request-id', headers: {} };
     res = {
       status: jest.fn().mockReturnThis(),
       json: jest.fn(),

@@ -79,6 +79,10 @@ model Election {
   ballots            Ballot[]
   auditLogs          AuditLog[]
   votingAccessTokens VotingAccessToken[]
+  tallies            Tally[]
+  votingSessions     VotingSession[]
+  votes              Vote[]
+  electionResults    ElectionResult[]
 
   @@index([status], map: "idx_elections_status")
   @@index([periodId], map: "idx_elections_period")
@@ -102,6 +106,7 @@ model Position {
   election        Election         @relation(fields: [electionId], references: [id], onDelete: Cascade)
   candidacies     Candidacy[]
   ballotPositions BallotPosition[]
+  tallies         Tally[]
 
   @@unique([electionId, name], map: "uq_positions_election_name")
   @@unique([id, electionId], map: "uq_positions_id_election")

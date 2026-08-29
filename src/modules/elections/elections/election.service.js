@@ -162,7 +162,7 @@ const assertTransitionRules = async (election, target) => {
   }
 };
 
-export const changeStatus = async (id, targetStatus) => {
+export const changeStatus = async (id, targetStatus, actorId = null) => {
   const election = await electionRepository.findElectionStatus(id);
   if (!election) throw ApiError.notFound(MESSAGES.ELECTION.NOT_FOUND);
 
@@ -183,7 +183,7 @@ export const changeStatus = async (id, targetStatus) => {
 
   if (targetStatus === 'CERTIFIED') {
     try {
-      return await electionRepository.certifyElection(id);
+      return await electionRepository.certifyElection(id, actorId);
     } catch (err) {
       throw translateCertifyError(err);
     }

@@ -22,7 +22,7 @@ export const listPrograms = async (query = {}) => {
   const facultyId = query.faculty_id;
 
   const [data, total] = await Promise.all([
-    programRepository.list({ faculty_id: facultyId, skip, take }),
+    programRepository.list({ facultyId, skip, take }),
     programRepository.count(facultyId),
   ]);
 

@@ -12,7 +12,7 @@ const mockCountPositionsByElection = jest.fn();
 const mockCertifyElection = jest.fn();
 
 jest.unstable_mockModule(
-  '../../../src/modules/elections/election.repository.js',
+  '../../../src/modules/elections/elections/election.repository.js',
   () => ({
     findElectionById: mockFindElectionById,
     findElectionStatus: mockFindElectionStatus,
@@ -28,14 +28,14 @@ jest.unstable_mockModule(
 
 // El conteo de cargos vive en el repository de positions (dominio propio)
 jest.unstable_mockModule(
-  '../../../src/modules/elections/position.repository.js',
+  '../../../src/modules/elections/positions/position.repository.js',
   () => ({
     countPositionsByElection: mockCountPositionsByElection,
   })
 );
 
 const service = await import(
-  '../../../src/modules/elections/election.service.js'
+  '../../../src/modules/elections/elections/election.service.js'
 );
 
 const ID = '3f0c2b1e-1c2d-4a5b-8c9d-0e1f2a3b4c5d';
@@ -75,10 +75,10 @@ describe('Election Service — CRUD', () => {
     mockCountElections.mockResolvedValue(0);
     mockListElections.mockResolvedValue([]);
 
-    await service.listElections({ status: 'OPEN', election_type: 'FACULTY' });
+    await service.listElections({ status: 'OPEN', scope_type: 'FACULTY' });
 
     expect(mockCountElections).toHaveBeenCalledWith(
-      expect.objectContaining({ status: 'OPEN', election_type: 'FACULTY' })
+      expect.objectContaining({ status: 'OPEN', scopeType: 'FACULTY' })
     );
   });
 
@@ -102,22 +102,22 @@ describe('Election Service — CRUD', () => {
   it('createElection normaliza texto y adjunta created_by', async () => {
     mockCreateElection.mockResolvedValue({ id: ID });
 
-    await service.createElection(
-      {
-        title: '  Elecciones 2026  ',
-        election_type: 'UNIVERSITY',
-        period_id: PERIODO,
-        start_at: enElFuturo(1),
-        end_at: enElFuturo(2),
-      },
-      ACTOR
-    );
+      await service.createElection(
+        {
+          title: 'X',
+          scope_type: 'UNIVERSITY',
+          period_id: PERIODO,
+          start_at: enElFuturo(1),
+          end_at: enElFuturo(2),
+        },
+        ACTOR
+      );
 
     const data = mockCreateElection.mock.calls[0][0];
-    expect(data.title).toBe('Elecciones 2026');
-    expect(data.created_by).toBe(ACTOR);
-    expect(data.faculty_id).toBeNull();
-    expect(data.start_at).toBeInstanceOf(Date);
+    expect(data.title).toBe('X');
+    expect(data.createdBy).toBe(ACTOR);
+    expect(data.facultyId).toBeNull();
+    expect(data.startAt).toBeInstanceOf(Date);
   });
 
   it('traduce P2003 (FK inexistente) a 400', async () => {
@@ -154,8 +154,8 @@ describe('Election Service — CRUD', () => {
     mockFindElectionStatus.mockResolvedValue({
       id: ID,
       status: 'DRAFT',
-      start_at: new Date(enElFuturo(5)),
-      end_at: new Date(enElFuturo(6)),
+      startAt: new Date(enElFuturo(5)),
+      endAt: new Date(enElFuturo(6)),
     });
 
     // Se manda solo end_at, anterior al start_at guardado

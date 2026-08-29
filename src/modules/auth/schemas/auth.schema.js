@@ -34,7 +34,7 @@ export const registerSchema = z.object({
         .min(8, 'Mínimo 8 caracteres')
         .regex(/[A-Z]/, 'Debe contener al menos una letra mayúscula')
         .regex(/[a-z]/, 'Debe contener al menos una letra minúscula')
-        .regex(/[0-9]/, 'Debe contener al menos un número'),
+        .regex(/\d/, 'Debe contener al menos un número'),
       firstName: z.string().min(1, 'El nombre es obligatorio').max(150).trim(),
       lastName: z.string().min(1, 'El apellido es obligatorio').max(150).trim(),
       institutionalId: z.string().min(1, 'El ID institucional es obligatorio').trim(),
@@ -126,7 +126,7 @@ export const resetPasswordSchema = z.object({
       .min(8, 'Mínimo 8 caracteres')
       .regex(/[A-Z]/, 'Debe contener al menos una letra mayúscula')
       .regex(/[a-z]/, 'Debe contener al menos una letra minúscula')
-      .regex(/[0-9]/, 'Debe contener al menos un número'),
+      .regex(/\d/, 'Debe contener al menos un número'),
   }),
 });
 
@@ -153,5 +153,12 @@ export const disableTotpSchema = z.object({
 export const resendVerificationSchema = z.object({
   body: z.object({
     email: z.string().email('Email inválido').trim().toLowerCase(),
+  }),
+});
+
+// Renovación de sesión con refresh token
+export const refreshSchema = z.object({
+  body: z.object({
+    refreshToken: z.string().min(1, 'El refresh token es obligatorio'),
   }),
 });

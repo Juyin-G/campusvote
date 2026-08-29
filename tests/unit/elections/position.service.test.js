@@ -10,7 +10,7 @@ const mockCountCandidaciesByPosition = jest.fn();
 const mockFindElectionStatus = jest.fn();
 
 jest.unstable_mockModule(
-  '../../../src/modules/elections/position.repository.js',
+  '../../../src/modules/elections/positions/position.repository.js',
   () => ({
     findPositionById: mockFindPositionById,
     findPositionsByElection: mockFindPositionsByElection,
@@ -23,14 +23,14 @@ jest.unstable_mockModule(
 );
 
 jest.unstable_mockModule(
-  '../../../src/modules/elections/election.repository.js',
+  '../../../src/modules/elections/elections/election.repository.js',
   () => ({
     findElectionStatus: mockFindElectionStatus,
   })
 );
 
 const service = await import(
-  '../../../src/modules/elections/position.service.js'
+  '../../../src/modules/elections/positions/position.service.js'
 );
 
 const ELECCION = '11111111-1111-1111-1111-111111111111';
@@ -78,7 +78,7 @@ describe('Position Service — lectura', () => {
     eleccionEn('DRAFT');
     mockFindPositionById.mockResolvedValue({
       id: CARGO,
-      election_id: OTRA_ELECCION,
+      electionId: OTRA_ELECCION,
     });
 
     const err = await capturarError(() =>
@@ -92,7 +92,7 @@ describe('Position Service — lectura', () => {
     eleccionEn('DRAFT');
     mockFindPositionById.mockResolvedValue({
       id: CARGO,
-      election_id: ELECCION,
+      electionId: ELECCION,
       name: 'Presidente',
     });
 
@@ -128,7 +128,7 @@ describe('Position Service — escritura solo en DRAFT', () => {
 
     const data = mockCreatePosition.mock.calls[0][0];
     expect(data.name).toBe('Presidente');
-    expect(data.election_id).toBe(ELECCION);
+    expect(data.electionId).toBe(ELECCION);
     expect(data.description).toBeNull();
     expect(data.seats).toBe(2);
   });
@@ -146,7 +146,7 @@ describe('Position Service — escritura solo en DRAFT', () => {
   });
 
   it('actualizar falla si la elección ya no es borrador (409)', async () => {
-    eleccionEn('SCHEDULED');
+    eleccionEn('OPEN');
 
     const err = await capturarError(() =>
       service.updatePosition(ELECCION, CARGO, { seats: 3 })
@@ -160,7 +160,7 @@ describe('Position Service — escritura solo en DRAFT', () => {
     eleccionEn('DRAFT');
     mockFindPositionById.mockResolvedValue({
       id: CARGO,
-      election_id: OTRA_ELECCION,
+      electionId: OTRA_ELECCION,
     });
 
     const err = await capturarError(() =>
@@ -175,7 +175,7 @@ describe('Position Service — escritura solo en DRAFT', () => {
     eleccionEn('DRAFT');
     mockFindPositionById.mockResolvedValue({
       id: CARGO,
-      election_id: ELECCION,
+      electionId: ELECCION,
     });
     mockUpdatePosition.mockResolvedValue({ id: CARGO, seats: 3 });
 
@@ -193,7 +193,7 @@ describe('Position Service — borrado seguro', () => {
     eleccionEn('DRAFT');
     mockFindPositionById.mockResolvedValue({
       id: CARGO,
-      election_id: ELECCION,
+      electionId: ELECCION,
     });
     mockCountCandidaciesByPosition.mockResolvedValue(3);
 
@@ -210,7 +210,7 @@ describe('Position Service — borrado seguro', () => {
     eleccionEn('DRAFT');
     mockFindPositionById.mockResolvedValue({
       id: CARGO,
-      election_id: ELECCION,
+      electionId: ELECCION,
     });
     mockCountCandidaciesByPosition.mockResolvedValue(0);
     mockDeletePositionById.mockResolvedValue({ id: CARGO });

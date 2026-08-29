@@ -2,7 +2,7 @@ model PlatformTranslation {
   id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   translationKey String   @unique @map("translation_key") @db.VarChar(150)
   category       String   @default("general") @map("category") @db.VarChar(50)
-  values         Json     @map("values") @db.Jsonb
+  values         Json     @map("values")
   createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt      DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 

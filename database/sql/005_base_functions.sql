@@ -14,7 +14,7 @@ $$;
 CREATE OR REPLACE FUNCTION generate_slug(text)
 RETURNS text AS $$
   SELECT trim(both '-' from lower(regexp_replace($1, '[^a-zA-Z0-9]+', '-', 'g')));
-$$ LANGUAGE sql IMMUTABLE;[cite: 1]
+$$ LANGUAGE sql IMMUTABLE;
 
 -- Función para normalizar emails
 CREATE OR REPLACE FUNCTION normalize_email(email text)

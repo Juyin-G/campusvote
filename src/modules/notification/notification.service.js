@@ -2,7 +2,6 @@
 
 import * as notificationRepository from './notification.repository.js';
 import { ApiError } from '../../shared/errors/ApiError.js';
-import MESSAGES from '../../constants/messages.js';
 
 const translatePrismaError = (err) => {
   if (err?.code === 'P2025') {

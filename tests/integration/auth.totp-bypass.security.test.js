@@ -15,6 +15,7 @@ import { jest } from '@jest/globals';
 import bcrypt from 'bcryptjs';
 import request from 'supertest';
 import jwt from 'jsonwebtoken';
+import { createAcademicFixture } from './academic.fixture.js';
 
 // Mock email service to prevent actual emails
 jest.unstable_mockModule('../../src/shared/services/email.service.js', () => ({
@@ -43,6 +44,7 @@ let validToken;
 describe('Security: TOTP-pending JWT bypass mitigation', () => {
   beforeAll(async () => {
     const passwordHash = await bcrypt.hash(TEST_PASSWORD, 12);
+    const { program } = await createAcademicFixture(runId);
 
     // Create user WITH 2FA enabled
     userWith2FA = await prisma.user.create({
@@ -56,10 +58,12 @@ describe('Security: TOTP-pending JWT bypass mitigation', () => {
         role: 'STUDENT',
         authProvider: 'LOCAL',
         isVerified: true,
-        isActive: true,
+        status: 'ACTIVE',
         mustChangePassword: false,
         twoFactorEnabled: true,
         twoFactorSecret: 'JBSWY3DPEHPK3PXP', // Test TOTP secret
+        programId: program.id,
+        currentCycle: 5,
       },
     });
 
@@ -75,9 +79,11 @@ describe('Security: TOTP-pending JWT bypass mitigation', () => {
         role: 'STUDENT',
         authProvider: 'LOCAL',
         isVerified: true,
-        isActive: true,
+        status: 'ACTIVE',
         mustChangePassword: false,
         twoFactorEnabled: false,
+        programId: program.id,
+        currentCycle: 5,
       },
     });
 

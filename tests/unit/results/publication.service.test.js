@@ -16,14 +16,14 @@ const mockChangeStatus = jest.fn();
 const mockLogAction = jest.fn();
 
 jest.unstable_mockModule(
-  '../../../src/modules/elections/election.repository.js',
+  '../../../src/modules/elections/elections/election.repository.js',
   () => ({
     findElectionById: mockFindElectionById,
   })
 );
 
 jest.unstable_mockModule(
-  '../../../src/modules/elections/electionRules.repository.js',
+  '../../../src/modules/elections/electionRules/electionRules.repository.js',
   () => ({
     findRulesByElection: mockFindRulesByElection,
   })
@@ -37,7 +37,7 @@ jest.unstable_mockModule(
 );
 
 jest.unstable_mockModule(
-  '../../../src/modules/elections/election.service.js',
+  '../../../src/modules/elections/elections/election.service.js',
   () => ({
     changeStatus: mockChangeStatus,
   })
@@ -242,7 +242,7 @@ describe('Publication Service — publishElection', () => {
     const serviceCode = await fs.readFile(servicePath, 'utf8');
     expect(serviceCode).not.toContain('electionRepository.updateElectionStatus');
     // Debe usar electionService.
-    expect(serviceCode).toContain("from '../../elections/election.service.js'");
+    expect(serviceCode).toContain("from '../../elections/elections/election.service.js'");
     expect(serviceCode).toContain('electionService.changeStatus');
   });
 });

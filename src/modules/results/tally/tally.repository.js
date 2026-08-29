@@ -22,13 +22,13 @@ import { prisma } from '../../../database/prisma.js';
  */
 const BALLOT_OPTION_JOIN_SELECT = {
   id: true,
-  ballot_position_id: true,
-  option_type: true,
-  candidate_list_id: true,
+  ballotPositionId: true,
+  optionType: true,
+  candidateListId: true,
   label: true,
-  ballot_positions: {
+  ballotPosition: {
     select: {
-      position_id: true,
+      positionId: true,
     },
   },
 };
@@ -36,11 +36,11 @@ const BALLOT_OPTION_JOIN_SELECT = {
 /** Solo los campos públicos de un tally existente. */
 const TALLY_SELECT = {
   id: true,
-  election_id: true,
-  position_id: true,
-  option_id: true,
-  votes_count: true,
-  updated_at: true,
+  electionId: true,
+  positionId: true,
+  optionId: true,
+  votesCount: true,
+  updatedAt: true,
 };
 
 // ─────────────────────────────────────────────────────────────
@@ -56,16 +56,16 @@ const TALLY_SELECT = {
  * y mapear cada selección a su (election, position, option).
  */
 export const findBallotOptionsByElection = (electionId) =>
-  prisma.ballot_options.findMany({
+  prisma.ballotOption.findMany({
     where: {
-      ballot_positions: {
-        positions: {
-          election_id: electionId,
+      ballotPosition: {
+        position: {
+          electionId,
         },
       },
     },
     select: BALLOT_OPTION_JOIN_SELECT,
-    orderBy: { created_at: 'asc' },
+    orderBy: { createdAt: 'asc' },
   });
 
 /**
@@ -77,11 +77,11 @@ export const findBallotOptionsByElection = (electionId) =>
  * (vote_id, ballot_option_id) garantiza que no hay duplicados).
  */
 export const countSelectionsByBallotOption = (electionId) =>
-  prisma.vote_selections.groupBy({
-    by: ['ballot_option_id'],
+  prisma.voteSelection.groupBy({
+    by: ['ballotOptionId'],
     where: {
-      votes: {
-        election_id: electionId,
+      vote: {
+        electionId,
       },
     },
     _count: { _all: true },
@@ -93,10 +93,10 @@ export const countSelectionsByBallotOption = (electionId) =>
  * El orden es estable: primero por position, luego por option.
  */
 export const findExistingTallies = (electionId) =>
-  prisma.tallies.findMany({
-    where: { election_id: electionId },
+  prisma.tally.findMany({
+    where: { electionId },
     select: TALLY_SELECT,
-    orderBy: [{ position_id: 'asc' }, { option_id: 'asc' }],
+    orderBy: [{ positionId: 'asc' }, { optionId: 'asc' }],
   });
 
 // ─────────────────────────────────────────────────────────────
@@ -119,33 +119,27 @@ export const findExistingTallies = (electionId) =>
  * restricción UNIQUE de la tabla hará fallar el createMany,
  * y eso debe detectarse como un bug, no silenciarse.
  *
- * Limitación documentada: $transaction por sí sola no resuelve
- * toda la concurrencia. Esta función no aplica locks explícitos;
- * la decisión sobre cuándo recalcular (y con qué garantías de
- * aislamiento) corresponde a la capa Service, que conoce el
- * estado de la elección.
- *
  * @param {string} electionId - UUID de la elección.
- * @param {Array<{election_id:string, position_id:string,
- *   option_id:string, votes_count:number}>} records
+ * @param {Array<{electionId:string, positionId:string,
+ *   optionId:string, votesCount:number}>} records
  *   Set nuevo de tallies. Si está vacío, solo se ejecuta el borrado.
- * @returns {Promise<{election_id:string, deleted:number,
+ * @returns {Promise<{electionId:string, deleted:number,
  *   inserted:number}>}
  */
 export const replaceTallies = async (electionId, records = []) => {
   return prisma.$transaction(async (tx) => {
-    const deleted = await tx.tallies.deleteMany({
-      where: { election_id: electionId },
+    const deleted = await tx.tally.deleteMany({
+      where: { electionId },
     });
 
     if (records.length > 0) {
-      await tx.tallies.createMany({
+      await tx.tally.createMany({
         data: records,
       });
     }
 
     return {
-      election_id: electionId,
+      electionId,
       deleted: deleted.count,
       inserted: records.length,
     };

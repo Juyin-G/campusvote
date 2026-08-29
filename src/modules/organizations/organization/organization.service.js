@@ -9,8 +9,12 @@ export const listOrganizations = async (query = {}) => {
   const limit = Math.max(1, Math.min(100, parseInt(query.limit) || 10));
   const skip = (page - 1) * limit;
 
+  let isActive;
+  if (query.is_active === 'true') isActive = true;
+  else if (query.is_active === 'false') isActive = false;
+
   const filters = {
-    isActive: query.is_active === 'true' ? true : query.is_active === 'false' ? false : undefined,
+    isActive,
     search: query.search,
     skip,
     take: limit,

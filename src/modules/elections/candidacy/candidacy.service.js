@@ -157,7 +157,7 @@ const requireActiveUser = async (userId) => {
   if (!user) {
     throw ApiError.badRequest('El usuario indicado no existe');
   }
-  if (!user.isActive) {
+  if (user.status !== 'ACTIVE') {
     throw ApiError.badRequest(
       'El usuario indicado tiene la cuenta inactiva y no puede ser candidato'
     );

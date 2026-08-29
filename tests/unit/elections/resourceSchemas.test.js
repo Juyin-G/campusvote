@@ -1,16 +1,16 @@
 import {
   createCandidateListSchema,
   updateCandidateListSchema,
-} from '../../../src/modules/elections/candidateList.schema.js';
+} from '../../../src/modules/elections/candidateList/candidateList.schema.js';
 import {
   createCandidacySchema,
   updateCandidacySchema,
   listCandidacySchema,
-} from '../../../src/modules/elections/candidacy.schema.js';
+} from '../../../src/modules/elections/candidacy/candidacy.schema.js';
 import {
   createElectionRulesSchema,
   updateElectionRulesSchema,
-} from '../../../src/modules/elections/electionRules.schema.js';
+} from '../../../src/modules/elections/electionRules/electionRules.schema.js';
 
 const UUID = '3f0c2b1e-1c2d-4a5b-8c9d-0e1f2a3b4c5d';
 const OTRO = '7a2b9c4d-3e5f-4a6b-9c8d-1e2f3a4b5c6d';
@@ -196,12 +196,12 @@ describe('ElectionRules Schema — reglas', () => {
     ).toBe('body.min_turnout_percentage');
   });
 
-  it('rechaza max_positions_per_ballot = 0', () => {
+  it('rechaza max_votes_per_position = 0', () => {
     const error = errorDe(
       createElectionRulesSchema,
-      envolver({ params, body: { max_positions_per_ballot: 0 } })
+      envolver({ params, body: { max_votes_per_position: 0 } })
     );
-    expect(error.mensaje).toContain('al menos 1 cargo');
+    expect(error.mensaje).toContain('al menos 1');
   });
 
   it('exige booleanos reales en los flags', () => {

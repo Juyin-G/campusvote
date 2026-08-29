@@ -10,7 +10,7 @@ const mockCountCandidaciesByList = jest.fn();
 const mockFindElectionStatus = jest.fn();
 
 jest.unstable_mockModule(
-  '../../../src/modules/elections/candidateList.repository.js',
+  '../../../src/modules/elections/candidateList/candidateList.repository.js',
   () => ({
     findCandidateListById: mockFindCandidateListById,
     findCandidateListsByElection: mockFindCandidateListsByElection,
@@ -23,14 +23,14 @@ jest.unstable_mockModule(
 );
 
 jest.unstable_mockModule(
-  '../../../src/modules/elections/election.repository.js',
+  '../../../src/modules/elections/elections/election.repository.js',
   () => ({
     findElectionStatus: mockFindElectionStatus,
   })
 );
 
 const service = await import(
-  '../../../src/modules/elections/candidateList.service.js'
+  '../../../src/modules/elections/candidateList/candidateList.service.js'
 );
 
 const ELECCION = '3f0c2b1e-1c2d-4a5b-8c9d-0e1f2a3b4c5d';
@@ -78,7 +78,7 @@ describe('CandidateList Service — lectura y pertenencia', () => {
     eleccionEn('DRAFT');
     mockFindCandidateListById.mockResolvedValue({
       id: LISTA,
-      election_id: OTRA_ELECCION,
+      electionId: OTRA_ELECCION,
     });
 
     const err = await capturarError(() =>
@@ -108,7 +108,7 @@ describe('CandidateList Service — normalización de campos opcionales', () => 
     expect(data.acronym).toBeNull();
     expect(data.motto).toBeNull();
     expect(data.logo).toBe('https://cdn/logo.png');
-    expect(data.election_id).toBe(ELECCION);
+    expect(data.electionId).toBe(ELECCION);
   });
 
   it('conserva acronym y motto cuando traen contenido', async () => {
@@ -130,7 +130,7 @@ describe('CandidateList Service — normalización de campos opcionales', () => 
     eleccionEn('DRAFT');
     mockFindCandidateListById.mockResolvedValue({
       id: LISTA,
-      election_id: ELECCION,
+      electionId: ELECCION,
     });
     mockUpdateCandidateList.mockResolvedValue({ id: LISTA });
 
@@ -144,7 +144,7 @@ describe('CandidateList Service — escritura solo en DRAFT', () => {
   beforeEach(() => jest.clearAllMocks());
 
   it('crear falla si la elección ya no es borrador (409)', async () => {
-    eleccionEn('SCHEDULED');
+    eleccionEn('OPEN');
 
     const err = await capturarError(() =>
       service.createCandidateList(ELECCION, { name: 'Unidad' })
@@ -170,7 +170,7 @@ describe('CandidateList Service — escritura solo en DRAFT', () => {
     eleccionEn('DRAFT');
     mockFindCandidateListById.mockResolvedValue({
       id: LISTA,
-      election_id: OTRA_ELECCION,
+      electionId: OTRA_ELECCION,
     });
 
     const err = await capturarError(() =>
@@ -189,7 +189,7 @@ describe('CandidateList Service — borrado seguro', () => {
     eleccionEn('DRAFT');
     mockFindCandidateListById.mockResolvedValue({
       id: LISTA,
-      election_id: ELECCION,
+      electionId: ELECCION,
     });
     mockCountCandidaciesByList.mockResolvedValue(5);
 
@@ -206,7 +206,7 @@ describe('CandidateList Service — borrado seguro', () => {
     eleccionEn('DRAFT');
     mockFindCandidateListById.mockResolvedValue({
       id: LISTA,
-      election_id: ELECCION,
+      electionId: ELECCION,
     });
     mockCountCandidaciesByList.mockResolvedValue(0);
     mockDeleteCandidateListById.mockResolvedValue({ id: LISTA });

@@ -14,6 +14,7 @@ import auditRoutes from '../modules/audit/audit.routes.js';
 import platformTranslationRoutes from '../modules/PlatformTranslation/PlatformTranslation.routes.js';
 
 import notificationRoutes from '../modules/notification/notification.routes.js';
+import votingRoutes from '../modules/voting/voting.routes.js';
 
 const router = Router();
 
@@ -32,7 +33,10 @@ router.use('/academic', academicRoutes);
 // Proceso Electoral
 router.use('/elections', electionRoutes);
 router.use('/ballots', ballotRoutes);
-router.use('/results', resultsRoutes); 
+
+// Resultados (certify/publish/tally/report/export viven bajo /elections/:id
+// y /results/live · /results/final → se monta en la raíz para respetar paths)
+router.use(resultsRoutes); 
 
 // Auditoría y Tokens de Un Solo Uso
 router.use('/audit', auditRoutes);
@@ -42,5 +46,8 @@ router.use('/platform/translations', platformTranslationRoutes);
 
 //  Montar rutas de notificaciones
 router.use('/notifications', notificationRoutes);
+
+//  Votación
+router.use('/voting', votingRoutes);
 
 export default router;

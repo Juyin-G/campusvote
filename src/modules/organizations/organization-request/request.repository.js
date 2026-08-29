@@ -12,7 +12,7 @@ const REQUEST_SELECT = {
   contactPhone: true,       // No 'contact_phone'
   message: true,
   status: true,
-  reviewedBy: true,         // No 'reviewed_by'
+  reviewedById: true,       // No 'reviewed_by_id'
   reviewedAt: true,         // No 'reviewed_at'
   rejectionReason: true,    // No 'rejection_reason'
   createdAt: true,          // No 'created_at'

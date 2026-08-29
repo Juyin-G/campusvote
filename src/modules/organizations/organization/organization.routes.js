@@ -141,7 +141,7 @@ router.get(
 router.patch(
   '/:id',
   authenticate,
-  authorize('ADMIN', 'ORG_ADMIN'),
+  authorize('ADMIN'),
   validate(idParamSchema),
   validate(updateOrganizationSchema),
   updateOrganization
@@ -162,7 +162,7 @@ router.delete(
 router.patch(
   '/:id/onboarding',
   authenticate,
-  authorize('ADMIN', 'ORG_ADMIN'),
+  authorize('ADMIN'),
   validate(idParamSchema),
   updateOnboarding
 );
@@ -170,7 +170,7 @@ router.patch(
 router.post(
   '/:id/onboarding/complete',
   authenticate,
-  authorize('ADMIN', 'ORG_ADMIN'),
+  authorize('ADMIN'),
   validate(idParamSchema),
   completeOnboarding
 );

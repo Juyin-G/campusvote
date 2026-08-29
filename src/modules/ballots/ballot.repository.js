@@ -14,7 +14,7 @@ const BALLOT_SELECT = {
 };
 
 export const findBallotById = (id) =>
-  prisma.ballots.findUnique({
+  prisma.ballot.findUnique({
     where: { id },
     select: BALLOT_SELECT,
   });
@@ -23,7 +23,7 @@ export const listBallotsByElection = (
   electionId,
   { skip = 0, take = 10 } = {},
 ) =>
-  prisma.ballots.findMany({
+  prisma.ballot.findMany({
     where: {
       electionId,
     },
@@ -36,27 +36,27 @@ export const listBallotsByElection = (
   });
 
 export const countBallotsByElection = (electionId) =>
-  prisma.ballots.count({
+  prisma.ballot.count({
     where: {
       electionId,
     },
   });
 
 export const createBallot = (data) =>
-  prisma.ballots.create({
+  prisma.ballot.create({
     data,
     select: BALLOT_SELECT,
   });
 
 export const updateBallot = (id, data) =>
-  prisma.ballots.update({
+  prisma.ballot.update({
     where: { id },
     data,
     select: BALLOT_SELECT,
   });
 
 export const deleteBallotById = (id) =>
-  prisma.ballots.delete({
+  prisma.ballot.delete({
     where: { id },
     select: {
       id: true,

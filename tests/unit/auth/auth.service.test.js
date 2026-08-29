@@ -12,6 +12,10 @@ const mockFindById = jest.fn();
 const mockGeneratePasswordResetToken = jest.fn();
 const mockResetPasswordWithToken = jest.fn();
 const mockVerifyEmailWithToken = jest.fn();
+const mockCreateRefreshToken = jest.fn().mockResolvedValue({ id: 'rt-1' });
+const mockFindRefreshToken = jest.fn();
+const mockRevokeRefreshToken = jest.fn().mockResolvedValue({ count: 1 });
+const mockRevokeAllUserRefreshTokens = jest.fn().mockResolvedValue({ count: 1 });
 
 const repoMock = {
   findByEmail: mockFindByEmail,
@@ -26,6 +30,10 @@ const repoMock = {
   generatePasswordResetToken: mockGeneratePasswordResetToken,
   resetPasswordWithToken: mockResetPasswordWithToken,
   verifyEmailWithToken: mockVerifyEmailWithToken,
+  createRefreshToken: mockCreateRefreshToken,
+  findRefreshToken: mockFindRefreshToken,
+  revokeRefreshToken: mockRevokeRefreshToken,
+  revokeAllUserRefreshTokens: mockRevokeAllUserRefreshTokens,
   default: {
     findByEmail: mockFindByEmail,
     findByUsername: mockFindByUsername,
@@ -39,6 +47,10 @@ const repoMock = {
     generatePasswordResetToken: mockGeneratePasswordResetToken,
     resetPasswordWithToken: mockResetPasswordWithToken,
     verifyEmailWithToken: mockVerifyEmailWithToken,
+    createRefreshToken: mockCreateRefreshToken,
+    findRefreshToken: mockFindRefreshToken,
+    revokeRefreshToken: mockRevokeRefreshToken,
+    revokeAllUserRefreshTokens: mockRevokeAllUserRefreshTokens,
   },
 };
 
@@ -62,15 +74,23 @@ jest.unstable_mockModule(
 // Mock de helpers de autenticación
 const mockGenerateJwt = jest.fn().mockReturnValue('mocked-jwt-token-123');
 const mockFormatUserResponse = jest.fn((user) => user);
+const mockGenerateRefreshToken = jest
+  .fn()
+  .mockReturnValue({ rawToken: 'raw-refresh-token', tokenHash: 'token-hash-123' });
+const mockHashToken = jest.fn((token) => `hash:${token}`);
 
 jest.unstable_mockModule(
   '../../../src/modules/auth/services/auth.helpers.js',
   () => ({
     generateJwt: mockGenerateJwt,
     formatUserResponse: mockFormatUserResponse,
+    generateRefreshToken: mockGenerateRefreshToken,
+    hashToken: mockHashToken,
     default: {
       generateJwt: mockGenerateJwt,
       formatUserResponse: mockFormatUserResponse,
+      generateRefreshToken: mockGenerateRefreshToken,
+      hashToken: mockHashToken,
     },
   })
 );
@@ -151,7 +171,7 @@ describe('Auth Service', () => {
       institutionalId: '20230001',
       password: 'hashed_password',
       role: 'STUDENT',
-      isActive: true,
+      status: 'ACTIVE',
     };
 
     it('Deberia registrar un usuario exitosamente y hashear la contrasena', async () => {
@@ -193,7 +213,7 @@ describe('Auth Service', () => {
       email: 'estudiante@universidad.edu',
       password: 'hashed_password_db',
       authProvider: 'LOCAL',
-      isActive: true,
+      status: 'ACTIVE',
       isVerified: true,
       role: 'STUDENT',
       failedAttempts: 0,
@@ -215,8 +235,11 @@ describe('Auth Service', () => {
         'PasswordSeguro123!',
         'hashed_password_db'
       );
-      expect(mockRegisterSuccessfulLogin).toHaveBeenCalledWith(mockUser.email);
-      expect(mockUpdateLastLogin).toHaveBeenCalledWith(mockUser.id);
+      expect(mockRegisterSuccessfulLogin).toHaveBeenCalledWith(
+        mockUser.email,
+        null,
+        null
+      );
       expect(result.token).toBe('mocked-jwt-token-123');
     });
 

@@ -37,14 +37,14 @@ const RECALCULABLE_STATUS = 'CLOSED';
  */
 const buildTallyRecords = (electionId, ballotOptions, counts) => {
   const countsMap = new Map(
-    counts.map((c) => [c.ballot_option_id, c._count._all])
+    counts.map((c) => [c.ballotOptionId, c._count._all])
   );
 
   return ballotOptions.map((opt) => ({
-    election_id: electionId,
-    position_id: opt.ballot_positions.position_id,
-    option_id: opt.id,
-    votes_count: countsMap.get(opt.id) ?? 0,
+    electionId,
+    positionId: opt.ballotPosition.positionId,
+    optionId: opt.id,
+    votesCount: countsMap.get(opt.id) ?? 0,
   }));
 };
 
@@ -111,11 +111,11 @@ export const recalculateTallies = async (electionId) => {
   );
 
   return {
-    election_id: electionId,
+    electionId,
     deleted: result.deleted,
     inserted: result.inserted,
-    options_processed: records.length,
-    positions_processed: countUnique(records, 'position_id'),
+    optionsProcessed: records.length,
+    positionsProcessed: countUnique(records, 'positionId'),
   };
 };
 

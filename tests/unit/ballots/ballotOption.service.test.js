@@ -13,7 +13,7 @@ const mockFindBallotById = jest.fn();
 const mockFindCandidateListById = jest.fn();
 
 jest.unstable_mockModule(
-  '../../../src/modules/ballots/ballotOption.repository.js',
+  '../../../src/modules/ballots/ballotOptions/ballotOption.repository.js',
   () => ({
     findBallotOptionById: mockFindBallotOptionById,
     findBallotOptionsByPosition: mockFindBallotOptionsByPosition,
@@ -28,7 +28,7 @@ jest.unstable_mockModule(
 );
 
 jest.unstable_mockModule(
-  '../../../src/modules/ballots/ballotPosition.repository.js',
+  '../../../src/modules/ballots/ballotPositions/ballotPosition.repository.js',
   () => ({
     findBallotPositionById:
       mockFindBallotPositionById,
@@ -43,7 +43,7 @@ jest.unstable_mockModule(
 );
 
 jest.unstable_mockModule(
-  '../../../src/modules/elections/candidateList.repository.js',
+  '../../../src/modules/elections/candidateList/candidateList.repository.js',
   () => ({
     findCandidateListById:
       mockFindCandidateListById,
@@ -51,7 +51,7 @@ jest.unstable_mockModule(
 );
 
 const service = await import(
-  '../../../src/modules/ballots/ballotOption.service.js'
+  '../../../src/modules/ballots/ballotOptions/ballotOption.service.js'
 );
 
 const BP = '11111111-1111-1111-1111-111111111111';
@@ -75,7 +75,8 @@ describe('BallotOption Service', () => {
   it('crear CANDIDATE_LIST exige candidate_list_id', async () => {
     mockFindBallotPositionById.mockResolvedValue({
       id: BP,
-      ballot_id: BALLOT,
+      ballotId: BALLOT,
+      electionId: ELECTION,
     });
 
     const err = await capturarError(() =>
@@ -91,7 +92,8 @@ describe('BallotOption Service', () => {
   it('BLANK no acepta candidate_list_id', async () => {
     mockFindBallotPositionById.mockResolvedValue({
       id: BP,
-      ballot_id: BALLOT,
+      ballotId: BALLOT,
+      electionId: ELECTION,
     });
 
     const err = await capturarError(() =>
@@ -108,7 +110,8 @@ describe('BallotOption Service', () => {
   it('no permite BLANK duplicado', async () => {
     mockFindBallotPositionById.mockResolvedValue({
       id: BP,
-      ballot_id: BALLOT,
+      ballotId: BALLOT,
+      electionId: ELECTION,
     });
 
     mockFindSpecialOptionByType.mockResolvedValue({
@@ -125,10 +128,11 @@ describe('BallotOption Service', () => {
     expect(err.statusCode).toBe(409);
   });
 
-  it('no permite NULL duplicado', async () => {
+  it('no permite VOID duplicado', async () => {
     mockFindBallotPositionById.mockResolvedValue({
       id: BP,
-      ballot_id: BALLOT,
+      ballotId: BALLOT,
+      electionId: ELECTION,
     });
 
     mockFindSpecialOptionByType.mockResolvedValue({
@@ -137,7 +141,7 @@ describe('BallotOption Service', () => {
 
     const err = await capturarError(() =>
       service.createBallotOption(BP, {
-        option_type: 'NULL',
+        option_type: 'VOID',
         label: 'Nulo',
       })
     );
@@ -148,17 +152,18 @@ describe('BallotOption Service', () => {
   it('no permite lista candidata repetida', async () => {
     mockFindBallotPositionById.mockResolvedValue({
       id: BP,
-      ballot_id: BALLOT,
+      ballotId: BALLOT,
+      electionId: ELECTION,
     });
 
     mockFindBallotById.mockResolvedValue({
       id: BALLOT,
-      election_id: ELECTION,
+      electionId: ELECTION,
     });
 
     mockFindCandidateListById.mockResolvedValue({
       id: LIST,
-      election_id: ELECTION,
+      electionId: ELECTION,
     });
 
     mockFindByPositionAndCandidateList.mockResolvedValue({
@@ -179,17 +184,18 @@ describe('BallotOption Service', () => {
   it('crea opción CANDIDATE_LIST válida', async () => {
     mockFindBallotPositionById.mockResolvedValue({
       id: BP,
-      ballot_id: BALLOT,
+      ballotId: BALLOT,
+      electionId: ELECTION,
     });
 
     mockFindBallotById.mockResolvedValue({
       id: BALLOT,
-      election_id: ELECTION,
+      electionId: ELECTION,
     });
 
     mockFindCandidateListById.mockResolvedValue({
       id: LIST,
-      election_id: ELECTION,
+      electionId: ELECTION,
     });
 
     mockFindByPositionAndCandidateList.mockResolvedValue(
@@ -209,10 +215,12 @@ describe('BallotOption Service', () => {
     expect(
       mockCreateBallotOption
     ).toHaveBeenCalledWith({
-      ballot_position_id: BP,
-      option_type: 'CANDIDATE_LIST',
-      candidate_list_id: LIST,
+      ballotPositionId: BP,
+      electionId: ELECTION,
+      optionType: 'CANDIDATE_LIST',
+      candidateListId: LIST,
       label: 'Lista A',
+      orderIndex: 1,
     });
   });
 });

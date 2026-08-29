@@ -8,7 +8,7 @@ const mockDeleteElection = jest.fn();
 const mockChangeStatus = jest.fn();
 
 jest.unstable_mockModule(
-  '../../../src/modules/elections/election.service.js',
+  '../../../src/modules/elections/elections/election.service.js',
   () => ({
     listElections: mockListElections,
     getElectionById: mockGetElectionById,
@@ -30,7 +30,7 @@ jest.unstable_mockModule('../../../src/shared/utils/asyncHandler.js', () => ({
 }));
 
 const controller = await import(
-  '../../../src/modules/elections/election.controller.js'
+  '../../../src/modules/elections/elections/election.controller.js'
 );
 
 const ID = '3f0c2b1e-1c2d-4a5b-8c9d-0e1f2a3b4c5d';
@@ -179,7 +179,7 @@ describe('Election Controller — mensajes del workflow', () => {
 
     await controller.changeStatus(req, res, next);
 
-    expect(mockChangeStatus).toHaveBeenCalledWith(ID, 'OPEN');
+    expect(mockChangeStatus).toHaveBeenCalledWith(ID, 'OPEN', ACTOR);
     expect(mensajeDe()).toContain('abierta');
   });
 

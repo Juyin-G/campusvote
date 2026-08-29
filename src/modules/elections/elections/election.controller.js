@@ -106,7 +106,11 @@ export const deleteElection = asyncHandler(async (req, res) => {
  */
 export const changeStatus = asyncHandler(async (req, res) => {
   const { status } = req.body;
-  const election = await electionService.changeStatus(req.params.id, status);
+  const election = await electionService.changeStatus(
+    req.params.id,
+    status,
+    req.user?.userId ?? req.user?.id
+  );
 
   const message =
     STATUS_MESSAGES[status] || `Elección actualizada al estado ${status}`;

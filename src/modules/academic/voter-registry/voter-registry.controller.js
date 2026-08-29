@@ -7,7 +7,7 @@ class VoterRegistryController {
    */
   async syncSisVoters(req, res, next) {
     try {
-      const operatorUserId = req.user.id;
+      const operatorUserId = req.user?.userId ?? req.user?.id;
       const result = await voterRegistryService.syncSisVoters(operatorUserId, req.body);
 
       return res.status(200).json({

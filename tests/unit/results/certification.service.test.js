@@ -20,7 +20,7 @@ jest.unstable_mockModule(
 );
 
 jest.unstable_mockModule(
-  '../../../src/modules/elections/election.service.js',
+  '../../../src/modules/elections/elections/election.service.js',
   () => ({
     changeStatus: mockChangeStatus,
   })
@@ -64,7 +64,7 @@ describe('Certification Service — certifyElection', () => {
     const callOrder = [];
     mockRecalculateTallies.mockImplementation(async () => {
       callOrder.push('tally');
-      return { election_id: ELECTION_ID };
+      return { electionId: ELECTION_ID };
     });
     mockChangeStatus.mockImplementation(async () => {
       callOrder.push('changeStatus');
@@ -87,7 +87,7 @@ describe('Certification Service — certifyElection', () => {
 
     await service.certifyElection(ELECTION_ID, ACTOR, '127.0.0.1');
 
-    expect(mockChangeStatus).toHaveBeenCalledWith(ELECTION_ID, 'CERTIFIED');
+    expect(mockChangeStatus).toHaveBeenCalledWith(ELECTION_ID, 'CERTIFIED', 'user-1');
   });
 
   it('NO certifica si recalculateTallies falla', async () => {
@@ -175,7 +175,7 @@ describe('Certification Service — certifyElection', () => {
     expect(serviceCode).not.toContain("from '../../elections/election.repository.js'");
     expect(serviceCode).not.toContain('electionRepository.certifyElection');
     // Debe usar electionService.
-    expect(serviceCode).toContain("from '../../elections/election.service.js'");
+    expect(serviceCode).toContain("from '../../elections/elections/election.service.js'");
     expect(serviceCode).toContain('electionService.changeStatus');
   });
 });

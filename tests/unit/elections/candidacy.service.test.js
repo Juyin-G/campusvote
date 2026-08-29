@@ -12,7 +12,7 @@ const mockFindElectionStatus = jest.fn();
 const mockFindUserById = jest.fn();
 
 jest.unstable_mockModule(
-  '../../../src/modules/elections/candidacy.repository.js',
+  '../../../src/modules/elections/candidacy/candidacy.repository.js',
   () => ({
     findCandidacyById: mockFindCandidacyById,
     findCandidaciesByElection: mockFindCandidaciesByElection,
@@ -25,17 +25,17 @@ jest.unstable_mockModule(
 );
 
 jest.unstable_mockModule(
-  '../../../src/modules/elections/candidateList.repository.js',
+  '../../../src/modules/elections/candidateList/candidateList.repository.js',
   () => ({ findCandidateListById: mockFindCandidateListById })
 );
 
 jest.unstable_mockModule(
-  '../../../src/modules/elections/position.repository.js',
+  '../../../src/modules/elections/positions/position.repository.js',
   () => ({ findPositionById: mockFindPositionById })
 );
 
 jest.unstable_mockModule(
-  '../../../src/modules/elections/election.repository.js',
+  '../../../src/modules/elections/elections/election.repository.js',
   () => ({ findElectionStatus: mockFindElectionStatus })
 );
 
@@ -44,7 +44,7 @@ jest.unstable_mockModule('../../../src/modules/users/user.repository.js', () => 
 }));
 
 const service = await import(
-  '../../../src/modules/elections/candidacy.service.js'
+  '../../../src/modules/elections/candidacy/candidacy.service.js'
 );
 
 const ELECCION = '3f0c2b1e-1c2d-4a5b-8c9d-0e1f2a3b4c5d';
@@ -67,10 +67,10 @@ const escenarioValido = () => {
   mockFindElectionStatus.mockResolvedValue({ id: ELECCION, status: 'DRAFT' });
   mockFindCandidateListById.mockResolvedValue({
     id: LISTA,
-    election_id: ELECCION,
+    electionId: ELECCION,
   });
-  mockFindPositionById.mockResolvedValue({ id: CARGO, election_id: ELECCION });
-  mockFindUserById.mockResolvedValue({ id: USUARIO, isActive: true });
+  mockFindPositionById.mockResolvedValue({ id: CARGO, electionId: ELECCION });
+  mockFindUserById.mockResolvedValue({ id: USUARIO, status: 'ACTIVE' });
   mockFindCandidacyByElectionAndUser.mockResolvedValue(null);
   mockCreateCandidacy.mockResolvedValue({ id: CANDIDATURA, user: null });
 };
@@ -90,10 +90,10 @@ describe('Candidacy Service — validaciones cruzadas al crear', () => {
     await service.createCandidacy(ELECCION, cuerpoValido);
 
     const data = mockCreateCandidacy.mock.calls[0][0];
-    expect(data.election_id).toBe(ELECCION);
-    expect(data.candidate_list_id).toBe(LISTA);
-    expect(data.user_id).toBe(USUARIO);
-    expect(data.position_id).toBe(CARGO);
+    expect(data.electionId).toBe(ELECCION);
+    expect(data.candidateListId).toBe(LISTA);
+    expect(data.userId).toBe(USUARIO);
+    expect(data.positionId).toBe(CARGO);
   });
 
   it('rechaza una lista que pertenece a OTRA elección (400)', async () => {
@@ -141,7 +141,7 @@ describe('Candidacy Service — validaciones cruzadas al crear', () => {
 
   it('rechaza un usuario con la cuenta inactiva (400)', async () => {
     escenarioValido();
-    mockFindUserById.mockResolvedValue({ id: USUARIO, isActive: false });
+    mockFindUserById.mockResolvedValue({ id: USUARIO, status: 'SUSPENDED' });
 
     const err = await capturarError(() =>
       service.createCandidacy(ELECCION, cuerpoValido)
@@ -160,7 +160,7 @@ describe('Candidacy Service — validaciones cruzadas al crear', () => {
     });
 
     expect(mockFindPositionById).not.toHaveBeenCalled();
-    expect(mockCreateCandidacy.mock.calls[0][0].position_id).toBeNull();
+    expect(mockCreateCandidacy.mock.calls[0][0].positionId).toBeNull();
   });
 
   it('no permite crear con la elección fuera de DRAFT (409)', async () => {
@@ -190,7 +190,7 @@ describe('Candidacy Service — restricciones UNIQUE', () => {
     );
 
     expect(err.statusCode).toBe(409);
-    expect(err.message).toContain('otra lista');
+    expect(err.message).toContain('candidato');
     expect(mockCreateCandidacy).not.toHaveBeenCalled();
   });
 
@@ -206,7 +206,7 @@ describe('Candidacy Service — restricciones UNIQUE', () => {
     );
 
     expect(err.statusCode).toBe(409);
-    expect(err.message).toContain('cargo');
+    expect(err.message).toContain('duplicidad');
   });
 
   it('distingue el choque de uq_candidacies_election_user', async () => {
@@ -221,7 +221,7 @@ describe('Candidacy Service — restricciones UNIQUE', () => {
     );
 
     expect(err.statusCode).toBe(409);
-    expect(err.message).toContain('esta elección');
+    expect(err.message).toContain('duplicidad');
   });
 
   it('traduce el fallo de la FK compuesta (P2003) a 400', async () => {

@@ -37,7 +37,7 @@ const sampleUser = {
   firstName: 'Juan',
   lastName: 'Perez',
   role: 'STUDENT',
-  isActive: true,
+  status: 'ACTIVE',
   password: 'hashed_password',
 };
 
@@ -126,7 +126,7 @@ describe('User Service', () => {
     });
 
     it('Deberia actualizar el estado de otro usuario', async () => {
-      mockUpdate.mockResolvedValue({ ...sampleUser, isActive: false });
+      mockUpdate.mockResolvedValue({ ...sampleUser, status: 'SUSPENDED' });
 
       const result = await userService.setActiveStatus(
         sampleUser.id,
@@ -137,10 +137,10 @@ describe('User Service', () => {
       expect(mockUpdate).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { id: sampleUser.id },
-          data: { isActive: false },
+          data: { status: 'SUSPENDED' },
         })
       );
-      expect(result.is_active).toBe(false);
+      expect(result.status).toBe('SUSPENDED');
     });
   });
 
@@ -163,7 +163,7 @@ describe('User Service', () => {
     it('Deberia cambiar contrasena cuando la actual es valida', async () => {
       mockFindUnique.mockResolvedValue({
         password: 'hashed_password',
-        isActive: true,
+        status: 'ACTIVE',
       });
       mockCompare.mockResolvedValue(true);
       mockHash.mockResolvedValue('new_hashed_password');
@@ -182,7 +182,7 @@ describe('User Service', () => {
     it('Deberia fallar si la contrasena actual es incorrecta', async () => {
       mockFindUnique.mockResolvedValue({
         password: 'hashed_password',
-        isActive: true,
+        status: 'ACTIVE',
       });
       mockCompare.mockResolvedValue(false);
 

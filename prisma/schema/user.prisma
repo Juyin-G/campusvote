@@ -105,7 +105,7 @@ model User {
   // ------------------------------------------------------
   twoFactorEnabled     Boolean   @default(false) @map("two_factor_enabled")
   twoFactorSecret      String?   @map("two_factor_secret") @db.VarChar(500)
-  twoFactorBackupCodes Json      @default("[]") @map("two_factor_backup_codes") @db.Jsonb
+  twoFactorBackupCodes Json      @default("[]") @map("two_factor_backup_codes")
   mustChangePassword   Boolean   @default(true) @map("must_change_password")
   failedLoginAttempts  Int       @default(0) @map("failed_login_attempts")
   lockedUntil          DateTime? @map("locked_until") @db.Timestamptz
@@ -145,6 +145,10 @@ model User {
   candidacies             Candidacy[]
   notifications           Notification[]
   reviewedOrgRequests     OrganizationRequest[]    @relation("OrgRequestReviewer")
+  votingSessions          VotingSession[]
+  votes                   Vote[]
+  voterRegistryClaims     VoterRegistryClaim[]     @relation("UserClaims")
+  reviewedVoterRegistryClaims VoterRegistryClaim[] @relation("ReviewerClaims")
 
   // ------------------------------------------------------
   // ÍNDICES
@@ -160,7 +164,7 @@ model RefreshToken {
   id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   userId    String    @map("user_id") @db.Uuid
   tokenHash String    @unique(map: "uq_refresh_tokens_token_hash") @map("token_hash") @db.VarChar(255)
-  deviceInfo Json     @default("{}") @map("device_info") @db.Jsonb
+  deviceInfo Json     @default("{}") @map("device_info")
   ipAddress String?   @map("ip_address") @db.VarChar(45)
   expiresAt DateTime  @map("expires_at") @db.Timestamptz(6)
   revokedAt DateTime? @map("revoked_at") @db.Timestamptz(6)

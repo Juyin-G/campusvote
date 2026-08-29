@@ -4,6 +4,7 @@
 import { jest } from '@jest/globals';
 import bcrypt from 'bcryptjs';
 import request from 'supertest';
+import { createAcademicFixture } from './academic.fixture.js';
 
 jest.unstable_mockModule('../../src/shared/services/email.service.js', () => ({
   sendVerification: jest.fn().mockResolvedValue(true),
@@ -25,9 +26,13 @@ const testUsername = `auth.test.${runId}`;
 
 let testUserId;
 let authToken;
+let programId;
 
 describe('Auth Integration (HTTP + DB)', () => {
   beforeAll(async () => {
+    const { program } = await createAcademicFixture(runId);
+    programId = program.id;
+
     const passwordHash = await bcrypt.hash(TEST_PASSWORD, 12);
 
     const user = await prisma.user.create({
@@ -41,8 +46,10 @@ describe('Auth Integration (HTTP + DB)', () => {
         role: 'STUDENT',
         authProvider: 'LOCAL',
         isVerified: true,
-        isActive: true,
+        status: 'ACTIVE',
         mustChangePassword: false,
+        programId,
+        currentCycle: 5,
       },
     });
 
@@ -151,6 +158,8 @@ describe('Auth Integration (HTTP + DB)', () => {
           firstName: 'Nuevo',
           lastName: 'Usuario',
           institutionalId: `REG${runId}`,
+          programId,
+          currentCycle: 3,
         });
 
       expect(res.status).toBe(201);
@@ -168,6 +177,8 @@ describe('Auth Integration (HTTP + DB)', () => {
           firstName: 'Otro',
           lastName: 'Usuario',
           institutionalId: `REGDUP${runId}`,
+          programId,
+          currentCycle: 3,
         });
 
       expect(res.status).toBe(409);

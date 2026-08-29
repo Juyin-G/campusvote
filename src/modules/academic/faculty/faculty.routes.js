@@ -7,7 +7,7 @@ import * as facultySchema from './faculty.schema.js';
 
 const router = Router();
 
-// Middleware de autenticación y autorización para todo el módulo
+// Middleware de autenticación y autorización para el módulo completo de facultades
 router.use(authenticate, authorize(ROLES.ADMIN));
 
 router.get('/', facultyController.getFaculties);

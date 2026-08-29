@@ -198,9 +198,15 @@ export const errorHandler = (err, req, res, next) => {
   // 7. ERRORES DESCONOCIDOS
   else {
     statusCode = err.statusCode || err.status || 500;
-    message = err.message || MESSAGES.COMMON.INTERNAL_SERVER_ERROR;
+    // En producción y en cualquier error 5xx no exponer mensajes internos;
+    // el mensaje real y el stack se registran (log) servidor.
+    const isServerError = statusCode >= 500;
+    message =
+      isServerError && process.env.NODE_ENV === 'production'
+        ? MESSAGES.COMMON.INTERNAL_SERVER_ERROR
+        : err.message || MESSAGES.COMMON.INTERNAL_SERVER_ERROR;
     code = err.code || 'UNKNOWN_ERROR';
-    details = err.details || null;
+    details = isServerError ? null : err.details || null;
 
     logger.error({
       message: `Unhandled error: ${err.message}`,

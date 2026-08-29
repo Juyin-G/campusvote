@@ -34,7 +34,7 @@ model Notification {
   type      NotificationType @map("type")
   title     String           @db.VarChar(150)
   message   String           @db.Text
-  metadata  Json             @default("{}") @map("metadata") @db.Jsonb
+  metadata  Json             @default("{}") @map("metadata")
   readAt    DateTime?        @map("read_at") @db.Timestamptz
   createdAt DateTime         @default(now()) @map("created_at") @db.Timestamptz
 

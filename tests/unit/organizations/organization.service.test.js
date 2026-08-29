@@ -1,7 +1,7 @@
 import { jest, describe, it, expect, beforeEach } from '@jest/globals';
 
 jest.unstable_mockModule(
-  '../../../src/modules/organizations/organization.repository.js',
+  '../../../src/modules/organizations/organization/organization.repository.js',
   () => ({
     default: {
       findOrgById: jest.fn(),
@@ -17,11 +17,11 @@ jest.unstable_mockModule(
 );
 
 const orgService = await import(
-  '../../../src/modules/organizations/organization.service.js'
+  '../../../src/modules/organizations/organization/organization.service.js'
 );
 
 const { default: orgRepository } = await import(
-  '../../../src/modules/organizations/organization.repository.js'
+  '../../../src/modules/organizations/organization/organization.repository.js'
 );
 
 const { ApiError } = await import(
@@ -87,7 +87,7 @@ describe('Organization Service Unit Tests', () => {
     it('debe lanzar ApiError si el onboarding ya fue completado', async () => {
       orgRepository.findOrgById.mockResolvedValue({
         id: 'org-1',
-        onboarding_completed: true,
+        onboardingCompleted: true,
       });
 
       await expect(

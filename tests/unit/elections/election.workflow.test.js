@@ -12,7 +12,7 @@ const mockCountPositionsByElection = jest.fn();
 const mockCertifyElection = jest.fn();
 
 jest.unstable_mockModule(
-  '../../../src/modules/elections/election.repository.js',
+  '../../../src/modules/elections/elections/election.repository.js',
   () => ({
     findElectionById: mockFindElectionById,
     findElectionStatus: mockFindElectionStatus,
@@ -28,14 +28,14 @@ jest.unstable_mockModule(
 
 // El conteo de cargos vive en el repository de positions (dominio propio)
 jest.unstable_mockModule(
-  '../../../src/modules/elections/position.repository.js',
+  '../../../src/modules/elections/positions/position.repository.js',
   () => ({
     countPositionsByElection: mockCountPositionsByElection,
   })
 );
 
 const service = await import(
-  '../../../src/modules/elections/election.service.js'
+  '../../../src/modules/elections/elections/election.service.js'
 );
 
 const ID = '3f0c2b1e-1c2d-4a5b-8c9d-0e1f2a3b4c5d';
@@ -61,8 +61,8 @@ describe('Election Service — Workflow de estados (S4-13)', () => {
     mockFindElectionStatus.mockResolvedValue({
       id: ID,
       status,
-      start_at: new Date(enElFuturo(1)),
-      end_at: new Date(enElFuturo(2)),
+      startAt: new Date(enElFuturo(1)),
+      endAt: new Date(enElFuturo(2)),
       ...extra,
     });
 
@@ -88,7 +88,7 @@ describe('Election Service — Workflow de estados (S4-13)', () => {
   });
 
   it('DRAFT -> SCHEDULED falla si la fecha de fin ya pasó (400)', async () => {
-    elegirEstado('DRAFT', { end_at: new Date('2020-01-01T00:00:00Z') });
+    elegirEstado('DRAFT', { endAt: new Date('2020-01-01T00:00:00Z') });
     mockCountPositionsByElection.mockResolvedValue(3);
 
     const err = await capturarError(() => service.changeStatus(ID, 'SCHEDULED'));
@@ -137,7 +137,7 @@ describe('Election Service — Workflow de estados (S4-13)', () => {
 
     const res = await service.changeStatus(ID, 'CERTIFIED');
 
-    expect(mockCertifyElection).toHaveBeenCalledWith(ID);
+    expect(mockCertifyElection).toHaveBeenCalledWith(ID, null);
     expect(mockUpdateElectionStatus).not.toHaveBeenCalled();
     expect(res.status).toBe('CERTIFIED');
   });

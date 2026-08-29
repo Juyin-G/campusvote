@@ -35,19 +35,19 @@ const rulesSvc = {
 };
 
 jest.unstable_mockModule(
-  '../../../src/modules/elections/position.service.js',
+  '../../../src/modules/elections/positions/position.service.js',
   () => posSvc
 );
 jest.unstable_mockModule(
-  '../../../src/modules/elections/candidateList.service.js',
+  '../../../src/modules/elections/candidateList/candidateList.service.js',
   () => listSvc
 );
 jest.unstable_mockModule(
-  '../../../src/modules/elections/candidacy.service.js',
+  '../../../src/modules/elections/candidacy/candidacy.service.js',
   () => candSvc
 );
 jest.unstable_mockModule(
-  '../../../src/modules/elections/electionRules.service.js',
+  '../../../src/modules/elections/electionRules/electionRules.service.js',
   () => rulesSvc
 );
 
@@ -62,16 +62,16 @@ jest.unstable_mockModule('../../../src/shared/utils/asyncHandler.js', () => ({
 }));
 
 const positionController = await import(
-  '../../../src/modules/elections/position.controller.js'
+  '../../../src/modules/elections/positions/position.controller.js'
 );
 const candidateListController = await import(
-  '../../../src/modules/elections/candidateList.controller.js'
+  '../../../src/modules/elections/candidateList/candidateList.controller.js'
 );
 const candidacyController = await import(
-  '../../../src/modules/elections/candidacy.controller.js'
+  '../../../src/modules/elections/candidacy/candidacy.controller.js'
 );
 const rulesController = await import(
-  '../../../src/modules/elections/electionRules.controller.js'
+  '../../../src/modules/elections/electionRules/electionRules.controller.js'
 );
 
 const ELECCION = '3f0c2b1e-1c2d-4a5b-8c9d-0e1f2a3b4c5d';

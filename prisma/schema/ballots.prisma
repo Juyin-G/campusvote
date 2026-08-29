@@ -59,6 +59,8 @@ model BallotOption {
 
   // Relaciones
   ballotPosition BallotPosition @relation(fields: [ballotPositionId, electionId], references: [id, electionId], onDelete: Cascade, onUpdate: NoAction, map: "fk_ballot_options_position_election")
+  tallies        Tally[]
+  voteSelections VoteSelection[]
 
   @@unique([ballotPositionId, candidateListId], map: "uq_ballot_options_position_candidate")
   @@unique([ballotPositionId, orderIndex], map: "uq_ballot_options_position_order")

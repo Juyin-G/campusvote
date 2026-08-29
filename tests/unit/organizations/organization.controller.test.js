@@ -1,7 +1,7 @@
 import { jest, describe, it, expect, beforeEach } from '@jest/globals';
 
 jest.unstable_mockModule(
-  '../../../src/modules/organizations/organization.service.js',
+  '../../../src/modules/organizations/organization/organization.service.js',
   () => ({
     default: {
       listOrganizations: jest.fn(),
@@ -16,11 +16,11 @@ jest.unstable_mockModule(
 );
 
 const controller = await import(
-  '../../../src/modules/organizations/organization.controller.js'
+  '../../../src/modules/organizations/organization/organization.controller.js'
 );
 
 const { default: orgService } = await import(
-  '../../../src/modules/organizations/organization.service.js'
+  '../../../src/modules/organizations/organization/organization.service.js'
 );
 
 describe('Organization Controller Unit Tests', () => {

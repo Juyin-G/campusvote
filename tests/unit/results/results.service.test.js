@@ -107,19 +107,20 @@ describe('Results Service — getFinalResults', () => {
     mockFindElectionResult.mockResolvedValue({ turnout_percentage: 60 });
     mockFindTalliesWithContext.mockResolvedValue([
       {
-        ballot_options: {
-          ballot_positions: {
-            positions: { id: 'p1', name: 'Rector', seats: 1 },
-          },
-        },
-        option_id: 'o1',
-        votes_count: 100,
-        ballot_options: {
+        id: 't1',
+        electionId: ELECTION_ID,
+        positionId: 'p1',
+        optionId: 'o1',
+        votesCount: 100,
+        updatedAt: '2026-01-01T00:00:00.000Z',
+        ballotOption: {
+          id: 'o1',
+          optionType: 'CANDIDATE_LIST',
           label: 'Lista A',
-          option_type: 'CANDIDATE_LIST',
-          candidate_list_id: 'cl1',
-          ballot_positions: {
-            positions: { id: 'p1', name: 'Rector', seats: 1 },
+          candidateListId: 'cl1',
+          ballotPosition: {
+            positionId: 'p1',
+            position: { id: 'p1', name: 'Rector', seats: 1 },
           },
         },
       },
