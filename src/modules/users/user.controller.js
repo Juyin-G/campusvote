@@ -31,7 +31,7 @@ export const getUserById = asyncHandler(async (req, res) => {
 
 // Crear un nuevo usuario
 export const createUser = asyncHandler(async (req, res) => {
-  const user = await userService.createUser(req.body);
+  const user = await userService.createUser(req.body, req.user);
   return sendSuccess(res, user, MESSAGES.USER.CREATED_SUCCESS, { requestId: req.requestId }, HTTP_STATUS.CREATED);
 });
 
@@ -43,7 +43,7 @@ export const updateUser = asyncHandler(async (req, res) => {
 
 // Cambiar el rol de un usuario
 export const changeRole = asyncHandler(async (req, res) => {
-  const user = await userService.updateUserRole(req.params.id, req.body.role);
+  const user = await userService.updateUserRole(req.params.id, req.body.role, req.user);
   return sendSuccess(res, user, MESSAGES.USER.ROLE_ASSIGNED_SUCCESS, { requestId: req.requestId }, HTTP_STATUS.OK);
 });
 

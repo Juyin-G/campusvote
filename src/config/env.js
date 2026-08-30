@@ -55,12 +55,26 @@ const validateEnv = () => {
 
 validateEnv();
 
+const parseSwaggerEnabled = () => {
+  const raw = process.env.SWAGGER_ENABLED;
+  if (raw === 'true') return true;
+  if (raw === 'false') return false;
+  return undefined;
+};
+
 export default {
   // Server
   NODE_ENV: process.env.NODE_ENV || 'development',
   PORT: parseInt(process.env.PORT, 10) || 3000,
   APP_NAME: process.env.APP_NAME || 'CampusVote',
   APP_VERSION: process.env.APP_VERSION || '1.0.0',
+
+  // URLs públicas / Swagger
+  APP_URL: process.env.APP_URL,
+  STAGE_API_URL: process.env.STAGE_API_URL,
+  PROD_API_URL: process.env.PROD_API_URL,
+  SWAGGER_ENABLED: parseSwaggerEnabled(),
+  RATE_LIMIT_MAX_REQUESTS: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS, 10) || undefined,
 
   // Database
   DATABASE_URL: process.env.DATABASE_URL,
@@ -76,7 +90,6 @@ export default {
 
   // Security
   BCRYPT_ROUNDS: parseInt(process.env.BCRYPT_ROUNDS, 10) || 12,
-  BCRYPT_SALT_ROUNDS: parseInt(process.env.BCRYPT_ROUNDS, 10) || 12,
   MAX_LOGIN_ATTEMPTS: parseInt(process.env.MAX_LOGIN_ATTEMPTS, 10) || 5,
   LOCK_TIME_MINUTES: parseInt(process.env.LOCK_TIME_MINUTES, 10) || 15,
 

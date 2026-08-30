@@ -75,7 +75,7 @@ describe('Elections Workflow Integration (HTTP + DB)', () => {
 
     const eleccion = await comoAdmin('post', '/api/elections').send({
       title: `Workflow ${runId}`,
-      election_type: 'FACULTY',
+      scope_type: 'FACULTY',
       faculty_id: facultyId,
       period_id: periodId,
       start_at: enDias(1),
@@ -119,7 +119,7 @@ describe('Elections Workflow Integration (HTTP + DB)', () => {
   });
 
   it('fuera de DRAFT ya no se puede editar la elección', async () => {
-    const res = await comoAdmin('put', `/api/elections/${electionId}`).send({
+    const res = await comoAdmin('patch', `/api/elections/${electionId}`).send({
       title: 'No debería cambiar',
     });
     expect(res.status).toBe(409);

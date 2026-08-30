@@ -27,7 +27,7 @@
  *         label: { type: string }
  *         option_type:
  *           type: string
- *           enum: [CANDIDATE_LIST, BLANK, NULL]
+ *           enum: [CANDIDATE_LIST, BLANK, VOID]
  *         candidate_list_id: { type: string, format: uuid, nullable: true }
  *         votes_count: { type: integer }
  *         percentage: { type: number, format: float }

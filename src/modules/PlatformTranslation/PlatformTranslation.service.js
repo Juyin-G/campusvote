@@ -1,7 +1,7 @@
-//  src/modules/PlatformTranslation/PlatformTranslation.service.js
+// src/modules/PlatformTranslation/PlatformTranslation.service.js
 
 import * as translationRepository from './PlatformTranslation.repository.js';
-import { prisma } from '../../database/prisma.js'; // Ajusta la ruta a tu instancia de Prisma
+import { prisma } from '../../database/prisma.js';
 import { ApiError } from '../../shared/errors/ApiError.js';
 
 const translatePrismaError = (err) => {
@@ -20,12 +20,10 @@ const translatePrismaError = (err) => {
  */
 export const getUiTranslations = async (locale = 'es-PE', category = null) => {
   try {
-    // Prisma parametriza esto de forma segura, previniendo inyección SQL
     const result = await prisma.$queryRaw`
       SELECT get_ui_translations(${locale}, ${category}) as translations
     `;
     
-    // El resultado viene como [{ translations: { "key": "valor" } }]
     return result[0]?.translations || {};
   } catch (err) {
     console.error('Error al obtener traducciones de la BD:', err);
@@ -46,6 +44,17 @@ export const getEffectiveLocale = async (userId) => {
   } catch (err) {
     console.error('Error al obtener locale efectivo:', err);
     throw ApiError.internal('Error al determinar el locale del usuario');
+  }
+};
+
+/**
+ * CRUD: Listar todas las traducciones (Resuelve bug C3)
+ */
+export const listTranslations = async ({ category } = {}) => {
+  try {
+    return await translationRepository.listTranslations({ category });
+  } catch (err) {
+    throw translatePrismaError(err);
   }
 };
 
@@ -115,6 +124,7 @@ export const deleteTranslation = async (id) => {
 export default {
   getUiTranslations,
   getEffectiveLocale,
+  listTranslations,
   createTranslation,
   updateTranslation,
   getTranslationById,

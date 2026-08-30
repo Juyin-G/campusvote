@@ -1,6 +1,6 @@
 // src/modules/ballots/ballotPosition.service.js
 
-import * as ballotPositionRepository from '../ballotOptions/ballotOption.repository.js';
+import * as ballotPositionRepository from '../ballotPositions/ballotPosition.repository.js';
 import * as ballotRepository from '../ballot.repository.js';
 import * as positionRepository from '../../elections/positions/position.repository.js';
 import { ApiError } from '../../../shared/errors/ApiError.js';

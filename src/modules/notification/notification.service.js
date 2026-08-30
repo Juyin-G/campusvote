@@ -118,10 +118,7 @@ export const updateNotification = async (id, userId, body) => {
  * Marca TODAS las notificaciones de un usuario como leídas.
  */
 export const markAllAsRead = async (userId) => {
-  await prisma.notification.updateMany({
-    where: { userId, readAt: null },
-    data: { readAt: new Date() },
-  });
+  await notificationRepository.markAllNotificationsAsRead(userId);
   return { success: true, message: 'Todas las notificaciones marcadas como leídas' };
 };
 

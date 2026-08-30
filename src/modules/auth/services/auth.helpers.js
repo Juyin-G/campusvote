@@ -42,21 +42,9 @@ export const hashToken = (token) => {
   return crypto.createHash('sha256').update(token).digest('hex');
 };
 
-/**
- * Verifica la autenticidad y vigencia de un JWT
- */
-export const verifyJwt = (token) => {
-  try {
-    return jwt.verify(token, env.JWT_SECRET);
-  } catch (error) {
-    return null;
-  }
-};
-
 export default {
   generateJwt,
   generateRefreshToken,
   hashToken,
-  verifyJwt,
   formatUserResponse,
 };

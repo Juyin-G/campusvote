@@ -11,6 +11,7 @@ export const formatUserResponse = (user) => ({
   institutional_id: user.institutionalId,
   organization_id: user.organizationId,
   is_verified: user.isVerified,
+  is_active: user.status === 'ACTIVE',
   status: user.status,
   is_staff: user.isStaff,
   is_superuser: user.isSuperuser,

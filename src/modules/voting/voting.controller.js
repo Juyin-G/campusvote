@@ -18,6 +18,7 @@ export const startVotingSession = asyncHandler(async (req, res) => {
     actorId: getActorId(req.user),
     ip: req.ip,
     userAgent: req.get('user-agent'),
+    votingToken: req.body?.votingToken,
   });
 
   return sendSuccess(

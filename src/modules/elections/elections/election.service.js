@@ -1,7 +1,7 @@
 // src/modules/elections/elections/election.service.js
 
 import * as electionRepository from '../elections/election.repository.js';
-import * as positionRepository from '../positions/position.repository.js'; // Ajusta la ruta si es necesario
+import * as positionRepository from '../positions/position.repository.js';
 import { ApiError } from '../../../shared/errors/ApiError.js';
 import { prismaPagination, parsePagination } from '../../../shared/utils/pagination.js';
 import MESSAGES from '../../../constants/messages.js';
@@ -15,7 +15,7 @@ const ALLOWED_TRANSITIONS = Object.freeze({
   PUBLISHED: [],
 });
 
-const EDITABLE_STATUSES = ['DRAFT', 'SCHEDULED'];
+const EDITABLE_STATUSES = ['DRAFT'];
 
 const asText = (value) => (typeof value === 'string' ? value.trim() : '');
 const toDate = (value) => (value === undefined ? undefined : new Date(value));
@@ -152,8 +152,9 @@ export const deleteElection = async (id) => {
 const assertTransitionRules = async (election, target) => {
   if (target !== 'SCHEDULED') return;
 
-  const positions = await positionRepository.countPositionsByElection(election.id);
-  if (positions === 0) {
+  // Se utiliza findPositionsByElection para evitar llamadas a funciones inexistentes
+  const positions = await positionRepository.findPositionsByElection(election.id);
+  if (!positions || positions.length === 0) {
     throw ApiError.badRequest('No se puede programar una elección que no tiene cargos definidos');
   }
 

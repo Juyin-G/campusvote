@@ -1,6 +1,6 @@
 import { prisma } from '../../database/prisma.js';
 import { sendSuccess } from '../../shared/utils/apiResponse.js';
-import { asyncHandler } from '../../middlewares/errorHandler.js';
+import asyncHandler from '../../shared/utils/asyncHandler.js';
 import { ApiError } from '../../shared/errors/ApiError.js';
 import { HTTP_STATUS } from '../../constants/httpStatus.js';
 

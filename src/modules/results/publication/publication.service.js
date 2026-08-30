@@ -3,7 +3,7 @@
 //
 // Responsabilidades:
 //   - Validar que la elección exista y esté CERTIFIED.
-//   - Validar quórum (turnout_percentage >= min_turnout_percentage).
+//   - Validar quórum (turnoutPercentage >= minTurnoutPercentage).
 //     Esta validación es PROPIA del dominio Results y NO existe
 //     en election.service.changeStatus.
 //   - Reutilizar electionService.changeStatus() para conservar
@@ -36,13 +36,13 @@ const assertElectionId = (electionId) => {
  *   2. Verifica que la elección exista.
  *   3. Verifica que esté CERTIFIED (control propio de Results).
  *   4. Lee election_rules.min_turnout_percentage.
- *   5. Lee election_results.turnout_percentage.
+ *   5. Lee election_results.turnoutPercentage.
  *   6. Valida quorum. Si NO se cumple → 409 y aborta.
  *   7. Cambia estado a PUBLISHED via electionService.changeStatus.
  *   8. Solo tras éxito, registra PUBLISH_RESULT en audit_logs.
  *
  * Política de quorum:
- *   turnout_percentage >= min_turnout_percentage
+ *   turnoutPercentage >= minTurnoutPercentage
  * Si no hay election_rules, se asume min_turnout = 0.
  */
 export const publishElection = async (electionId, actor = {}, ipAddress = null) => {
@@ -63,7 +63,7 @@ export const publishElection = async (electionId, actor = {}, ipAddress = null) 
 
   // 2. Validación de quorum (específica del dominio Results).
   const rules = await electionRulesRepository.findRulesByElection(electionId);
-  const minTurnout = rules ? Number(rules.min_turnout_percentage) : 0;
+  const minTurnout = rules ? Number(rules.minTurnoutPercentage ?? rules.min_turnout_percentage ?? 0) : 0;
 
   const result = await resultsRepository.findElectionResult(electionId);
   if (!result) {
@@ -73,11 +73,13 @@ export const publishElection = async (electionId, actor = {}, ipAddress = null) 
     );
   }
 
-  const turnout = Number(result.turnout_percentage);
-  if (turnout < minTurnout) {
+  // Lectura segura con fallback camelCase / snake_case para evitar NaN (Solución Bug C5)
+  const turnout = Number(result.turnoutPercentage ?? result.turnout_percentage ?? 0);
+
+  if (Number.isNaN(turnout) || turnout < minTurnout) {
     throw ApiError.conflict(
       `No se cumple el quórum requerido. ` +
-        `Turnout actual: ${turnout.toFixed(2)}%, ` +
+        `Turnout actual: ${Number.isNaN(turnout) ? 0 : turnout.toFixed(2)}%, ` +
         `mínimo requerido: ${minTurnout.toFixed(2)}%.`
     );
   }

@@ -32,6 +32,19 @@ export const createUserSchema = z.object({
     institutional_id: z.string().min(1, 'Como mínimo 1 carácter').max(50),
     role: roleEnum,
     organization_id: z.string().uuid('ID inválido').optional(),
+    program_id: z.string().uuid('ID inválido').optional(),
+    faculty_id: z.string().uuid('ID inválido').optional(),
+    current_cycle: z.number().int().min(1, 'Como mínimo 1').max(20, 'Como máximo 20').optional(),
+  })
+  .superRefine((data, ctx) => {
+    const addIssue = (field, message) =>
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: [field], message });
+    if (data.role === 'STUDENT') {
+      if (!data.program_id) addIssue('program_id', 'Un estudiante requiere program_id');
+      if (!data.current_cycle) addIssue('current_cycle', 'Un estudiante requiere current_cycle');
+    } else if (data.role === 'TEACHER' && !data.faculty_id) {
+      addIssue('faculty_id', 'Un docente requiere faculty_id');
+    }
   }),
 });
 

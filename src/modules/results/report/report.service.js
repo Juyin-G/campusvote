@@ -16,11 +16,11 @@ import crypto from 'node:crypto';
 
 /**
  * Devuelve el sufijo descriptivo según el tipo de opción.
- * BLANK → ' (en blanco)', NULL → ' (nulo)', otros → ''.
+ * BLANK → ' (en blanco)', VOID → ' (nulo)', otros → ''.
  */
 const getOptionSuffix = (optionType) => {
   if (optionType === 'BLANK') return ' (en blanco)';
-  if (optionType === 'NULL') return ' (nulo)';
+  if (optionType === 'VOID' || optionType === 'NULL') return ' (nulo)';
   return '';
 };
 
@@ -80,11 +80,13 @@ export const generateResultsPdf = async (data) => {
       doc.text(`ID: ${election.id || 'N/A'}`);
       doc.text(`Título: ${election.title || 'N/A'}`);
       doc.text(`Estado: ${election.status || 'N/A'}`);
-      if (summary.certified_at) {
-        doc.text(`Certificada: ${new Date(summary.certified_at).toISOString()}`);
+      if (summary.certified_at || summary.certifiedAt) {
+        const certifiedAt = summary.certified_at || summary.certifiedAt;
+        doc.text(`Certificada: ${new Date(certifiedAt).toISOString()}`);
       }
-      if (summary.published_at) {
-        doc.text(`Publicada: ${new Date(summary.published_at).toISOString()}`);
+      if (summary.published_at || summary.publishedAt) {
+        const publishedAt = summary.published_at || summary.publishedAt;
+        doc.text(`Publicada: ${new Date(publishedAt).toISOString()}`);
       }
       doc.moveDown(1);
 
@@ -92,11 +94,11 @@ export const generateResultsPdf = async (data) => {
       doc.fontSize(14).text('Resumen');
       doc.moveDown(0.3);
       doc.fontSize(10);
-      doc.text(`Electores habilitados: ${summary.total_voters ?? 0}`);
-      doc.text(`Votos emitidos: ${summary.total_votes_cast ?? 0}`);
-      doc.text(`Participación: ${Number(summary.turnout_percentage ?? 0).toFixed(2)}%`);
-      doc.text(`Votos en blanco: ${summary.blank_votes ?? 0}`);
-      doc.text(`Votos nulos: ${summary.null_votes ?? 0}`);
+      doc.text(`Electores habilitados: ${summary.total_voters ?? summary.totalVoters ?? 0}`);
+      doc.text(`Votos emitidos: ${summary.total_votes_cast ?? summary.totalVotesCast ?? 0}`);
+      doc.text(`Participación: ${Number(summary.turnout_percentage ?? summary.turnoutPercentage ?? 0).toFixed(2)}%`);
+      doc.text(`Votos en blanco: ${summary.blank_votes ?? summary.blankVotes ?? 0}`);
+      doc.text(`Votos nulos: ${summary.null_votes ?? summary.nullVotes ?? 0}`);
       doc.moveDown(1);
 
       // ───── Detalle por cargo ─────

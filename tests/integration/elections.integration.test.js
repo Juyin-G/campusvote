@@ -143,7 +143,7 @@ describe('Elections Integration (HTTP + DB)', () => {
     it('rechaza UNIVERSITY con facultad (chk_elections_scope_integrity)', async () => {
       const res = await comoAdmin('post', '/api/elections').send({
         title: 'Scope inválido',
-        election_type: 'UNIVERSITY',
+        scope_type: 'UNIVERSITY',
         faculty_id: facultyId,
         period_id: periodId,
         start_at: enDias(1),
@@ -157,7 +157,7 @@ describe('Elections Integration (HTTP + DB)', () => {
     it('rechaza fecha de fin anterior a la de inicio', async () => {
       const res = await comoAdmin('post', '/api/elections').send({
         title: 'Fechas inválidas',
-        election_type: 'UNIVERSITY',
+        scope_type: 'UNIVERSITY',
         period_id: periodId,
         start_at: enDias(5),
         end_at: enDias(1),
@@ -169,7 +169,7 @@ describe('Elections Integration (HTTP + DB)', () => {
     it('rechaza un período inexistente con 400, no con 500', async () => {
       const res = await comoAdmin('post', '/api/elections').send({
         title: 'Periodo fantasma',
-        election_type: 'UNIVERSITY',
+        scope_type: 'UNIVERSITY',
         period_id: '3f0c2b1e-1c2d-4a5b-8c9d-0e1f2a3b4c5d',
         start_at: enDias(1),
         end_at: enDias(2),
@@ -181,7 +181,7 @@ describe('Elections Integration (HTTP + DB)', () => {
     it('crea una elección FACULTY en estado DRAFT', async () => {
       const res = await comoAdmin('post', '/api/elections').send({
         title: `Elecciones Integración ${runId}`,
-        election_type: 'FACULTY',
+        scope_type: 'FACULTY',
         faculty_id: facultyId,
         period_id: periodId,
         start_at: enDias(1),
@@ -190,7 +190,7 @@ describe('Elections Integration (HTTP + DB)', () => {
 
       expect(res.status).toBe(201);
       expect(res.body.data.status).toBe('DRAFT');
-      expect(res.body.data.created_by).toBe(adminId);
+      expect(res.body.data.createdBy).toBe(adminId);
       electionId = res.body.data.id;
     });
   });

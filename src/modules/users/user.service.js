@@ -1,8 +1,10 @@
+// src/modules/users/user.service.js
+
 import bcrypt from 'bcryptjs';
 import crypto from 'node:crypto';
 import * as userRepository from './user.repository.js';
 import { ApiError } from '../../shared/errors/ApiError.js';
-import { isValidRole, ADMIN_ROLES } from '../../constants/roles.js';
+import { isValidRole, ADMIN_ROLES, ROLES } from '../../constants/roles.js';
 import { parsePagination } from '../../shared/utils/pagination.js';
 import { formatUserResponse } from '../../shared/utils/formatUserResponse.js';
 import MESSAGES from '../../constants/messages.js';
@@ -67,7 +69,7 @@ export const getUserById = async (id, actor) => {
   return formatUserResponse(user);
 };
 
-export const createUser = async (body = {}) => {
+export const createUser = async (body = {}, actor = {}) => {
   const {
     username,
     email,
@@ -77,7 +79,18 @@ export const createUser = async (body = {}) => {
     institutional_id,
     role,
     organization_id,
+    program_id,
+    faculty_id,
+    current_cycle,
   } = body;
+
+  // Defensa S2: Solo superusuarios pueden crear usuarios con roles privilegiados
+  // (ADMIN / ELECTORAL_COMMISSION). Los roles electorales regulares pueden
+  // ser creados por cualquier administrador de la organización.
+  const isSuperUser = actor.isSuperuser || actor.isSuperAdmin || actor.role === ROLES.SUPER_ADMIN;
+  if (role && ADMIN_ROLES.includes(role) && !isSuperUser) {
+    throw ApiError.forbidden('Solo superusuarios pueden crear usuarios con roles privilegiados');
+  }
 
   const hashedPassword = await bcrypt.hash(password, 12);
 
@@ -88,8 +101,11 @@ export const createUser = async (body = {}) => {
     firstName: first_name,
     lastName: last_name,
     institutionalId: institutional_id,
-    role,
+    role: role || ROLES.VOTER,
     organizationId: organization_id,
+    programId: program_id,
+    facultyId: faculty_id,
+    currentCycle: current_cycle,
   });
 
   return formatUserResponse(newUser);
@@ -139,12 +155,32 @@ export const unlockUser = async (id) => {
   }
 };
 
-export const updateUserRole = async (id, role) => {
+export const updateUserRole = async (id, role, actor = {}) => {
   if (!isValidRole(role)) throw ApiError.badRequest(MESSAGES.USER.INVALID_ROLE);
+
+  // Defensa S2: Auto-modificación prohibida
+  const actorId = actor.userId ?? actor.id;
+  if (actorId === id) {
+    throw ApiError.badRequest('No puedes modificar tu propio rol');
+  }
+
+  // Defensa S2: Exige privilegios de superusuario solo para asignar roles privilegiados
+  const isSuperUser = actor.isSuperuser || actor.isSuperAdmin || actor.role === ROLES.SUPER_ADMIN;
+  if (ADMIN_ROLES.includes(role) && !isSuperUser) {
+    throw ApiError.forbidden('Solo superusuarios pueden asignar roles privilegiados');
+  }
 
   const existing = await prisma.user.findUnique({
     where: { id },
-    select: { isSuperuser: true },
+    select: {
+      isSuperuser: true,
+      facultyId: true,
+      programId: true,
+      currentCycle: true,
+      admissionPeriodId: true,
+      specialty: true,
+      department: true,
+    },
   });
   if (!existing) throw ApiError.notFound(MESSAGES.USER.NOT_FOUND);
 
@@ -159,7 +195,29 @@ export const updateUserRole = async (id, role) => {
     }
   }
 
-  const updated = await userRepository.updateRole(id, role);
+  // El CHECK académico de la BD exige coherencia entre rol y datos académicos:
+  // STUDENT -> program_id + current_cycle; TEACHER -> faculty_id; perfiles no
+  // académicos -> sin programa/ciclo/periodo de admisión, etc.
+  const data = { role };
+  if (role === 'STUDENT') {
+    if (!existing.programId) {
+      throw ApiError.badRequest('Un estudiante requiere un programa académico asignado');
+    }
+  } else {
+    data.programId = null;
+    data.currentCycle = null;
+    data.admissionPeriodId = null;
+  }
+  if (role === 'TEACHER') {
+    if (!existing.facultyId) {
+      throw ApiError.badRequest('Un docente requiere una facultad asignada');
+    }
+  } else {
+    data.specialty = null;
+    data.department = null;
+  }
+
+  const updated = await userRepository.updateRole(id, data);
   return formatUserResponse(updated);
 };
 
@@ -200,7 +258,6 @@ export const changeMyPassword = async (userId, body = {}) => {
     throw ApiError.badRequest('La contraseña actual es incorrecta');
   }
 
-  // Comparación segura contra ataques de tiempo (Timing Attack Prevention)
   const currentBuf = crypto.createHash('sha256').update(currentPassword).digest();
   const newBuf = crypto.createHash('sha256').update(newPassword).digest();
 

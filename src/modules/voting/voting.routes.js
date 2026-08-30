@@ -1,9 +1,4 @@
 // src/modules/voting/voting.routes.js
-// Rutas del módulo de VOTACIÓN.
-//
-// Flujo: el elector autenticado inicia una sesión de votación y luego
-// emite su voto dentro de esa sesión. Participan los roles electorales
-// (STUDENT, TEACHER, ADMIN, ELECTORAL_COMMISSION).
 
 import { Router } from 'express';
 
@@ -11,7 +6,7 @@ import * as votingController from './voting.controller.js';
 import { authenticate } from '../../middlewares/auth.middleware.js';
 import { validate } from '../../middlewares/validate.middleware.js';
 import {
-  startSessionParamsSchema,
+  startSessionSchema,
   castVoteParamsSchema,
   castVoteBodySchema,
   getSessionParamsSchema,
@@ -21,13 +16,13 @@ const router = Router();
 
 /**
  * POST /api/voting/elections/:electionId/sessions
- * @desc Inicia una sesión de votación para el elector autenticado.
+ * @desc Inicia una sesión de votación (y consume el token de 1 solo uso si aplica).
  * @access Autenticado (elector hábil)
  */
 router.post(
   '/elections/:electionId/sessions',
   authenticate,
-  validate(startSessionParamsSchema),
+  validate(startSessionSchema),
   votingController.startVotingSession
 );
 

@@ -1,5 +1,5 @@
 // src/modules/results/results.routes.js
-// S7-11 — Router principal del módulo de Resultados.
+// S7-11 — Router principal del módulo de Resultados con protección IDOR Multi-tenant.
 
 import { Router } from 'express';
 import * as resultsController from './results.controller.js';
@@ -10,6 +10,7 @@ import reportRoutes from './report/report.routes.js';
 import exportRoutes from './export/export.routes.js';
 import asyncHandler from '../../shared/utils/asyncHandler.js';
 import { authenticate, authorize } from '../../middlewares/auth.middleware.js';
+import { requireElectionInScope } from '../../middlewares/scope.middleware.js';
 import { validate } from '../../middlewares/validate.middleware.js';
 import { ROLES } from '../../constants/roles.js';
 import {
@@ -22,9 +23,8 @@ const router = Router();
 
 const GESTORES = [ROLES.ADMIN, ROLES.ELECTORAL_COMMISSION];
 
-// ─────────────────────────────────────────────────────────────
 // CERTIFY / PUBLISH (S7-03 / S7-04)
-// ─────────────────────────────────────────────────────────────
+
 
 // POST /api/elections/:id/certify
 router.post(
@@ -32,6 +32,7 @@ router.post(
   authenticate,
   authorize(GESTORES),
   validate(electionIdParamSchema),
+  asyncHandler(requireElectionInScope),
   asyncHandler(certificationController.certifyElection)
 );
 
@@ -41,12 +42,11 @@ router.post(
   authenticate,
   authorize(GESTORES),
   validate(electionIdParamSchema),
+  asyncHandler(requireElectionInScope),
   asyncHandler(publicationController.publishElection)
 );
 
-// ─────────────────────────────────────────────────────────────
 // TALLY (S7-01)
-// ─────────────────────────────────────────────────────────────
 
 // POST /api/elections/:id/tally/recalculate
 router.post(
@@ -54,6 +54,7 @@ router.post(
   authenticate,
   authorize(GESTORES),
   validate(electionIdParamSchema),
+  asyncHandler(requireElectionInScope),
   asyncHandler(tallyController.recalculateTallies)
 );
 
@@ -63,18 +64,18 @@ router.get(
   authenticate,
   authorize(GESTORES),
   validate(electionIdParamSchema),
+  asyncHandler(requireElectionInScope),
   asyncHandler(tallyController.getTallies)
 );
 
-// ─────────────────────────────────────────────────────────────
-// LIVE / FINAL (S7-05) — acceso autenticado para audit
-// ─────────────────────────────────────────────────────────────
+// LIVE / FINAL (S7-05) — acceso autenticado y validado por tenant
 
 // GET /api/results/live?election_id=...
 router.get(
   '/results/live',
   authenticate,
   validate(liveResultsQuerySchema),
+  asyncHandler(requireElectionInScope),
   asyncHandler(resultsController.getLiveResults)
 );
 
@@ -83,12 +84,12 @@ router.get(
   '/results/final',
   authenticate,
   validate(finalResultsQuerySchema),
+  asyncHandler(requireElectionInScope),
   asyncHandler(resultsController.getFinalResults)
 );
 
-// ─────────────────────────────────────────────────────────────
 // REPORT PDF (S7-09) + EXPORT CSV/XLSX (S7-10)
-// ─────────────────────────────────────────────────────────────
+
 
 router.use(reportRoutes);
 router.use(exportRoutes);

@@ -38,7 +38,7 @@ const insertSampleAuditLog = async () => {
       '{}'::jsonb,
       '',
       '',
-      ''
+      '${'0'.repeat(64)}'
     )
   `);
   // $executeRawUnsafe devuelve el conteo de filas afectadas.

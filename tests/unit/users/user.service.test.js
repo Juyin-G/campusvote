@@ -252,7 +252,7 @@ describe('User Service', () => {
     });
 
     it('Deberia actualizar rol cuando es valido', async () => {
-      mockFindUnique.mockResolvedValue({ isSuperuser: false });
+      mockFindUnique.mockResolvedValue({ isSuperuser: false, facultyId: 'fac-1' });
       mockUpdate.mockResolvedValue({ ...sampleUser, role: 'TEACHER' });
 
       const result = await userService.updateUserRole(sampleUser.id, 'TEACHER');

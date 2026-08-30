@@ -28,7 +28,7 @@ export * as authController from './controllers/auth.controller.js';
 export * as otpController from './controllers/otp.controller.js';
 
 export * as authService from './services/auth.service.js';
-export * as otpService from './services/otp.service.js';
+export * as otpService from './services/auth.totp.service.js';
 
 export * as authRepository from './repositories/auth.repository.js';
 export * as otpRepository from './repositories/otp.repository.js';

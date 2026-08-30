@@ -234,7 +234,3 @@ export const errorHandler = (err, req, res, next) => {
 
   res.status(statusCode).json(response);
 };
-
-export const asyncHandler = (fn) => (req, res, next) => {
-  Promise.resolve(fn(req, res, next)).catch(next);
-};

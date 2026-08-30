@@ -20,10 +20,11 @@ const router = Router();
 const GESTORES = [ROLES.ADMIN, ROLES.ELECTORAL_COMMISSION];
 
 // 1. Sincronización masiva desde SIS
+// (El procedimiento almacenado sync_sis_voters exige rol ADMIN)
 router.post(
   '/sync-sis',
   authenticate,
-  authorize(GESTORES),
+  authorize(ROLES.ADMIN),
   validate(syncSisVotersSchema),
   voterRegistryController.syncSisVoters
 );

@@ -277,6 +277,8 @@ describe('Users Integration (HTTP + DB)', () => {
           last_name: 'PorAdmin',
           institutional_id: `UCRT${runId}`,
           role: 'STUDENT',
+          program_id: programId,
+          current_cycle: 5,
         });
 
       expect(res.status).toBe(201);
@@ -303,10 +305,10 @@ describe('Users Integration (HTTP + DB)', () => {
       const res = await request(app)
         .patch(`/api/users/${targetId}/role`)
         .set('Authorization', `Bearer ${adminToken}`)
-        .send({ role: 'TEACHER' });
+        .send({ role: 'OBSERVER' });
 
       expect(res.status).toBe(200);
-      expect(res.body.data.role).toBe('TEACHER');
+      expect(res.body.data.role).toBe('OBSERVER');
     });
   });
 

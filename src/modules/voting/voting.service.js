@@ -1,16 +1,7 @@
 // src/modules/voting/voting.service.js
-// Capa de negocio del módulo de VOTACIÓN.
-//
-// Responsabilidades:
-//   - Coordinar el caso de uso "iniciar sesión de votación".
-//   - Coordinar el caso de uso "emitir voto".
-//   - Traducir los RAISE EXCEPTION del motor SQL (Prisma P2010)
-//     a ApiError con el código HTTP correcto.
-//
-// NO accede a Prisma directamente (delega en voting.repository.js).
-// NO conoce HTTP.
 
 import * as votingRepository from './voting.repository.js';
+import auditService from '../audit/audit.service.js';
 import { ApiError } from '../../shared/errors/ApiError.js';
 import MESSAGES from '../../constants/messages.js';
 
@@ -20,8 +11,6 @@ import MESSAGES from '../../constants/messages.js';
  */
 const extractSqlMessage = (error) => {
   const raw = String(error?.meta?.message ?? error?.message ?? '');
-  // Prisma suele envolver el mensaje con prefijos como "Raw query failed".
-  // Nos quedamos con lo que haya tras los dos puntos del mensaje real.
   const colonIdx = raw.indexOf(':');
   return (colonIdx >= 0 ? raw.slice(colonIdx + 1) : raw).trim();
 };
@@ -69,20 +58,37 @@ const translateVotingError = (error) => {
       throw ApiError.notFound('Sesión de votación no encontrada');
     }
 
-    // Fallback genérico: el error provino del motor SQL validando reglas.
-    throw ApiError.badRequest(extractSqlMessage(error));
+    // Prevención de fuga de información (S2.5): Sanitización de fallback
+    const sqlDetail = extractSqlMessage(error);
+    console.error('[VotingService] Unhandled SQL Exception:', sqlDetail, error);
+
+    const safeMessage = process.env.NODE_ENV === 'production'
+      ? 'No se pudo procesar la solicitud de votación.'
+      : sqlDetail;
+
+    throw ApiError.badRequest(safeMessage);
   }
 
-  // Cualquier otro error (conexión, etc.) se propaga como 500.
   throw error;
 };
 
 /**
  * POST /voting/elections/:electionId/sessions
- * Inicia una sesión de votación para el elector autenticado.
+ * Inicia una sesión de votación y consume el token de un solo uso si es provisto.
  */
-export const startVotingSession = async ({ electionId, actorId, ip, userAgent }) => {
+export const startVotingSession = async ({ electionId, actorId, ip, userAgent, votingToken }) => {
   if (!actorId) throw ApiError.unauthorized('No se identificó al votante');
+
+  // Integración S2.4: Consumo y validación estricta del token de un solo uso
+  if (votingToken) {
+    try {
+      await auditService.consumeOneTimeToken(votingToken, electionId);
+    } catch (err) {
+      if (err.message.includes('expirado')) throw ApiError.gone('El token de votación ha expirado');
+      if (err.message.includes('utilizado')) throw ApiError.conflict('El token de votación ya fue utilizado');
+      throw ApiError.badRequest('Token de votación inválido o no correspondiente a esta elección');
+    }
+  }
 
   try {
     const [row] = await votingRepository.startSession(
@@ -142,7 +148,6 @@ export const getVotingSession = async (sessionId, actorId) => {
   const session = await votingRepository.getSession(sessionId);
   if (!session) throw ApiError.notFound('Sesión de votación no encontrada');
 
-  // Solo el dueño de la sesión puede consultarla.
   if (session.voterId !== actorId) {
     throw ApiError.forbidden('No tiene permisos para consultar esta sesión');
   }

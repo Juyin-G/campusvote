@@ -8,7 +8,7 @@ const mockCreateElection = jest.fn();
 const mockUpdateElection = jest.fn();
 const mockUpdateElectionStatus = jest.fn();
 const mockDeleteElectionById = jest.fn();
-const mockCountPositionsByElection = jest.fn();
+const mockFindPositionsByElection = jest.fn();
 const mockCertifyElection = jest.fn();
 
 jest.unstable_mockModule(
@@ -26,11 +26,12 @@ jest.unstable_mockModule(
   })
 );
 
-// El conteo de cargos vive en el repository de positions (dominio propio)
+// La verificación de cargos vive en el repository de positions (dominio propio)
 jest.unstable_mockModule(
   '../../../src/modules/elections/positions/position.repository.js',
   () => ({
-    countPositionsByElection: mockCountPositionsByElection,
+    findPositionsByElection: mockFindPositionsByElection,
+    countPositionsByElection: mockFindPositionsByElection,
   })
 );
 
@@ -68,7 +69,7 @@ describe('Election Service — Workflow de estados (S4-13)', () => {
 
   it('DRAFT -> SCHEDULED funciona si hay cargos definidos', async () => {
     elegirEstado('DRAFT');
-    mockCountPositionsByElection.mockResolvedValue(2);
+    mockFindPositionsByElection.mockResolvedValue([{ id: 'pos-1' }, { id: 'pos-2' }]);
     mockUpdateElectionStatus.mockResolvedValue({ id: ID, status: 'SCHEDULED' });
 
     const res = await service.changeStatus(ID, 'SCHEDULED');
@@ -79,7 +80,7 @@ describe('Election Service — Workflow de estados (S4-13)', () => {
 
   it('DRAFT -> SCHEDULED falla si la elección no tiene cargos (400)', async () => {
     elegirEstado('DRAFT');
-    mockCountPositionsByElection.mockResolvedValue(0);
+    mockFindPositionsByElection.mockResolvedValue([]);
 
     const err = await capturarError(() => service.changeStatus(ID, 'SCHEDULED'));
 
@@ -89,7 +90,7 @@ describe('Election Service — Workflow de estados (S4-13)', () => {
 
   it('DRAFT -> SCHEDULED falla si la fecha de fin ya pasó (400)', async () => {
     elegirEstado('DRAFT', { endAt: new Date('2020-01-01T00:00:00Z') });
-    mockCountPositionsByElection.mockResolvedValue(3);
+    mockFindPositionsByElection.mockResolvedValue([{ id: 'pos-1' }, { id: 'pos-2' }, { id: 'pos-3' }]);
 
     const err = await capturarError(() => service.changeStatus(ID, 'SCHEDULED'));
 

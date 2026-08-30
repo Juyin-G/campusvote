@@ -4,6 +4,7 @@
 import { Router } from 'express';
 import asyncHandler from '../../../shared/utils/asyncHandler.js';
 import { authenticate } from '../../../middlewares/auth.middleware.js';
+import { requireElectionInScope } from '../../../middlewares/scope.middleware.js';
 import { validate } from '../../../middlewares/validate.middleware.js';
 import { electionIdParamSchema } from '../results.schema.js';
 import resultsService from '../results.service.js';
@@ -19,12 +20,14 @@ router.get(
   '/elections/:id/report.pdf',
   authenticate,
   validate(electionIdParamSchema),
+  asyncHandler(requireElectionInScope),
   asyncHandler(async (req, res) => {
     const electionId = req.params.id;
     const data = await resultsService.getFinalResults(electionId);
     const election = {
-      id: data.election_id,
-      status: data.status,
+      id: req.election?.id || data.election_id,
+      title: req.election?.title || 'Acta de resultados',
+      status: req.election?.status || data.status,
     };
     const { buffer, hash } = await generateResultsPdf({
       election,

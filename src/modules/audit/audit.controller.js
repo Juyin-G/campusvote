@@ -1,3 +1,5 @@
+// src/modules/audit/audit.controller.js
+
 import auditService from './audit.service.js';
 import { isAdminRole } from '../../constants/roles.js';
 import { 
@@ -81,29 +83,30 @@ class AuditController {
   }
 
   // POST /audit/logs - Registrar nueva acción (Auditoría con actorId)
+  // src/modules/audit/audit.controller.js
+
   async createAuditLog(req, res, next) {
     try {
       const { error, value: logPayload } = createAuditLogSchema.validate(req.body);
-      
+
       if (error) {
         return res.status(400).json({
           success: false,
           error: {
             message: 'Datos de auditoría inválidos',
-            details: error.details.map(d => d.message)
-          }
+            details: error.details.map((d) => d.message),
+          },
         });
       }
 
       const clientIp = req.headers['x-forwarded-for']?.split(',')[0].trim() || req.ip;
 
       const logData = {
-        // El JWT firma el claim `userId`; rellenar actorId para no romper la cadena
         actorId: req.user?.userId ?? req.user?.id ?? null,
         electionId: logPayload.electionId || null,
         action: logPayload.action,
         ipAddress: clientIp,
-        metadata: logPayload.metadata || {}
+        metadata: logPayload.metadata || {},
       };
 
       const newLog = await auditService.logAction(logData);
@@ -111,21 +114,28 @@ class AuditController {
       return res.status(201).json({
         success: true,
         data: newLog,
-        message: 'Registro de auditoría creado exitosamente'
+        message: 'Registro de auditoría creado exitosamente',
       });
     } catch (error) {
-      console.error('Error en createAuditLog:', error);
+      console.error('[AuditController] Error al crear log:', error);
+
+      // Corregido (S2.5): Evita fuga de información cruda en producción
+      const isClientError = error?.message?.includes('inválida') || error?.message?.includes('secreto');
       
-      if (error.message.includes('inválida') || error.message.includes('secreto')) {
+      if (isClientError) {
+        const safeMessage = process.env.NODE_ENV === 'production'
+          ? 'Acción de auditoría inválida'
+          : error.message;
+
         return res.status(400).json({
           success: false,
-          error: { message: error.message }
+          error: { message: safeMessage },
         });
       }
 
       return res.status(500).json({
         success: false,
-        error: { message: 'Error al crear registro de auditoría' }
+        error: { message: 'Error al crear registro de auditoría' },
       });
     }
   }
@@ -157,14 +167,20 @@ class AuditController {
       }
 
       const actorId = req.user?.userId ?? req.user?.id;
-      if (actorId !== value.userId && !isAdminRole(req.user.role)) {
+      const targetUserId = value.userId || actorId;
+
+      // Validación de propiedad: sólo gestores/admins pueden crear tokens para otros usuarios
+      if (actorId !== targetUserId && !isAdminRole(req.user.role)) {
         return res.status(403).json({
           success: false,
           error: { message: 'No tiene permisos para crear tokens para este usuario' }
         });
       }
 
-      const result = await auditService.createOneTimeToken(value);
+      const result = await auditService.createOneTimeToken({
+        ...value,
+        userId: targetUserId,
+      });
 
       return res.status(201).json({
         success: true,
@@ -209,7 +225,6 @@ class AuditController {
         value.electionId
       );
 
-      // Respuesta disociada de userId para resguardar la privacidad del voto
       return res.status(200).json({
         success: true,
         data: {

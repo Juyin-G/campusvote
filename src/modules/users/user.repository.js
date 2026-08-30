@@ -90,12 +90,7 @@ export const update = (id, data) =>
     select: USER_PUBLIC_SELECT,
   });
 
-export const updateRole = (id, role) =>
-  prisma.user.update({
-    where: { id },
-    data: { role },
-    select: USER_PUBLIC_SELECT,
-  });
+export const updateRole = (id, data) => update(id, data);
 
 export const setActive = (id, isActive) =>
   prisma.user.update({
