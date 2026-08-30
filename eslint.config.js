@@ -42,4 +42,16 @@ export default [
       'security/detect-non-literal-fs-filename': 'off',
     },
   },
+
+  // Los tests de seguridad (.security.test.js) usan deliberadamente secretos
+  // débiles/conocidos y tokens forjados con claves inseguras para VERIFICAR
+  // que la aplicación los rechaza. Esos valores son intencionales y no deben
+  // considerarse fugas reales de secretos.
+  {
+    files: ['**/*.security.test.js'],
+    rules: {
+      'sonarjs/hardcoded-secret-signatures': 'off',
+      'sonarjs/insecure-jwt-token': 'off',
+    },
+  },
 ];

@@ -34,8 +34,12 @@ const validateSecret = (secret, secretName) => {
 
   // Normalización para evitar evadir la lista con mayúsculas o espacios
   const normalizedSecret = secret.trim().toLowerCase();
-  const isBlacklisted = INSECURE_DEFAULT_SECRETS.some((insecure) =>
-    normalizedSecret.includes(insecure.toLowerCase())
+  // Blacklist de claves por defecto/ejemplo completas. Se compara por
+  // igualdad normalizada (no por substring) para no rechazar secretos
+  // legítimos que simplemente contengan palabras como "secret" embebidas
+  // (p. ej. "my-app-jwt-secret-key-abc123-...").
+  const isBlacklisted = INSECURE_DEFAULT_SECRETS.some(
+    (insecure) => normalizedSecret === insecure.toLowerCase()
   );
 
   if (isBlacklisted) {

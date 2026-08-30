@@ -112,6 +112,10 @@ async function main() {
         await client.query(sql);
         process.stdout.write('OK\n');
       } catch (err) {
+        // Si el script falló a mitad de un bloque BEGIN...COMMIT, la conexión
+        // queda en una transacción abortada que rompería los siguientes
+        // archivos. Forzamos ROLLBACK para limpiar el estado.
+        await client.query('ROLLBACK').catch(() => {});
         // Archivos opcionales (módulos/extensiones que pueden no desplegarse)
         const optional =
           relativePath.includes('claims/') ||
