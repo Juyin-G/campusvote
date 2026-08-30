@@ -47,8 +47,11 @@ export const hashToken = (token) => {
  */
 export const verifyJwt = (token) => {
   try {
-    return jwt.verify(token, env.JWT_SECRET);
-  } catch (error) {
+    // Se fija el algoritmo igual que en el middleware de autenticación.
+    return jwt.verify(token, env.JWT_SECRET, { algorithms: ['HS256'] });
+  } catch {
+    // Token inválido, expirado o mal formado: para quien llama solo importa
+    // que no es válido, así que se devuelve null en lugar de propagar.
     return null;
   }
 };

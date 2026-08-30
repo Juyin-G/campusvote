@@ -252,12 +252,43 @@ describe('User Service', () => {
     });
 
     it('Deberia actualizar rol cuando es valido', async () => {
-      mockFindUnique.mockResolvedValue({ isSuperuser: false });
+      // La BD exige facultad para los docentes (chk_users_academic_linkage),
+      // así que el usuario debe tenerla antes de pasar a TEACHER.
+      mockFindUnique.mockResolvedValue({
+        isSuperuser: false,
+        facultyId: 'fac-uuid-1',
+        programId: null,
+      });
       mockUpdate.mockResolvedValue({ ...sampleUser, role: 'TEACHER' });
 
       const result = await userService.updateUserRole(sampleUser.id, 'TEACHER');
 
       expect(result.role).toBe('TEACHER');
+    });
+
+    it('Deberia rechazar TEACHER si el usuario no tiene facultad', async () => {
+      mockFindUnique.mockResolvedValue({
+        isSuperuser: false,
+        facultyId: null,
+        programId: null,
+      });
+
+      await expect(
+        userService.updateUserRole(sampleUser.id, 'TEACHER')
+      ).rejects.toThrow(ApiError);
+      expect(mockUpdate).not.toHaveBeenCalled();
+    });
+
+    it('Deberia rechazar STUDENT si el usuario no tiene programa', async () => {
+      mockFindUnique.mockResolvedValue({
+        isSuperuser: false,
+        facultyId: 'fac-uuid-1',
+        programId: null,
+      });
+
+      await expect(
+        userService.updateUserRole(sampleUser.id, 'STUDENT')
+      ).rejects.toThrow(ApiError);
     });
   });
 

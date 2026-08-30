@@ -31,6 +31,17 @@ export const findPositionsByElection = (electionId) =>
     orderBy: { name: 'asc' },
   });
 
+/**
+ * Cuántos cargos tiene la elección.
+ * La usa election.service para impedir programar (DRAFT -> SCHEDULED) una
+ * elección sin cargos definidos. Se perdió al reorganizar el módulo en
+ * subcarpetas y su ausencia hacía que el cambio de estado respondiera 500.
+ */
+export const countPositionsByElection = (electionId) =>
+  prisma.position.count({
+    where: { electionId },
+  });
+
 export const countCandidaciesByPosition = (positionId) =>
   prisma.candidacy.count({
     where: { positionId },

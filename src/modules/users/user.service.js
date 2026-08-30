@@ -77,6 +77,9 @@ export const createUser = async (body = {}) => {
     institutional_id,
     role,
     organization_id,
+    faculty_id,
+    program_id,
+    current_cycle,
   } = body;
 
   const hashedPassword = await bcrypt.hash(password, 12);
@@ -90,6 +93,12 @@ export const createUser = async (body = {}) => {
     institutionalId: institutional_id,
     role,
     organizationId: organization_id,
+    // La BD exige el vínculo académico según el rol (chk_users_academic_linkage
+    // y chk_users_student_data). Se envía null explícito cuando no aplica:
+    // para roles no estudiantes, current_cycle debe quedar en NULL.
+    facultyId: faculty_id ?? null,
+    programId: program_id ?? null,
+    currentCycle: role === 'STUDENT' ? (current_cycle ?? null) : null,
   });
 
   return formatUserResponse(newUser);
@@ -144,9 +153,22 @@ export const updateUserRole = async (id, role) => {
 
   const existing = await prisma.user.findUnique({
     where: { id },
-    select: { isSuperuser: true },
+    select: { isSuperuser: true, facultyId: true, programId: true },
   });
   if (!existing) throw ApiError.notFound(MESSAGES.USER.NOT_FOUND);
+
+  // La BD exige vínculo académico según el rol (chk_users_academic_linkage).
+  // Sin esta comprobación el cambio de rol terminaba en 500.
+  if (role === 'STUDENT' && !existing.programId) {
+    throw ApiError.badRequest(
+      'No se puede asignar el rol STUDENT: el usuario no tiene programa académico. Asígnaselo antes de cambiar el rol.'
+    );
+  }
+  if (role === 'TEACHER' && !existing.facultyId) {
+    throw ApiError.badRequest(
+      'No se puede asignar el rol TEACHER: el usuario no tiene facultad. Asígnasela antes de cambiar el rol.'
+    );
+  }
 
   if (existing.isSuperuser && !ADMIN_ROLES.includes(role)) {
     const superuserCount = await prisma.user.count({

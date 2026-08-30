@@ -23,6 +23,7 @@ let targetId;
 let adminToken;
 let studentToken;
 let programId;
+let facultyId;
 
 const login = async (email) => {
   const res = await request(app)
@@ -34,8 +35,9 @@ const login = async (email) => {
 describe('Users Integration (HTTP + DB)', () => {
   beforeAll(async () => {
     const hash = await bcrypt.hash(PASSWORD, 12);
-    const { program } = await createAcademicFixture(runId);
+    const { faculty, program } = await createAcademicFixture(runId);
     programId = program.id;
+    facultyId = faculty.id;
 
     const admin = await prisma.user.create({
       data: {
@@ -87,6 +89,7 @@ describe('Users Integration (HTTP + DB)', () => {
         status: 'ACTIVE',
         mustChangePassword: false,
         programId,
+        facultyId,
         currentCycle: 5,
         failedLoginAttempts: 5,
         lockedUntil: new Date(Date.now() + 60_000),
@@ -277,6 +280,8 @@ describe('Users Integration (HTTP + DB)', () => {
           last_name: 'PorAdmin',
           institutional_id: `UCRT${runId}`,
           role: 'STUDENT',
+          program_id: programId,
+          current_cycle: 5,
         });
 
       expect(res.status).toBe(201);
@@ -318,7 +323,7 @@ describe('Users Integration (HTTP + DB)', () => {
         .send({ is_active: false });
 
       expect(res.status).toBe(200);
-      expect(res.body.data.is_active).toBe(false);
+      expect(res.body.data.status).toBe('SUSPENDED');
     });
 
     it('Deberia impedir que admin se desactive a si mismo', async () => {
