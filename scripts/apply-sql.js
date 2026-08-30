@@ -37,6 +37,7 @@ const MIGRATION_FILES = [
   'user/007_email_verification.sql',
   'user/008_login_security.sql',
   'user/009_cleanup_tokens.sql',
+  'user/010_media_files.sql',
   'organizations/003_organization_requests.sql',
   'academic/000_prerequisites.sql',
   'academic/001_faculties.sql',
