@@ -62,6 +62,12 @@ export default {
   APP_NAME: process.env.APP_NAME || 'CampusVote',
   APP_VERSION: process.env.APP_VERSION || '1.0.0',
 
+  // URLs publicas que anuncia la documentacion de Swagger. Si no se definen,
+  // swagger usa una URL relativa, que ya resuelve bien en cualquier entorno.
+  APP_URL: process.env.APP_URL,
+  STAGE_API_URL: process.env.STAGE_API_URL,
+  PROD_API_URL: process.env.PROD_API_URL,
+
   // Database
   DATABASE_URL: process.env.DATABASE_URL,
 

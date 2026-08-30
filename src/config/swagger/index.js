@@ -38,8 +38,12 @@ Esta API utiliza esquemas de autenticación basados en **JWT (JSON Web Tokens)**
 // Construcción dinámica de servidores
 const servers = [
   {
-    url: env.APP_URL || `http://localhost:${env.PORT || 3000}`,
-    description: `Servidor de Desarrollo (${env.NODE_ENV || 'development'})`,
+    // URL relativa: Swagger UI la resuelve contra el origen desde el que se
+    // sirve la documentacion, asi que apunta sola al servidor correcto tanto
+    // en local como en el despliegue, sin depender de variables de entorno.
+    // Lleva /api porque es donde app.js monta el router de la API.
+    url: env.APP_URL || '/api',
+    description: `Servidor actual (${env.NODE_ENV || 'development'})`,
   },
   ...(env.STAGE_API_URL
     ? [{ url: env.STAGE_API_URL, description: 'Servidor de Staging / QA' }]
