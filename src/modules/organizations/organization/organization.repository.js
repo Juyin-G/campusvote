@@ -15,6 +15,7 @@ const ORG_SELECT = {
   timezone: true,
   onboardingCompleted: true,      // No 'onboarding_completed'
   onboardingCompletedAt: true,    // No 'onboarding_completed_at'
+  allowedEmailDomains: true,      // No 'allowed_email_domains'
   createdAt: true,        // No 'created_at'
   updatedAt: true,        // No 'updated_at'
 };

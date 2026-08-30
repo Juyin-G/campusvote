@@ -10,6 +10,8 @@ import { generateJwt, formatUserResponse, generateRefreshToken, hashToken } from
 import MESSAGES from '../../../constants/messages.js';
 import env from '../../../config/env.js';
 import logger from '../../../config/logger.js';
+import { extractDomain } from '../../../shared/utils/emailDomain.js';
+import { matchCareerFromCode, extractCycleFromCode } from '../../../shared/utils/careerParse.js';
 
 export { setupTotp, verifyTotp, verifyLoginTotp } from './auth.totp.service.js';
 
@@ -105,6 +107,7 @@ export const register = async (userData) => {
     organizationId,
     facultyId,
     programId,
+    careerId,
     currentCycle,
     admissionPeriodId,
     specialty,
@@ -131,6 +134,39 @@ export const register = async (userData) => {
 
   const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
 
+  // Resolución automática de la organización por dominio del correo.
+  // Si el cliente no envía organization_id, se busca la organización cuyo
+  // allowed_email_domains contenga el dominio del correo. Si hay una única
+  // coincidencia, se asigna automáticamente (el usuario no necesita el UUID).
+  let resolvedOrgId = organizationId || null;
+  if (!resolvedOrgId) {
+    const domain = extractDomain(cleanEmail);
+    if (domain) {
+      const matches = await authRepository.findOrganizationsByEmailDomain(domain);
+      if (matches.length === 1) {
+        resolvedOrgId = matches[0].id;
+      }
+    }
+  }
+
+  // Derivación automática de carrera (y ciclo) a partir del código institucional.
+  // Si el cliente no provee carrera/ciclo, se busca la carrera cuya `code` sea
+  // prefijo del código institucional en la organización resuelta.
+  let derivedCareerId = careerId ?? null;
+  let derivedCycle = currentCycle ?? null;
+  if (resolvedOrgId && !derivedCareerId) {
+    const careers = await authRepository.findCareersByOrganization(resolvedOrgId);
+    if (careers.length > 0) {
+      const matched = matchCareerFromCode(institutionalId, careers);
+      if (matched) {
+        derivedCareerId = matched.id;
+        if (derivedCycle === null || derivedCycle === undefined) {
+          derivedCycle = extractCycleFromCode(institutionalId, matched);
+        }
+      }
+    }
+  }
+
   // Pasa todos los datos académicos requeridos por los check constraints de PostgreSQL
   const newUser = await authRepository.createUser({
     username: cleanUsername,
@@ -142,10 +178,11 @@ export const register = async (userData) => {
     role,
     authProvider: 'LOCAL',
     mustChangePassword: false,
-    organizationId,
+    organizationId: resolvedOrgId,
     facultyId,
     programId,
-    currentCycle,
+    careerId: derivedCareerId,
+    currentCycle: derivedCycle,
     admissionPeriodId,
     specialty,
     department,

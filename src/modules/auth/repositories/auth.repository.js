@@ -80,6 +80,30 @@ export const findByGoogleId = async (googleId) => {
   });
 };
 
+/**
+ * Busca organizaciones cuyo `allowed_email_domains` contenga el dominio dado.
+ * Usa JSONB containment (@>). @param {string} domain - dominio del correo (ej: "upc.edu.pe")
+ */
+export const findOrganizationsByEmailDomain = async (domain) => {
+  return prisma.$queryRaw`
+    SELECT id, name, code, allowed_email_domains
+    FROM organizations
+    WHERE is_active = TRUE
+      AND allowed_email_domains @> ${JSON.stringify([String(domain).toLowerCase()])}::jsonb
+  `;
+};
+
+/**
+ * Lista las carreras activas de una organización (para derivar carrera/ciclo
+ * del código institucional).
+ */
+export const findCareersByOrganization = (organizationId) =>
+  prisma.career.findMany({
+    where: { organizationId, isActive: true },
+    select: { id: true, code: true, name: true, cycle: true },
+    orderBy: { code: 'asc' },
+  });
+
 // CREACIÓN DE USUARIO CON CONSTRAINTS ACADÉMICOS
 
 export const createUser = async (data) => {
@@ -97,6 +121,7 @@ export const createUser = async (data) => {
       organizationId: data.organizationId || null,
       facultyId: data.facultyId || null,
       programId: data.programId || null,
+      careerId: data.careerId || null,
       currentCycle: data.currentCycle || null,
       admissionPeriodId: data.admissionPeriodId || null,
       specialty: data.specialty || null,
@@ -216,6 +241,20 @@ export const updateLastLogin = async (userId) => {
     where: { id: userId },
     data: {
       lastLogin: new Date(),
+    },
+  });
+};
+
+export const linkGoogleIdentity = async (userId, googleId) => {
+  return prisma.user.update({
+    where: { id: userId },
+    data: {
+      googleId,
+      authProvider: 'LOCAL', // mantener LOCAL para seguir usando email/password
+    },
+    select: {
+      ...userAuthSelect,
+      googleId: true,
     },
   });
 };

@@ -19,9 +19,10 @@ export const USER_PUBLIC_SELECT = {
   dateJoined: true,
 };
 
-const buildWhere = ({ organizationId, role, search, isActive } = {}) => {
+const buildWhere = ({ organizationId, role, search, isActive, includeSuperAdmin = false } = {}) => {
   const where = {};
   if (organizationId) where.organizationId = organizationId;
+  if (!includeSuperAdmin) where.role = { not: 'SUPERADMIN' };
   if (role) where.role = role;
   if (isActive !== undefined) {
     const active = isActive === 'true' || isActive === true;

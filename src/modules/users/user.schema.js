@@ -126,3 +126,59 @@ export const twoFactorSchema = z.object({
     code: z.string().length(6, 'El código debe tener 6 dígitos'),
   }),
 });
+
+// SUPERADMIN: crear una organización (universidad/proyecto) + su administrador,
+// con 2FA de primer acceso (OTP/QR).
+export const provisionAdminSchema = z.object({
+  body: z.object({
+    organization: z.object({
+      name: z.string().trim().min(1, 'El nombre de la organización es obligatorio').max(200),
+      code: z.string().trim().min(1, 'El código es obligatorio').max(30).optional(),
+      org_type: z.enum(['UNIVERSITY', 'INSTITUTE', 'SCHOOL', 'COMPANY', 'ASSOCIATION', 'OTHER']).optional(),
+      country: z.string().trim().max(100).optional(),
+      timezone: z.string().trim().max(50).optional(),
+      logo: z.string().url('El logo debe ser una URL válida').optional(),
+      primary_color: z.string().regex(/^#[0-9a-fA-F]{6}$/, 'Hex inválido').optional(),
+      secondary_color: z.string().regex(/^#[0-9a-fA-F]{6}$/, 'Hex inválido').optional(),
+      allowed_email_domains: z
+        .array(
+          z
+            .string()
+            .trim()
+            .min(2, 'Dominio muy corto')
+            .max(255)
+            .regex(/^@?[a-zA-Z0-9.-]+$/, 'Dominio inválido')
+            .transform((d) => d.replace(/^@/, ''))
+        )
+        .optional(),
+    }),
+    admin: z.object({
+      username: z.string().min(3, 'Como mínimo 3 caracteres').max(50),
+      email: z.string().email('Email inválido'),
+      password: passwordSchema,
+      first_name: z.string().min(1, 'Como mínimo 1 carácter').max(50),
+      last_name: z.string().min(1, 'Como mínimo 1 carácter').max(50),
+    }),
+  }),
+});
+
+// ADMIN: crear jurados/usuarios en lote (bulk)
+export const createUsersBulkSchema = z.object({
+  body: z.object({
+    users: z
+      .array(
+        z.object({
+          username: z.string().min(3, 'Como mínimo 3 caracteres').max(50),
+          email: z.string().email('Email inválido'),
+          password: passwordSchema,
+          first_name: z.string().min(1, 'Como mínimo 1 carácter').max(50),
+          last_name: z.string().min(1, 'Como mínimo 1 carácter').max(50),
+          role: roleEnum.optional(),
+          institutional_id: z.string().optional(),
+          must_change_password: z.boolean().optional(),
+        })
+      )
+      .min(1, 'Debes enviar al menos un usuario')
+      .max(500, 'Máximo 500 usuarios por operación'),
+  }),
+});

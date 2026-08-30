@@ -8,7 +8,10 @@ import { isValidRole, ADMIN_ROLES, ROLES } from '../../constants/roles.js';
 import { parsePagination } from '../../shared/utils/pagination.js';
 import { formatUserResponse } from '../../shared/utils/formatUserResponse.js';
 import MESSAGES from '../../constants/messages.js';
-import { prisma } from '../../database/prisma.js'; 
+import { prisma } from '../../database/prisma.js';
+import * as otpUtil from '../../shared/utils/otp.util.js';
+import * as otpRepository from '../auth/repositories/otp.repository.js';
+import { isDomainAllowed } from '../../shared/utils/emailDomain.js';
 
 const notFoundIfMissing = (err) => {
   if (err.code === 'P2025' || err.message.includes('not found')) throw ApiError.notFound(MESSAGES.USER.NOT_FOUND);
@@ -87,7 +90,7 @@ export const createUser = async (body = {}, actor = {}) => {
   // Defensa S2: Solo superusuarios pueden crear usuarios con roles privilegiados
   // (ADMIN / ELECTORAL_COMMISSION). Los roles electorales regulares pueden
   // ser creados por cualquier administrador de la organización.
-  const isSuperUser = actor.isSuperuser || actor.isSuperAdmin || actor.role === ROLES.SUPER_ADMIN;
+  const isSuperUser = actor.isSuperuser || actor.isSuperAdmin || actor.role === ROLES.SUPERADMIN;
   if (role && ADMIN_ROLES.includes(role) && !isSuperUser) {
     throw ApiError.forbidden('Solo superusuarios pueden crear usuarios con roles privilegiados');
   }
@@ -111,6 +114,213 @@ export const createUser = async (body = {}, actor = {}) => {
   return formatUserResponse(newUser);
 };
 
+/**
+ * SUPERADMIN: crea UNA ORGANIZACIÓN (universidad/proyecto) y su ADMIN en un
+ * solo paso, vinculando al admin a esa organización. Le provisiona un 2FA de
+ * primer acceso (OTP/QR) que el admin usa para configurar Google Authenticator.
+ * @param {Object} body - { organization: {...}, admin: {...} }
+ * @param {Object} actor - usuario autenticado
+ */
+export const provisionAdmin = async (body = {}, actor = {}) => {
+  const isSuperUser =
+    actor.isSuperuser || actor.isSuperAdmin || actor.role === ROLES.SUPERADMIN;
+
+  if (!isSuperUser) {
+    throw ApiError.forbidden('Solo el superadmin puede crear administradores');
+  }
+
+  const { organization, admin } = body;
+
+  if (!organization || !admin) {
+    throw ApiError.badRequest(
+      'Debes enviar la organización y el administrador a crear'
+    );
+  }
+
+  const {
+    username,
+    email,
+    password,
+    first_name,
+    last_name,
+  } = admin;
+
+  const cleanEmail = email.toLowerCase().trim();
+  const cleanUsername = username.toLowerCase().trim();
+
+  const existingEmail = await userRepository.findByEmail(cleanEmail);
+  if (existingEmail) {
+    throw ApiError.conflict(MESSAGES.USER.ALREADY_EXISTS);
+  }
+
+  const existingUsername = await userRepository.findByUsername(cleanUsername);
+  if (existingUsername) {
+    throw ApiError.conflict(MESSAGES.USER.USERNAME_TAKEN);
+  }
+
+  // 1. Crear la organización (universidad/proyecto).
+  const normalizedCode = (organization.code || '').trim().toUpperCase() ||
+    cleanUsername.toUpperCase().slice(0, 10);
+
+  const existingOrg = await prisma.organization.findUnique({
+    where: { code: normalizedCode },
+  });
+  if (existingOrg) {
+    throw ApiError.conflict('Ya existe una organización con ese código');
+  }
+
+  const newOrg = await prisma.organization.create({
+    data: {
+      name: organization.name.trim(),
+      code: normalizedCode,
+      orgType: organization.org_type ?? 'UNIVERSITY',
+      logo: organization.logo || null,
+      primaryColor: organization.primary_color || '#0066CC',
+      secondaryColor: organization.secondary_color || '#FFD700',
+      country: organization.country?.trim() || 'Perú',
+      timezone: organization.timezone?.trim() || 'America/Lima',
+      allowedEmailDomains: organization.allowed_email_domains || [],
+    },
+    select: {
+      id: true,
+      name: true,
+      code: true,
+    },
+  });
+
+  // 2. Crear el ADMIN asociado a la organización recién creada.
+  const hashedPassword = await bcrypt.hash(password, 12);
+
+  const newUser = await userRepository.create({
+    username: cleanUsername,
+    email: cleanEmail,
+    password: hashedPassword,
+    firstName: first_name,
+    lastName: last_name,
+    institutionalId: cleanUsername,
+    role: ROLES.ADMIN,
+    organizationId: newOrg.id,
+    mustChangePassword: true,
+  });
+
+  // 3. Provisionar 2FA de primer acceso (OTP/QR).
+  const secret = otpUtil.generateTotpSecret();
+  const uri = otpUtil.generateTotpUri(secret, cleanEmail, newUser.username);
+  const plainBackupCodes = otpUtil.generateBackupCodes();
+  const hashedBackupCodes = plainBackupCodes.map((code) =>
+    otpUtil.hashBackupCode(code)
+  );
+
+  await otpRepository.saveTotpSecret(newUser.id, secret);
+  await otpRepository.enableTwoFactor(newUser.id, hashedBackupCodes);
+
+  const qrCode = await otpUtil.generateQrCode(uri);
+
+  return {
+    organization: newOrg,
+    user: formatUserResponse(newUser),
+    qrCode,
+    secret,
+    backupCodes: plainBackupCodes,
+    mustChangePassword: true,
+  };
+};
+
+/**
+ * Obtiene la organización y valida que el email del jurado pertenezca a un
+ * dominio permitido (si la organización define allowed_email_domains).
+ */
+const assertValidEmailDomain = async (email, organizationId) => {
+  if (!organizationId) return;
+
+  const org = await prisma.organization.findUnique({
+    where: { id: organizationId },
+    select: { allowedEmailDomains: true },
+  });
+
+  if (!org) throw ApiError.notFound('Organización no encontrada');
+
+  const allowedDomains = Array.isArray(org.allowedEmailDomains)
+    ? org.allowedEmailDomains
+    : [];
+
+  if (allowedDomains.length > 0 && !isDomainAllowed(email, allowedDomains)) {
+    throw ApiError.badRequest(
+      `El dominio del correo no está permitido por la organización (permitidos: ${allowedDomains.join(', ')})`
+    );
+  }
+};
+
+/**
+ * ADMIN: crea jurados/usuarios en lote (bulk). Valida los correos contra los
+ * dominios permitidos de la organización del actor.
+ * @param {Array} items - lista de { username, email, password, first_name, last_name, role }
+ * @param {Object} actor - usuario autenticado (debe ser admin de su org)
+ */
+export const createUsersBulk = async (items = [], actor = {}) => {
+  if (!Array.isArray(items) || items.length === 0) {
+    throw ApiError.badRequest('Debes enviar al menos un usuario para crear');
+  }
+
+  if (items.length > 500) {
+    throw ApiError.badRequest('Máximo 500 usuarios por operación');
+  }
+
+  const orgId = actor.organizationId || null;
+
+  const created = [];
+  const errors = [];
+
+  for (const item of items) {
+    try {
+      const role = item.role || ROLES.JURY;
+      if (!isValidRole(role)) {
+        throw ApiError.badRequest(MESSAGES.USER.INVALID_ROLE);
+      }
+
+      // Solo superusuarios pueden crear/usar roles privilegiados.
+      const isSuperUser =
+        actor.isSuperuser || actor.isSuperAdmin || actor.role === ROLES.SUPERADMIN;
+      if (ADMIN_ROLES.includes(role) && !isSuperUser) {
+        throw ApiError.forbidden(
+          'Solo superusuarios pueden crear usuarios con roles privilegiados'
+        );
+      }
+
+      const cleanEmail = item.email.toLowerCase().trim();
+
+      await assertValidEmailDomain(cleanEmail, orgId);
+
+      const existing = await userRepository.findByEmail(cleanEmail);
+      if (existing) {
+        throw ApiError.conflict(`El correo ${cleanEmail} ya está registrado`);
+      }
+
+      const hashedPassword = await bcrypt.hash(item.password, 12);
+
+      const newUser = await userRepository.create({
+        username: item.username.toLowerCase().trim(),
+        email: cleanEmail,
+        password: hashedPassword,
+        firstName: item.first_name,
+        lastName: item.last_name,
+        institutionalId: item.institutional_id || item.username.trim(),
+        role,
+        organizationId: orgId,
+        mustChangePassword: item.must_change_password ?? true,
+      });
+
+      created.push(formatUserResponse(newUser));
+    } catch (error) {
+      errors.push({
+        email: item.email,
+        message: error.message,
+      });
+    }
+  }
+
+  return { created, errors, totalOk: created.length, totalFailed: errors.length };
+};
 export const updateUser = async (id, body = {}) => {
   const data = {};
   if (body.first_name !== undefined) data.firstName = body.first_name;
@@ -165,7 +375,7 @@ export const updateUserRole = async (id, role, actor = {}) => {
   }
 
   // Defensa S2: Exige privilegios de superusuario solo para asignar roles privilegiados
-  const isSuperUser = actor.isSuperuser || actor.isSuperAdmin || actor.role === ROLES.SUPER_ADMIN;
+  const isSuperUser = actor.isSuperuser || actor.isSuperAdmin || actor.role === ROLES.SUPERADMIN;
   if (ADMIN_ROLES.includes(role) && !isSuperUser) {
     throw ApiError.forbidden('Solo superusuarios pueden asignar roles privilegiados');
   }
@@ -281,6 +491,8 @@ export default {
   getMe,
   getUserById,
   createUser,
+  provisionAdmin,
+  createUsersBulk,
   updateUser,
   setActiveStatus,
   unlockUser,

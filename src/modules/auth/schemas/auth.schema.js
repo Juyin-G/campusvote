@@ -6,8 +6,10 @@ export const UserRoleEnum = z.enum([
   'STUDENT',
   'TEACHER',
   'ADMIN',
+  'SUPERADMIN',
   'ELECTORAL_COMMISSION',
   'OBSERVER',
+  'JURY',
 ]);
 
 // Login
@@ -63,19 +65,14 @@ export const registerSchema = z.object({
       }
 
       // Regla: chk_users_academic_linkage & chk_users_student_data para STUDENT
+      // El contexto académico (carrera/programa, ciclo) se asigna/configura por el ADMIN
+      // de la organización; el estudiante puede registrarse sin elegir ciclo.
       if (data.role === 'STUDENT') {
         if (!data.programId) {
           ctx.addIssue({
             code: z.ZodIssueCode.custom,
             message: 'El programa académico (programId) es obligatorio para estudiantes',
             path: ['programId'],
-          });
-        }
-        if (data.currentCycle === undefined || data.currentCycle === null) {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            message: 'El ciclo actual (currentCycle) es obligatorio para estudiantes',
-            path: ['currentCycle'],
           });
         }
       }
@@ -160,5 +157,12 @@ export const resendVerificationSchema = z.object({
 export const refreshSchema = z.object({
   body: z.object({
     refreshToken: z.string().min(1, 'El refresh token es obligatorio'),
+  }),
+});
+
+// Verificación de código de Google (login OAuth)
+export const googleVerifySchema = z.object({
+  body: z.object({
+    code: z.string().min(1, 'El código de Google es obligatorio'),
   }),
 });

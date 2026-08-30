@@ -13,6 +13,19 @@ DO $$ BEGIN
     CREATE TYPE delivery_status AS ENUM ('PENDING', 'SENT', 'FAILED');
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
+-- V2: Nuevos tipos del flujo de ferias/concursos (Flutter).
+-- FAIR_OPENED: la feria abrió y los jurados pueden calificar proyectos.
+-- RATING_RECEIVED: un jurado calificó el proyecto del expositor.
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_enum WHERE enumlabel = 'FAIR_OPENED' AND enumtypid = 'notification_type'::regtype) THEN
+        ALTER TYPE notification_type ADD VALUE 'FAIR_OPENED';
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_enum WHERE enumlabel = 'RATING_RECEIVED' AND enumtypid = 'notification_type'::regtype) THEN
+        ALTER TYPE notification_type ADD VALUE 'RATING_RECEIVED';
+    END IF;
+END $$;
+
 -- 2. TABLA: NOTIFICACIONES (Bandeja de entrada del usuario)
 CREATE TABLE IF NOT EXISTS notifications (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

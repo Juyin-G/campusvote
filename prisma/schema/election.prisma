@@ -5,6 +5,8 @@ enum ElectionProcessType {
   FAIR
   FEEDBACK
   FORM
+  EVENT_POLL
+  AWARD
 
   @@map("election_process_type")
 }
@@ -83,6 +85,7 @@ model Election {
   votingSessions     VotingSession[]
   votes              Vote[]
   electionResults    ElectionResult[]
+  ratings            Rating[]
 
   @@index([status], map: "idx_elections_status")
   @@index([periodId], map: "idx_elections_period")
@@ -153,6 +156,7 @@ model Candidacy {
   position      Position?           @relation(fields: [positionId, electionId], references: [id, electionId], onDelete: Cascade)
   user          User                @relation(fields: [userId], references: [id], onDelete: Restrict)
   documents     CandidacyDocument[]
+  ratings       Rating[]
 
   @@unique([electionId, userId], map: "uq_candidacies_election_user")
   @@unique([candidateListId, positionId, orderIndex], map: "uq_candidacies_list_position_order")

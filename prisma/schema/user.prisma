@@ -4,8 +4,10 @@ enum UserRole {
   STUDENT
   TEACHER
   ADMIN
+  SUPERADMIN
   ELECTORAL_COMMISSION
   OBSERVER
+  JURY
 
   @@map("user_role")
 }
@@ -79,6 +81,7 @@ model User {
   organizationId String? @map("organization_id") @db.Uuid
   facultyId      String? @map("faculty_id") @db.Uuid
   programId      String? @map("program_id") @db.Uuid
+  careerId       String? @map("career_id") @db.Uuid
 
   // ------------------------------------------------------
   // PERFILES ESPECÍFICOS
@@ -124,6 +127,7 @@ model User {
   faculty         Faculty?        @relation(fields: [facultyId], references: [id], onDelete: SetNull)
   program         Program?        @relation(fields: [programId], references: [id], onDelete: SetNull)
   admissionPeriod AcademicPeriod? @relation(fields: [admissionPeriodId], references: [id], onDelete: SetNull)
+  career          Career?         @relation(fields: [careerId], references: [id], onDelete: SetNull)
 
   // Auto-relaciones de auditoría
   lastRoleChangeBy   User?  @relation("RoleChangeAudit", fields: [lastRoleChangeById], references: [id], onDelete: SetNull)
@@ -147,6 +151,7 @@ model User {
   reviewedOrgRequests     OrganizationRequest[]    @relation("OrgRequestReviewer")
   votingSessions          VotingSession[]
   votes                   Vote[]
+  ratings                 Rating[]     @relation("JurorRatings")
   voterRegistryClaims     VoterRegistryClaim[]     @relation("UserClaims")
   reviewedVoterRegistryClaims VoterRegistryClaim[] @relation("ReviewerClaims")
 

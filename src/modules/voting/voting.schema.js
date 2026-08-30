@@ -48,9 +48,20 @@ export const getSessionParamsSchema = z.object({
   }),
 });
 
+/** Params: /public/verify-receipt/:receiptCode */
+export const receiptParamsSchema = z.object({
+  params: z.object({
+    receiptCode: z
+      .string({ required_error: 'El código de comprobante es requerido' })
+      .min(1, 'El código de comprobante es requerido')
+      .regex(/^[a-fA-F0-9]{8,128}$/, 'El código de comprobante tiene un formato inválido'),
+  }),
+});
+
 export default {
   startSessionSchema,
   castVoteParamsSchema,
   castVoteBodySchema,
   getSessionParamsSchema,
+  receiptParamsSchema,
 };

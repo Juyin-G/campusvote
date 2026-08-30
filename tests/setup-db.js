@@ -81,7 +81,8 @@ export default async function setupTestDB() {
     console.log('8. Creando tablas académicas...');
 
     await executeFile('academic/001_faculties.sql');
-    await executeFile('academic/002_programs.sql');
+    await executeFile('academic/002_programs.sql');                 
+    await executeFile('academic/009_careers.sql');                  
     await executeFile('academic/003_academic_periods.sql');
     await executeFile('academic/004_voter_registries.sql');
 
@@ -140,6 +141,7 @@ export default async function setupTestDB() {
     await executeFile('voting/006_session_management.sql');
     await executeFile('voting/007_vote_integrity.sql');
     await executeFile('voting/008_scrutiny.sql');
+    await executeFile('ratings/001_ratings.sql');
 
     console.log('15. Cargando notificaciones e i18n...');
 

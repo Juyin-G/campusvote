@@ -16,6 +16,8 @@ const mockCreateRefreshToken = jest.fn().mockResolvedValue({ id: 'rt-1' });
 const mockFindRefreshToken = jest.fn();
 const mockRevokeRefreshToken = jest.fn().mockResolvedValue({ count: 1 });
 const mockRevokeAllUserRefreshTokens = jest.fn().mockResolvedValue({ count: 1 });
+const mockFindOrgsByEmailDomain = jest.fn().mockResolvedValue([]);
+const mockFindCareersByOrganization = jest.fn().mockResolvedValue([]);
 
 const repoMock = {
   findByEmail: mockFindByEmail,
@@ -34,6 +36,8 @@ const repoMock = {
   findRefreshToken: mockFindRefreshToken,
   revokeRefreshToken: mockRevokeRefreshToken,
   revokeAllUserRefreshTokens: mockRevokeAllUserRefreshTokens,
+  findOrganizationsByEmailDomain: mockFindOrgsByEmailDomain,
+  findCareersByOrganization: mockFindCareersByOrganization,
   default: {
     findByEmail: mockFindByEmail,
     findByUsername: mockFindByUsername,
@@ -51,6 +55,8 @@ const repoMock = {
     findRefreshToken: mockFindRefreshToken,
     revokeRefreshToken: mockRevokeRefreshToken,
     revokeAllUserRefreshTokens: mockRevokeAllUserRefreshTokens,
+    findOrganizationsByEmailDomain: mockFindOrgsByEmailDomain,
+    findCareersByOrganization: mockFindCareersByOrganization,
   },
 };
 

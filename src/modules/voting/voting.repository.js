@@ -71,8 +71,32 @@ export const getSession = (sessionId) =>
     },
   });
 
+/**
+ * Verificación pública de comprobante: busca un voto por su código de recibo.
+ * NO expone el votante ni el payload; solo datos públicos para validar el recibo.
+ */
+export const findVoteByReceipt = (receiptCode) =>
+  prisma.vote.findUnique({
+    where: { receiptCode },
+    select: {
+      id: true,
+      electionId: true,
+      castAt: true,
+      payloadHash: true,
+      sessionId: true,
+      election: {
+        select: {
+          id: true,
+          title: true,
+          status: true,
+        },
+      },
+    },
+  });
+
 export default {
   startSession,
   castVote,
   getSession,
+  findVoteByReceipt,
 };

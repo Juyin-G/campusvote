@@ -65,8 +65,18 @@ export const getVotingSession = asyncHandler(async (req, res) => {
   return sendSuccess(res, session, 'Sesión de votación', undefined, HTTP_STATUS.OK);
 });
 
+/**
+ * GET /public/verify-receipt/:receiptCode
+ * Verificación pública de comprobante de voto (sin autenticación).
+ */
+export const verifyReceipt = asyncHandler(async (req, res) => {
+  const result = await votingService.verifyReceipt(req.params.receiptCode);
+  return sendSuccess(res, result, result.message, undefined, HTTP_STATUS.OK);
+});
+
 export default {
   startVotingSession,
   castSecureVote,
   getVotingSession,
+  verifyReceipt,
 };

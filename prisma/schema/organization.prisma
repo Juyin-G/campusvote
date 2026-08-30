@@ -42,8 +42,13 @@ model Organization {
 
   defaultLocale         String           @default("es-PE") @map("default_locale") @db.VarChar(10)
 
+  // Dominios de correo permitidos para jurados/usuarios corporativos.
+  // Ejemplo: ["universidad.edu.pe", "gmail.com", "empresa.com"].
+  allowedEmailDomains   Json             @default("[]") @map("allowed_email_domains")
+
   // Relaciones
   users                 User[]
+  careers               Career[]
 
   @@map("organizations")
 }

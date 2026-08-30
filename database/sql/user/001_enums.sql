@@ -9,8 +9,10 @@ BEGIN
         'STUDENT',
         'TEACHER',
         'ADMIN',
+        'SUPERADMIN',
         'ELECTORAL_COMMISSION',
-        'OBSERVER'
+        'OBSERVER',
+        'JURY'
     );
 EXCEPTION
     WHEN duplicate_object THEN NULL;

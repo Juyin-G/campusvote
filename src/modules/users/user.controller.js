@@ -35,6 +35,24 @@ export const createUser = asyncHandler(async (req, res) => {
   return sendSuccess(res, user, MESSAGES.USER.CREATED_SUCCESS, { requestId: req.requestId }, HTTP_STATUS.CREATED);
 });
 
+// SUPERADMIN: crear una organización y su administrador, entregando OTP/QR de primer acceso
+export const provisionAdmin = asyncHandler(async (req, res) => {
+  const result = await userService.provisionAdmin(req.body, req.user);
+  return sendSuccess(
+    res,
+    result,
+    'Organización y administrador creados. Entrega el QR/OTP de primer acceso.',
+    { requestId: req.requestId },
+    HTTP_STATUS.CREATED
+  );
+});
+
+// ADMIN: crear jurados/usuarios en lote (bulk)
+export const createUsersBulk = asyncHandler(async (req, res) => {
+  const result = await userService.createUsersBulk(req.body.users, req.user);
+  return sendSuccess(res, result, 'Usuarios procesados', { requestId: req.requestId }, HTTP_STATUS.CREATED);
+});
+
 // Actualizar usuario por ID
 export const updateUser = asyncHandler(async (req, res) => {
   const user = await userService.updateUser(req.params.id, req.body);

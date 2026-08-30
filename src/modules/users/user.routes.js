@@ -15,6 +15,8 @@ import {
   changeRoleSchema,
   setActiveSchema,
   changePasswordSchema,
+  provisionAdminSchema,
+  createUsersBulkSchema,
 } from './user.schema.js';
 
 const router = express.Router();
@@ -37,7 +39,7 @@ const requireSuperUserForRole = (req, res, next) => {
     // Cambiar a un rol no privilegiado no exige superusuario.
     return next();
   }
-  const isSuperUser = req.user?.isSuperuser || req.user?.isSuperAdmin || req.user?.role === ROLES.SUPER_ADMIN;
+  const isSuperUser = req.user?.isSuperuser || req.user?.isSuperAdmin || req.user?.role === ROLES.SUPERADMIN;
   if (!isSuperUser) {
     return next(ApiError.forbidden('Solo superusuarios pueden asignar o modificar roles privilegiados'));
   }
@@ -52,7 +54,11 @@ router.get(
   userController.listUsers
 );
 
-router.get('/me', authenticate, userController.getMe);
+router.get(
+  '/me',
+  authenticate,
+  userController.getMe
+);
 
 router.get(
   '/:id',
@@ -68,13 +74,31 @@ router.post(
   authorize(ROLES.ADMIN),
   validate(createUserSchema),
   (req, res, next) => {
-    const isSuperUser = req.user?.isSuperuser || req.user?.isSuperAdmin || req.user?.role === ROLES.SUPER_ADMIN;
+    const isSuperUser = req.user?.isSuperuser || req.user?.isSuperAdmin || req.user?.role === ROLES.SUPERADMIN;
     if (req.body.role && ADMIN_ROLES.includes(req.body.role) && !isSuperUser) {
       return next(ApiError.forbidden('Solo superusuarios pueden crear usuarios con roles administrativos o de comisión'));
     }
     next();
   },
   userController.createUser
+);
+
+// SUPERADMIN: crea un ADMIN y le entrega el OTP/QR de primer acceso
+router.post(
+  '/admin/provision',
+  authenticate,
+  authorize(ROLES.SUPERADMIN),
+  validate(provisionAdminSchema),
+  userController.provisionAdmin
+);
+
+// ADMIN/SUPERADMIN: crea jurados/usuarios en lote (bulk)
+router.post(
+  '/bulk',
+  authenticate,
+  authorize(ROLES.ADMIN, ROLES.ELECTORAL_COMMISSION, ROLES.SUPERADMIN),
+  validate(createUsersBulkSchema),
+  userController.createUsersBulk
 );
 
 router.put(

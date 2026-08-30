@@ -2,95 +2,86 @@ import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 
 export async function seedUsers(prisma: PrismaClient) {
-  console.log('🌱 Poblando usuarios...');
+  console.log('Poblando usuarios...');
 
-  const passwordHash = await bcrypt.hash('Password123!', 10);
+  // Se extrae de variable de entorno o usa un fallback seguro para desarrollo
+  const defaultPassword = process.env.SEED_SUPERADMIN_PASSWORD || 'Password123!';
+  const passwordHash = await bcrypt.hash(defaultPassword, 10);
 
-  // 1. Super Admin
-  await prisma.user.upsert({
-    where: { email: 'admin@universidad.edu.pe' },
+  const superAdmin = await prisma.user.upsert({
+    where: { email: 'juan.ochoa@tecsup.edu.pe' },
     update: {},
     create: {
-      username: 'admin_sys',
-      email: 'admin@universidad.edu.pe',
-      firstName: 'Admin',
-      lastName: 'Sistema',
+      username: 'juan.ochoa',
+      email: 'juan.ochoa@tecsup.edu.pe',
+      firstName: 'Juan',
+      lastName: 'Ochoa',
       password: passwordHash,
       authProvider: 'LOCAL',
-      role: 'ADMIN',
+      role: 'SUPERADMIN',
       status: 'ACTIVE',
       isSuperuser: true,
       isStaff: true,
       isVerified: true,
-      institutionalId: 'ADM-001',
+      institutionalId: 'C-24',
       avatarType: 'DEFAULT_DICEBEAR',
       mustChangePassword: false,
     },
   });
 
-  // 2. Comisión Electoral
-  await prisma.user.upsert({
-    where: { email: 'comision@universidad.edu.pe' },
-    update: {},
-    create: {
-      username: 'comision_elec',
-      email: 'comision@universidad.edu.pe',
-      firstName: 'Presidente',
-      lastName: 'Comisión',
-      password: passwordHash,
-      authProvider: 'LOCAL',
-      role: 'ELECTORAL_COMMISSION',
-      status: 'ACTIVE',
-      isStaff: true,
-      isVerified: true,
-      institutionalId: 'CE-001',
-      avatarType: 'DEFAULT_DICEBEAR',
-      mustChangePassword: false,
+  // Cuentas del equipo de desarrollo (org+feria). El rol determina el flujo:
+  // ADMIN gestiona la organización y crea jurados; JURY califica proyectos.
+  const teammates = [
+    {
+      email: 'ushinahua.ricky@tecsup.edu.pe',
+      username: 'ushinahua.ricky',
+      firstName: 'Ricky',
+      lastName: 'Ushinahua',
+      institutionalId: 'C-01',
+      role: 'ADMIN' as const,
     },
-  });
-
-  // 3. Docente
-  await prisma.user.upsert({
-    where: { email: 'docente@universidad.edu.pe' },
-    update: {},
-    create: {
-      username: 'docente_juan',
-      email: 'docente@universidad.edu.pe',
-      firstName: 'Juan',
-      lastName: 'Pérez',
-      password: passwordHash,
-      authProvider: 'LOCAL',
-      role: 'TEACHER',
-      status: 'ACTIVE',
-      isVerified: true,
-      institutionalId: 'DOC-1020',
-      specialty: 'Ingeniería de Software',
-      department: 'Ciencias de la Computación',
-      avatarType: 'DEFAULT_DICEBEAR',
-      mustChangePassword: false,
+    {
+      email: 'garcia.rosa@tecsup.edu.pe',
+      username: 'garcia.rosa',
+      firstName: 'Rosa',
+      lastName: 'García',
+      institutionalId: 'C-02',
+      role: 'JURY' as const,
     },
-  });
-
-  // 4. Estudiante
-  await prisma.user.upsert({
-    where: { email: 'estudiante@universidad.edu.pe' },
-    update: {},
-    create: {
-      username: 'estudiante_maria',
-      email: 'estudiante@universidad.edu.pe',
-      firstName: 'María',
-      lastName: 'Gómez',
-      password: passwordHash,
-      authProvider: 'LOCAL',
-      role: 'STUDENT',
-      status: 'ACTIVE',
-      isVerified: true,
-      institutionalId: '202310150',
-      currentCycle: 7,
-      avatarType: 'DEFAULT_DICEBEAR',
-      mustChangePassword: false,
+    {
+      email: 'inga.valeria@tecsup.edu.pe',
+      username: 'inga.valeria',
+      firstName: 'Valeria',
+      lastName: 'Inga',
+      institutionalId: 'C-03',
+      role: 'JURY' as const,
     },
-  });
+  ];
 
-  console.log('✅ Usuarios procesados correctamente.');
+  const created = [];
+  for (const t of teammates) {
+    const user = await prisma.user.upsert({
+      where: { email: t.email },
+      update: {},
+      create: {
+        username: t.username,
+        email: t.email,
+        firstName: t.firstName,
+        lastName: t.lastName,
+        password: passwordHash,
+        authProvider: 'LOCAL',
+        role: t.role,
+        status: 'ACTIVE',
+        isVerified: true,
+        institutionalId: t.institutionalId,
+        avatarType: 'DEFAULT_DICEBEAR',
+        mustChangePassword: false,
+      },
+    });
+    created.push(user);
+    console.log(`Usuario verificado/creado: ${user.email} (${user.role})`);
+  }
+
+  console.log(`Usuario SuperAdmin verificado/creado: ${superAdmin.email}`);
+  return { superAdmin, teammates: created };
 }

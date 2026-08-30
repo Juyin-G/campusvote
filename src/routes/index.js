@@ -3,6 +3,7 @@ import { Router } from 'express';
 
 import authRoutes from '../modules/auth/routes/auth.routes.js';
 import otpRoutes from '../modules/auth/routes/otp.routes.js';
+import googleRoutes from '../modules/auth/routes/google.routes.js';
 import userRoutes from '../modules/users/user.routes.js';
 import healthRoutes from '../modules/health/health.routes.js';
 import organizationRoutes from '../modules/organizations/organization/organization.routes.js';
@@ -15,6 +16,8 @@ import platformTranslationRoutes from '../modules/PlatformTranslation/PlatformTr
 
 import notificationRoutes from '../modules/notification/notification.routes.js';
 import votingRoutes from '../modules/voting/voting.routes.js';
+import votingPublicRoutes from '../modules/voting/voting.public.routes.js';
+import ratingRoutes from '../modules/ratings/rating.routes.js';
 
 const router = Router();
 
@@ -23,6 +26,7 @@ router.use('/health', healthRoutes);
 
 // Autenticación y Usuarios
 router.use('/auth', authRoutes);
+router.use('/auth', googleRoutes);
 router.use('/auth/otp', otpRoutes);
 router.use('/users', userRoutes);
 
@@ -49,5 +53,11 @@ router.use('/notifications', notificationRoutes);
 
 //  Votación
 router.use('/voting', votingRoutes);
+
+// Endpoints públicos de votación (ej. verificación de comprobante)
+router.use('/public', votingPublicRoutes);
+
+// Calificación por estrellas de proyectos en ferias/concursos (bajo /elections/:id/ratings)
+router.use(ratingRoutes);
 
 export default router;

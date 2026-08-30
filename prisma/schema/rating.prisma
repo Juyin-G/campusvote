@@ -1,0 +1,37 @@
+// ============================================================
+// CALIFICACIÓN POR ESTRELLAS (RATING) — FERIAS / CONCURSOS
+// ============================================================
+// En eventos de tipo FAIR/AWARD, los jurados (rol JURY) califican a los
+// expositores/proyectos (representados como candidaturas) con estrellas
+// (1-5) y un comentario opcional. La calificación es TRAZABLE (se sabe qué
+// jurado calificó qué proyecto) y UN JURADO califica UNA VEZ por proyecto
+// (constraint UNIQUE anti-doble-rating).
+// ============================================================
+
+enum RatingStatus {
+  ACTIVE
+  REVOKED
+
+  @@map("rating_status")
+}
+
+model Rating {
+  id          String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  electionId  String       @map("election_id") @db.Uuid
+  candidacyId String       @map("candidacy_id") @db.Uuid
+  jurorId     String       @map("juror_id") @db.Uuid
+  score       Int          @db.SmallInt // 1-5
+  comment     String?      @db.Text
+  status      RatingStatus @default(ACTIVE)
+  createdAt   DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  election  Election  @relation(fields: [electionId], references: [id], onDelete: Cascade)
+  candidacy Candidacy @relation(fields: [candidacyId], references: [id], onDelete: Cascade)
+  juror     User      @relation("JurorRatings", fields: [jurorId], references: [id], onDelete: Restrict)
+
+  @@unique([candidacyId, jurorId], name: "uq_ratings_candidacy_juror")
+  @@index([electionId], map: "idx_ratings_election")
+  @@index([candidacyId], map: "idx_ratings_candidacy")
+  @@map("ratings")
+}

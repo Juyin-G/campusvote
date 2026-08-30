@@ -29,7 +29,7 @@ export const requireElectionInScope = async (req, res, next) => {
     }
 
     const isSuperAdmin =
-      req.user?.role === ROLES.SUPER_ADMIN || req.user?.isSuperAdmin || req.user?.isSuperuser;
+      req.user?.role === ROLES.SUPERADMIN || req.user?.isSuperAdmin || req.user?.isSuperuser;
 
     // Sin tenant del lado del actor (perfil global) no hay ámbito que restringir.
     if (!isSuperAdmin && req.user?.organizationId) {

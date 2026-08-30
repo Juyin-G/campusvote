@@ -69,6 +69,7 @@ export const createOrganization = async (data = {}) => {
     secondaryColor: data.secondary_color || '#FFD700',
     country: data.country?.trim() || 'Perú',
     timezone: data.timezone?.trim() || 'America/Lima',
+    allowedEmailDomains: data.allowed_email_domains || [],
   });
 };
 
@@ -107,6 +108,10 @@ export const updateOrganization = async (id, data = {}) => {
   if (data.onboarding_completed !== undefined) {
     updateData.onboardingCompleted = data.onboarding_completed;
     updateData.onboardingCompletedAt = data.onboarding_completed ? new Date() : null;
+  }
+
+  if (data.allowed_email_domains !== undefined) {
+    updateData.allowedEmailDomains = data.allowed_email_domains;
   }
 
   if (Object.keys(updateData).length === 0) {

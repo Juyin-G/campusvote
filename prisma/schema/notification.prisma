@@ -6,6 +6,8 @@ enum NotificationType {
   RESULTS_PUBLISHED
   CANDIDACY_APPROVED
   SYSTEM_ALERT
+  FAIR_OPENED
+  RATING_RECEIVED
 
   @@map("notification_type")
 }

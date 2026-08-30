@@ -147,6 +147,28 @@ export const disableTotp = async (userId, password) => {
   return { message: OTP_CONSTANTS.MESSAGES.OTP_DISABLED };
 };
 
+/**
+ * Estado del 2FA del usuario autenticado.
+ * Devuelve `two_factor_enabled` y el número de códigos de respaldo restantes
+ * (nunca expone los códigos en sí, solo el conteo — spec §4.3).
+ */
+export const getTwoFactorStatus = async (userId) => {
+  const user = await otpRepository.getUserWithTwoFactor(userId);
+
+  if (!user) {
+    throw ApiError.notFound('Usuario no encontrado');
+  }
+
+  const backupCodes = Array.isArray(user.twoFactorBackupCodes)
+    ? user.twoFactorBackupCodes
+    : [];
+
+  return {
+    twoFactorEnabled: user.twoFactorEnabled,
+    backupCodesRemaining: user.twoFactorEnabled ? backupCodes.length : 0,
+  };
+};
+
 export default {
   setupTotp,
   verifyAndEnableTotp,
@@ -154,4 +176,5 @@ export default {
   verifyLoginTotp,
   verifyBackupCodeLogin,
   disableTotp,
+  getTwoFactorStatus,
 };

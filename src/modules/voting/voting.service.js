@@ -155,8 +155,41 @@ export const getVotingSession = async (sessionId, actorId) => {
   return session;
 };
 
+/**
+ * GET /public/verify-receipt/:receiptCode
+ * Verificación pública de comprobante de voto. No requiere autenticación
+ * y NO expone datos del votante (integridad / anti-fuga de información S2.5).
+ * Devuelve 200 con valid:false cuando el código no corresponde a un voto,
+ * en lugar de un 404, para no permitir enumerar comprobantes por la respuesta.
+ */
+export const verifyReceipt = async (receiptCode) => {
+  if (!receiptCode) {
+    throw ApiError.badRequest('El código de comprobante es requerido');
+  }
+
+  const vote = await votingRepository.findVoteByReceipt(receiptCode);
+
+  if (!vote) {
+    return {
+      valid: false,
+      message: 'El comprobante no corresponde a un voto registrado.',
+    };
+  }
+
+  return {
+    valid: true,
+    electionId: vote.electionId,
+    electionTitle: vote.election?.title ?? null,
+    electionStatus: vote.election?.status ?? null,
+    castAt: vote.castAt,
+    payloadHash: vote.payloadHash,
+    message: 'Comprobante de voto válido.',
+  };
+};
+
 export default {
   startVotingSession,
   castSecureVote,
   getVotingSession,
+  verifyReceipt,
 };
