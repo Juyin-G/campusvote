@@ -1,0 +1,79 @@
+# CampusVote — Blueprint de Render
+#
+# Crea el servicio web y la base PostgreSQL de una sola vez.
+# En Render: New → Blueprint → conectar este repositorio.
+#
+# ⚠️ IMPORTANTE — el esquema NO se crea solo.
+# Tras el primer despliegue hay que aplicarlo UNA vez con la External Database
+# URL que da Render:
+#
+#   DATABASE_URL="<EXTERNAL_DATABASE_URL>" npm run db:setup:prod
+#
+# El script es idempotente, así que puede repetirse sin romper nada.
+# (scripts/db-setup.ps1 NO sirve aquí: usa PowerShell y docker exec.)
+
+services:
+  - type: web
+    name: campusvote-api
+    runtime: node
+    plan: free
+    region: oregon
+
+    # npm ci exige que package-lock.json esté sincronizado con package.json.
+    # db:generate crea el cliente de Prisma, que no se versiona en el repo.
+    buildCommand: npm ci && npm run db:generate
+    startCommand: npm start
+
+    # Render consulta esta ruta para saber si el servicio está vivo.
+    healthCheckPath: /health
+
+    envVars:
+      # Sin esto, los errores 500 devuelven el mensaje crudo de Postgres,
+      # que puede incluir el contenido de la fila y el hash de la contraseña.
+      - key: NODE_ENV
+        value: production
+
+      # PORT lo inyecta Render: no declararlo.
+
+      - key: DATABASE_URL
+        fromDatabase:
+          name: campusvote-db
+          property: connectionString
+
+      # Render genera valores aleatorios y seguros. Nunca reutilizar los de
+      # desarrollo: src/config/env.js rechaza secretos de ejemplo y exige 32+
+      # caracteres.
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+
+      - key: BCRYPT_ROUNDS
+        value: "12"
+
+      # sync: false => Render los pide al desplegar; no viajan en el repo.
+      - key: CORS_ORIGIN
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
+
+      # Necesarios para verificación de correo y recuperación de contraseña.
+      # Sin ellos el alta funciona igual (responde 201) pero el correo no sale;
+      # el usuario puede pedirlo de nuevo en POST /api/auth/verify-email/resend.
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        sync: false
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: SMTP_FROM
+        sync: false
+
+databases:
+  - name: campusvote-db
+    databaseName: campusvote_db
+    user: campusvote_app
+    plan: free
+    region: oregon
