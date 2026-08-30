@@ -38,7 +38,11 @@ const assertCanRate = async ({ electionId, candidacyId, actor }) => {
   // (salvo SUPERADMIN global). Tenemos el actor y la org del creador.
   const isSuperAdmin =
     actor.role === ROLES.SUPERADMIN || actor.isSuperAdmin || actor.isSuperuser;
-  if (!isSuperAdmin && actor.organizationId) {
+
+  if (!isSuperAdmin) {
+    if (!actor.organizationId) {
+      throw ApiError.forbidden('Tu cuenta no está vinculada a ninguna organización');
+    }
     const ownerOrgId = await electionRepository.findElectionOwnerOrganization(electionId);
     if (ownerOrgId && ownerOrgId !== actor.organizationId) {
       throw ApiError.forbidden('La elección no pertenece a tu organización');
@@ -107,7 +111,11 @@ export const getRatingResults = async ({ electionId, actor }) => {
 
   const isSuperAdmin =
     actor.role === ROLES.SUPERADMIN || actor.isSuperAdmin || actor.isSuperuser;
-  if (!isSuperAdmin && actor.organizationId) {
+
+  if (!isSuperAdmin) {
+    if (!actor.organizationId) {
+      throw ApiError.forbidden('Tu cuenta no está vinculada a ninguna organización');
+    }
     const ownerOrgId = await electionRepository.findElectionOwnerOrganization(electionId);
     if (ownerOrgId && ownerOrgId !== actor.organizationId) {
       throw ApiError.forbidden('La elección no pertenece a tu organización');
@@ -169,7 +177,11 @@ export const listRatings = async ({ electionId, candidacyId, limit, offset, acto
 
   const isSuperAdmin =
     actor.role === ROLES.SUPERADMIN || actor.isSuperAdmin || actor.isSuperuser;
-  if (!isSuperAdmin && actor.organizationId) {
+
+  if (!isSuperAdmin) {
+    if (!actor.organizationId) {
+      throw ApiError.forbidden('Tu cuenta no está vinculada a ninguna organización');
+    }
     const ownerOrgId = await electionRepository.findElectionOwnerOrganization(electionId);
     if (ownerOrgId && ownerOrgId !== actor.organizationId) {
       throw ApiError.forbidden('La elección no pertenece a tu organización');

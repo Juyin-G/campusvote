@@ -31,8 +31,11 @@ export const requireElectionInScope = async (req, res, next) => {
     const isSuperAdmin =
       req.user?.role === ROLES.SUPERADMIN || req.user?.isSuperAdmin || req.user?.isSuperuser;
 
-    // Sin tenant del lado del actor (perfil global) no hay ámbito que restringir.
-    if (!isSuperAdmin && req.user?.organizationId) {
+    if (!isSuperAdmin) {
+      if (!req.user?.organizationId) {
+        return next(ApiError.forbidden('Tu cuenta no está vinculada a ninguna organización'));
+      }
+      
       const ownerOrgId = await electionRepository.findElectionOwnerOrganization(electionId);
 
       if (ownerOrgId && ownerOrgId !== req.user.organizationId) {

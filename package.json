@@ -10,7 +10,7 @@
   "scripts": {
     "dev": "nodemon src/server.js",
     "start": "node src/server.js",
-    "start:render": "npm run db:migrate && npm start",
+    "start:render": "npm run db:generate && npm start",
     "lint": "eslint .",
     "db:up": "docker compose up -d",
     "db:setup": "powershell -ExecutionPolicy Bypass -File scripts/db-setup.ps1",
@@ -44,6 +44,7 @@
     "joi": "^18.2.5",
     "jsonwebtoken": "^9.0.3",
     "morgan": "^1.11.0",
+    "multer": "^2.3.0",
     "nodemailer": "^9.0.5",
     "otplib": "^13.4.1",
     "pdfkit": "^0.20.1",
@@ -67,11 +68,11 @@
     "ts-api-utils": "^2.0.0",
     "tsx": "^4.19.0"
   },
-    "overrides": {
-      "raw-body": "3.0.2",
-      "got@<11.8.5": "11.8.5",
-      "@apidevtools/json-schema-ref-parser@<15.5.1": "15.5.1",
-      "deepmerge-ts@<8.0.0": "8.0.0",
-      "minimatch": "^10.2.3"
-    }
+  "overrides": {
+    "raw-body": "3.0.2",
+    "got@<11.8.5": "11.8.5",
+    "@apidevtools/json-schema-ref-parser@<15.5.1": "15.5.1",
+    "deepmerge-ts@<8.0.0": "8.0.0",
+    "minimatch": "^10.2.3"
+  }
 }

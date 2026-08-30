@@ -18,6 +18,7 @@ import notificationRoutes from '../modules/notification/notification.routes.js';
 import votingRoutes from '../modules/voting/voting.routes.js';
 import votingPublicRoutes from '../modules/voting/voting.public.routes.js';
 import ratingRoutes from '../modules/ratings/rating.routes.js';
+import uploadRoutes from '../modules/upload/upload.routes.js';
 
 const router = Router();
 
@@ -59,5 +60,8 @@ router.use('/public', votingPublicRoutes);
 
 // Calificación por estrellas de proyectos en ferias/concursos (bajo /elections/:id/ratings)
 router.use(ratingRoutes);
+
+// Subida de archivos (imágenes/PDFs) para proyectos, avatares, etc.
+router.use('/upload', uploadRoutes);
 
 export default router;
