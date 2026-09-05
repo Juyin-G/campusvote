@@ -17,17 +17,9 @@ export const RATING_SELECT = {
 
 // Crea o actualiza una calificación (el UNIQUE candidacy_id + juror_id impide
 // que un jurado califique dos veces el mismo proyecto; por eso usamos upsert).
-export const upsertRating = ({ electionId, candidacyId, jurorId, score, comment }) =>
-  prisma.rating.upsert({
-    where: {
-      // @@unique([candidacyId, jurorId])
-      candidacyId_jurorId: {
-        candidacyId,
-        jurorId,
-      },
-    },
-    update: { score, comment, status: 'ACTIVE' },
-    create: { electionId, candidacyId, jurorId, score, comment },
+export const createRating = ({ electionId, candidacyId, jurorId, score, comment }) =>
+  prisma.rating.create({
+    data: { electionId, candidacyId, jurorId, score, comment },
     select: RATING_SELECT,
   });
 
@@ -75,7 +67,7 @@ export const ratingsSummaryByCandidacy = (electionId) =>
   `;
 
 export default {
-  upsertRating,
+  createRating,
   findRating,
   listRatingsByElection,
   ratingsSummaryByCandidacy,

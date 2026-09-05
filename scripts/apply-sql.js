@@ -119,17 +119,7 @@ async function main() {
         // queda en una transacción abortada que rompería los siguientes
         // archivos. Forzamos ROLLBACK para limpiar el estado.
         await client.query('ROLLBACK').catch(() => {});
-        // Archivos opcionales (módulos/extensiones que pueden no desplegarse)
-        const optional =
-          relativePath.includes('claims/') ||
-          relativePath.includes('challenges/') ||
-          relativePath.includes('public/') ||
-          relativePath.includes('reports/');
-        if (optional) {
-          process.stdout.write(`omito (${String(err.message).split('\n')[0]})\n`);
-        } else {
-          throw new Error(`${relativePath}:\n${err.message}`);
-        }
+        throw new Error(`${relativePath}:\n${err.message}`);
       }
     } 
 

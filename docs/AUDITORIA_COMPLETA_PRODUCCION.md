@@ -38,9 +38,9 @@ Aunque la documentacion dice que el backend valida asignacion y conflicto, `rati
 - prohibicion de calificar proyectos propios o relacionados.
 - auditoria de asignacion, aceptacion, conflicto, rating y reapertura.
 
-### 2. El rating es editable aunque la politica dice una sola entrega
+### 2. El rating debe ser inmutable
 
-`upsertRating` actualiza `score` y `comment` cuando ya existe el registro. Eso permite cambiar una calificacion sin reapertura formal y sin versionado.
+El endpoint ahora rechaza un segundo rating del mismo jurado para el mismo proyecto. La asignacion, conflicto de interes y reapertura formal siguen pendientes.
 
 Decidir explicitamente una politica:
 
@@ -66,7 +66,7 @@ La lectura, eliminacion del indice y escritura del JSON ocurren en pasos separad
 
 ### 6. Subida de archivos no es apta para Render
 
-Los archivos se guardan en `public/uploads` del disco local y Render usa filesystem efimero. Ademas, `upload.routes.js` usa `req.user.id`, mientras el JWT emite `userId`; la subida puede fallar al guardar el propietario.
+Los archivos se guardan en `public/uploads` del disco local y Render usa filesystem efimero. El propietario de la subida ya fue corregido para usar `req.user.userId`; la persistencia externa sigue pendiente.
 
 Usar almacenamiento persistente externo (S3/R2/GCS/Firebase Storage si se decide) y normalizar el actor a `req.user.userId`.
 

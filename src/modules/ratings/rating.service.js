@@ -71,7 +71,14 @@ const assertCanRate = async ({ electionId, candidacyId, actor }) => {
 export const rateProject = async ({ electionId, candidacyId, score, comment, actor }) => {
   const { candidacy } = await assertCanRate({ electionId, candidacyId, actor });
 
-  const rating = await ratingRepository.upsertRating({
+  const existingRating = await ratingRepository.findRating(candidacyId, actor.id);
+  if (existingRating) {
+    throw ApiError.conflict(
+      'Ya calificaste este proyecto. Una calificación enviada no puede modificarse sin una reapertura formal.'
+    );
+  }
+
+  const rating = await ratingRepository.createRating({
     electionId,
     candidacyId,
     jurorId: actor.id,

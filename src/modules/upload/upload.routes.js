@@ -25,7 +25,7 @@ router.post('/', authenticate, uploadMiddleware.single('file'), async (req, res)
     // Guardamos el registro en la base de datos (Modelo Media)
     await prisma.media_files.create({
       data: {
-        user_id: req.user.id, // El usuario autenticado que subió el archivo
+        user_id: req.user.userId, // El usuario autenticado que subió el archivo
         filename: req.file.filename,
         original_name: req.file.originalname,
         mime_type: req.file.mimetype,
@@ -53,4 +53,3 @@ router.post('/', authenticate, uploadMiddleware.single('file'), async (req, res)
 });
 
 export default router;
-

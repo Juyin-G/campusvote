@@ -47,11 +47,11 @@ No configurar `PORT`; Render lo inyecta.
 
 ## 4. Aplicar SQL de forma controlada
 
-El script `scripts/apply-sql.js` existe y usa `MIGRATION_DATABASE_URL` o `DATABASE_URL`, pero actualmente omite silenciosamente varios archivos si fallan. Para una base nueva de staging:
+El script `scripts/apply-sql.js` existe y usa `MIGRATION_DATABASE_URL` o `DATABASE_URL`. Ahora falla de forma explícita ante cualquier archivo que no pueda aplicarse; no se permiten omisiones silenciosas. Para una base nueva de staging:
 
 1. Ejecutar el script desde un job manual o shell seguro.
-2. Revisar cada `OK` y cada `omito`.
-3. No aceptar omisiones en `claims`, `challenges`, `public` o `reports` si el alcance las necesita.
+2. Revisar cada `OK`; cualquier error detiene el despliegue.
+3. Resolver el error y volver a ejecutar sobre una base limpia o con una migración versionada.
 4. Ejecutar luego `npm run db:generate`.
 5. Ejecutar seeds solo con datos sinteticos.
 
