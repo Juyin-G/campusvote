@@ -152,6 +152,11 @@ model User {
   votingSessions          VotingSession[]
   votes                   Vote[]
   ratings                 Rating[]     @relation("JurorRatings")
+  juryAssignments         JuryAssignment[] @relation("JuryAssignments")
+  createdJuryAssignments  JuryAssignment[] @relation("JuryAssignmentCreators")
+  juryConflicts           JuryConflict[] @relation("JuryConflicts")
+  declaredJuryConflicts   JuryConflict[] @relation("JuryConflictDeclarers")
+  resolvedJuryConflicts   JuryConflict[] @relation("JuryConflictResolvers")
   voterRegistryClaims     VoterRegistryClaim[]     @relation("UserClaims")
   reviewedVoterRegistryClaims VoterRegistryClaim[] @relation("ReviewerClaims")
   mediaFiles              media_files[]

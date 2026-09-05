@@ -55,6 +55,7 @@ const validateEnv = () => {
   if (process.env.JWT_REFRESH_SECRET) {
     validateSecret(process.env.JWT_REFRESH_SECRET, 'JWT_REFRESH_SECRET');
   }
+
 };
 
 validateEnv();
@@ -113,6 +114,9 @@ export default {
   FIREBASE_PROJECT_ID: process.env.FIREBASE_PROJECT_ID,
   FIREBASE_CLIENT_EMAIL: process.env.FIREBASE_CLIENT_EMAIL,
   FIREBASE_PRIVATE_KEY: process.env.FIREBASE_PRIVATE_KEY,
+  FIREBASE_STORAGE_BUCKET: process.env.FIREBASE_STORAGE_BUCKET,
+  UPLOAD_STORAGE_DRIVER:
+    process.env.UPLOAD_STORAGE_DRIVER || (process.env.NODE_ENV === 'production' ? 'firebase' : 'local'),
 
   // Frontend URL
   FRONTEND_URL: process.env.FRONTEND_URL || 'http://localhost:5173',

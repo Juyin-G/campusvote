@@ -8,6 +8,7 @@ import { prisma } from '../../database/prisma.js';
 import { ApiError } from '../../shared/errors/ApiError.js';
 import { ROLES } from '../../constants/roles.js';
 import logger from '../../config/logger.js';
+import * as juryRepository from '../jury/jury.repository.js';
 
 // Tipos de proceso que admiten rating de proyectos (jurados).
 const RATING_PROCESS_TYPES = ['FAIR', 'AWARD', 'EVENT_POLL'];
@@ -61,6 +62,25 @@ const assertCanRate = async ({ electionId, candidacyId, actor }) => {
     throw ApiError.badRequest('La candidatura no pertenece a esta elección');
   }
 
+  if (!isSuperAdmin && actor.role === ROLES.JURY) {
+    const conflict = await juryRepository.findConflict({
+      electionId,
+      candidacyId,
+      jurorId: actor.id,
+    });
+    if (conflict?.status === 'OPEN') {
+      throw ApiError.forbidden('No puedes calificar un proyecto con conflicto de interés abierto');
+    }
+    const assignment = await juryRepository.findAssignment({
+      electionId,
+      candidacyId,
+      jurorId: actor.id,
+    });
+    if (assignment?.status !== 'ACTIVE') {
+      throw ApiError.forbidden('No estás asignado a este proyecto');
+    }
+  }
+
   return { election, candidacy };
 };
 
@@ -78,13 +98,21 @@ export const rateProject = async ({ electionId, candidacyId, score, comment, act
     );
   }
 
-  const rating = await ratingRepository.createRating({
-    electionId,
-    candidacyId,
-    jurorId: actor.id,
-    score,
-    comment: comment || null,
-  });
+  let rating;
+  try {
+    rating = await ratingRepository.createRating({
+      electionId,
+      candidacyId,
+      jurorId: actor.id,
+      score,
+      comment: comment || null,
+    });
+  } catch (error) {
+    if (error?.code === 'P2002') {
+      throw ApiError.conflict('Ya calificaste este proyecto');
+    }
+    throw error;
+  }
 
   // Notificación precisa para la app (Flutter): el expositor recibe
   // RATING_RECEIVED con su proyecto y la calificación obtenida.

@@ -4,6 +4,25 @@ import { authenticate } from '../../middlewares/auth.middleware.js';
 import env from '../../config/env.js';
 import { prisma } from '../../database/prisma.js';
 import logger from '../../config/logger.js';
+import crypto from 'node:crypto';
+import { cert, getApps, initializeApp } from 'firebase-admin/app';
+import { getStorage } from 'firebase-admin/storage';
+
+const getBucket = () => {
+  if (env.UPLOAD_STORAGE_DRIVER !== 'firebase') return null;
+  if (!env.FIREBASE_PROJECT_ID || !env.FIREBASE_CLIENT_EMAIL || !env.FIREBASE_PRIVATE_KEY || !env.FIREBASE_STORAGE_BUCKET) {
+    throw new Error('La configuración de Firebase Storage está incompleta');
+  }
+  const app = getApps()[0] || initializeApp({
+    credential: cert({
+      projectId: env.FIREBASE_PROJECT_ID,
+      clientEmail: env.FIREBASE_CLIENT_EMAIL,
+      privateKey: env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+    }),
+    storageBucket: env.FIREBASE_STORAGE_BUCKET,
+  });
+  return getStorage(app).bucket(env.FIREBASE_STORAGE_BUCKET);
+};
 
 const router = Router();
 
@@ -17,16 +36,23 @@ router.post('/', authenticate, uploadMiddleware.single('file'), async (req, res)
     });
   }
 
-  // Construimos la URL pública para el frontend
-  // Ej: http://localhost:3000/uploads/file-123.jpg
-  const fileUrl = `${env.APP_URL}/uploads/${req.file.filename}`;
-
   try {
+    let fileName = req.file.filename;
+    let fileUrl;
+    if (env.UPLOAD_STORAGE_DRIVER === 'firebase') {
+      fileName = `uploads/${req.user.userId}/${crypto.randomUUID()}-${req.file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+      const file = getBucket().file(fileName);
+      await file.save(req.file.buffer, { metadata: { contentType: req.file.mimetype } });
+      [fileUrl] = await file.getSignedUrl({ action: 'read', expires: '01-01-2036' });
+    } else {
+      fileUrl = `${env.APP_URL}/uploads/${req.file.filename}`;
+    }
+
     // Guardamos el registro en la base de datos (Modelo Media)
     await prisma.media_files.create({
       data: {
         user_id: req.user.userId, // El usuario autenticado que subió el archivo
-        filename: req.file.filename,
+        filename: fileName,
         original_name: req.file.originalname,
         mime_type: req.file.mimetype,
         size_bytes: req.file.size,

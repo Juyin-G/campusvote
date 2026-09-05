@@ -74,24 +74,11 @@ export const verifyBackupCodeLogin = async (userId, backupCode) => {
     throw ApiError.badRequest(OTP_CONSTANTS.MESSAGES.OTP_NOT_ENABLED);
   }
 
-  const { valid, index } = otpUtil.verifyBackupCode(
-    backupCode,
-    user.twoFactorBackupCodes
-  );
-
-  if (!valid) {
+  const result = await otpRepository.consumeBackupCode(userId, backupCode);
+  if (!result.valid) {
     throw ApiError.badRequest(OTP_CONSTANTS.MESSAGES.BACKUP_CODE_INVALID);
   }
-
-  // Eliminamos el código consumido
-  const updatedCodes = [...user.twoFactorBackupCodes];
-  updatedCodes.splice(index, 1);
-  await otpRepository.updateBackupCodes(userId, updatedCodes);
-
-  return { 
-    valid: true, 
-    remainingCodes: updatedCodes.length 
-  };
+  return result;
 };
 
 /**

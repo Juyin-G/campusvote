@@ -6,8 +6,7 @@ import { ApiError } from '../shared/errors/ApiError.js';
 // Directorio destino
 const UPLOAD_DIR = path.join(process.cwd(), 'public', 'uploads');
 
-// Configuración del almacenamiento en disco local
-const storage = multer.diskStorage({
+const localStorage = multer.diskStorage({
   destination: (req, file, cb) => {
     cb(null, UPLOAD_DIR);
   },
@@ -18,6 +17,10 @@ const storage = multer.diskStorage({
     cb(null, `${file.fieldname}-${uniqueSuffix}${ext}`);
   },
 });
+
+const storage = process.env.UPLOAD_STORAGE_DRIVER === 'firebase'
+  ? multer.memoryStorage()
+  : localStorage;
 
 // Filtro estricto de seguridad (MIME types permitidos)
 const fileFilter = (req, file, cb) => {
@@ -49,4 +52,3 @@ export const uploadMiddleware = multer({
     files: 3, // Máximo 3 archivos a la vez
   },
 });
-

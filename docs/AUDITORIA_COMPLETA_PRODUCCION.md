@@ -24,13 +24,13 @@ El archivo `test-output.txt` no reemplaza una ejecucion actual: la suite debe co
 
 ## Bloqueadores P0
 
-### 1. Rating de proyectos no tiene asignacion ni conflicto de interes
+### 1. Rating de proyectos: asignación y conflicto de interés
 
-`ratings` solo guarda `election_id`, `candidacy_id` y `juror_id`. No existe una tabla o servicio que demuestre que ese jurado fue asignado al proyecto, ni una regla que impida autoevaluacion o conflicto.
+Se implementaron `jury_assignments` y `jury_conflicts`, con endpoints administrativos y una comprobación obligatoria para jurados en `rateProject`.
 
 Aunque la documentacion dice que el backend valida asignacion y conflicto, `rating.service.js` solo valida organizacion, tipo/estado de eleccion y pertenencia de la candidatura. Un usuario con rol permitido podria calificar cualquier proyecto de su organizacion.
 
-**Debe existir antes de produccion:**
+**Antes de producción aún debe probarse:**
 
 - `jury_assignments` o equivalente, con eleccion, jurado, proyecto/candidatura, estado y timestamps.
 - declaracion y resolucion de conflicto.
@@ -49,24 +49,24 @@ Decidir explicitamente una politica:
 
 Para una evaluacion competitiva se recomienda la primera.
 
-### 3. OAuth Google tiene dos riesgos de produccion
+### 3. OAuth Google
 
-- Se genera `state` pero no se persiste ni se valida en el callback.
-- Se envian access y refresh tokens en la URL de redireccion.
+- `state` ahora es firmado, expira y se compara contra una cookie HttpOnly.
+- Los access/refresh tokens ya no se envían en la URL; se entregan en cookies HttpOnly.
 
 Debe usarse state de un solo uso, cookie segura o almacenamiento temporal, y un codigo de canje de un solo uso. Nunca tokens en query string.
 
-### 4. Secreto TOTP sin cifrado
+### 4. Secreto TOTP cifrado
 
-`two_factor_secret` se guarda directamente. Google Authenticator/TOTP esta implementado, pero el secreto debe cifrarse en reposo con una clave de secretos gestionada y rotacion.
+Los secretos nuevos se cifran con AES-256-GCM. Producción debe configurar `TOTP_ENCRYPTION_KEY` y migrar los secretos históricos.
 
-### 5. Backup codes no se consumen atomicamente
+### 5. Backup codes consumidos atómicamente
 
-La lectura, eliminacion del indice y escritura del JSON ocurren en pasos separados. Dos solicitudes concurrentes pueden consumir el mismo codigo. Usar transaccion/actualizacion condicional o una tabla normalizada de backup codes con `consumed_at`.
+El consumo usa una transacción PostgreSQL con bloqueo de fila. Debe probarse bajo concurrencia en la suite de integración.
 
-### 6. Subida de archivos no es apta para Render
+### 6. Subida de archivos en Render
 
-Los archivos se guardan en `public/uploads` del disco local y Render usa filesystem efimero. El propietario de la subida ya fue corregido para usar `req.user.userId`; la persistencia externa sigue pendiente.
+El backend soporta Firebase Storage mediante `UPLOAD_STORAGE_DRIVER=firebase`; el modo local queda reservado para desarrollo. Producción rechaza el modo local.
 
 Usar almacenamiento persistente externo (S3/R2/GCS/Firebase Storage si se decide) y normalizar el actor a `req.user.userId`.
 

@@ -17,6 +17,20 @@ const GOOGLE_AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
 const GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const GOOGLE_USERINFO_URL = 'https://www.googleapis.com/oauth2/v2/userinfo';
 
+export const createOAuthState = () =>
+  jwt.sign({ purpose: 'GOOGLE_OAUTH_STATE' }, env.JWT_SECRET, {
+    expiresIn: '10m',
+  });
+
+export const verifyOAuthState = (state) => {
+  try {
+    const payload = jwt.verify(state, env.JWT_SECRET, { algorithms: ['HS256'] });
+    return payload.purpose === 'GOOGLE_OAUTH_STATE';
+  } catch {
+    return false;
+  }
+};
+
 const getFirebaseAuth = () => {
   if (
     !env.FIREBASE_PROJECT_ID ||
@@ -262,6 +276,8 @@ export const authenticateWithFirebase = async (idToken) => {
 };
 
 export default {
+  createOAuthState,
+  verifyOAuthState,
   getAuthUrl,
   authenticateWithGoogle,
   authenticateWithFirebase,

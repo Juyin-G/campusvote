@@ -10,8 +10,13 @@ import { ApiError } from '../shared/errors/ApiError.js';
  */
 const createAuthenticateMiddleware = (options = {}) => (req, res, next) => {
   const authHeader = req.headers.authorization;
+  const cookieToken = req.headers.cookie
+    ?.split(';')
+    .map((value) => value.trim())
+    .find((value) => value.startsWith('campusvote_access='))
+    ?.slice('campusvote_access='.length);
 
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+  if ((!authHeader || !authHeader.startsWith('Bearer ')) && !cookieToken) {
     return next(
       ApiError.unauthorized(
         'No se envió token de autenticación en el header Authorization'
@@ -19,7 +24,7 @@ const createAuthenticateMiddleware = (options = {}) => (req, res, next) => {
     );
   }
 
-  const token = authHeader.substring(7);
+  const token = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : cookieToken;
 
   try {
     // Se fija el algoritmo de forma explícita: aceptar cualquiera permitiría
