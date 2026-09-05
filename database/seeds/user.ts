@@ -1,32 +1,63 @@
-import { PrismaClient } from '@prisma/client';
+import {
+  AvatarType,
+  AuthProviderType,
+  PrismaClient,
+  UserRole,
+  UserStatus,
+} from '@prisma/client';
 import bcrypt from 'bcryptjs';
 
 export async function seedUsers(prisma: PrismaClient) {
   console.log('Poblando usuarios...');
 
   // Se extrae de variable de entorno o usa un fallback seguro para desarrollo
-  const defaultPassword = process.env.SEED_SUPERADMIN_PASSWORD || 'Password123!';
+  const defaultPassword = process.env.SEED_SUPERADMIN_PASSWORD || '72314592';
   const passwordHash = await bcrypt.hash(defaultPassword, 10);
 
-  const superAdmin = await prisma.user.upsert({
-    where: { email: 'juan.ochoa@tecsup.edu.pe' },
-    update: {},
-    create: {
-      username: 'juan.ochoa',
-      email: 'juan.ochoa@tecsup.edu.pe',
-      firstName: 'Juan',
-      lastName: 'Ochoa',
+  const provisionUser = async (data: {
+    username: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+    institutionalId: string;
+    role: UserRole;
+    isSuperuser?: boolean;
+    isStaff?: boolean;
+  }) => {
+    const existing = await prisma.user.findFirst({
+      where: { email: data.email },
+      select: { id: true },
+    });
+
+    const userData = {
+      ...data,
       password: passwordHash,
-      authProvider: 'LOCAL',
-      role: 'SUPERADMIN',
-      status: 'ACTIVE',
-      isSuperuser: true,
-      isStaff: true,
+      status: UserStatus.ACTIVE,
       isVerified: true,
-      institutionalId: 'C-24',
-      avatarType: 'DEFAULT_DICEBEAR',
       mustChangePassword: false,
-    },
+      authProvider: AuthProviderType.LOCAL,
+      avatarType: AvatarType.DEFAULT_DICEBEAR,
+    };
+
+    if (existing) {
+      return prisma.user.update({
+        where: { id: existing.id },
+        data: userData,
+      });
+    }
+
+    return prisma.user.create({ data: userData });
+  };
+
+  const superAdmin = await provisionUser({
+    username: 'juan.ochoa',
+    email: 'juan.ochoa@tecsup.edu.pe',
+    firstName: 'Juan',
+    lastName: 'Ochoa',
+    institutionalId: 'C-24',
+    role: UserRole.SUPERADMIN,
+    isSuperuser: true,
+    isStaff: true,
   });
 
   // Cuentas del equipo de desarrollo (org+feria). El rol determina el flujo:
@@ -38,7 +69,7 @@ export async function seedUsers(prisma: PrismaClient) {
       firstName: 'Ricky',
       lastName: 'Ushinahua',
       institutionalId: 'C-01',
-      role: 'ADMIN' as const,
+      role: UserRole.ADMIN,
     },
     {
       email: 'rosa.garcia@tecsup.edu.pe',
@@ -46,7 +77,7 @@ export async function seedUsers(prisma: PrismaClient) {
       firstName: 'Rosa',
       lastName: 'García',
       institutionalId: 'C-02',
-      role: 'JURY' as const,
+      role: UserRole.JURY,
     },
     {
       email: 'valeria.inga@tecsup.edu.pe',
@@ -54,30 +85,13 @@ export async function seedUsers(prisma: PrismaClient) {
       firstName: 'Valeria',
       lastName: 'Inga',
       institutionalId: 'C-03',
-      role: 'JURY' as const,
+      role: UserRole.JURY,
     },
   ];
 
   const created = [];
   for (const t of teammates) {
-    const user = await prisma.user.upsert({
-      where: { email: t.email },
-      update: {},
-      create: {
-        username: t.username,
-        email: t.email,
-        firstName: t.firstName,
-        lastName: t.lastName,
-        password: passwordHash,
-        authProvider: 'LOCAL',
-        role: t.role,
-        status: 'ACTIVE',
-        isVerified: true,
-        institutionalId: t.institutionalId,
-        avatarType: 'DEFAULT_DICEBEAR',
-        mustChangePassword: false,
-      },
-    });
+    const user = await provisionUser(t);
     created.push(user);
     console.log(`Usuario verificado/creado: ${user.email} (${user.role})`);
   }

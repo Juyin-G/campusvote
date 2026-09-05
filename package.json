@@ -25,7 +25,7 @@
     "test:watch": "node --experimental-vm-modules node_modules/jest/bin/jest.js --watch"
   },
   "prisma": {
-    "seed": "npx tsx database/seeds/user.ts"
+    "seed": "npx tsx prisma/seed.ts"
   },
   "jest": {
     "globalSetup": "<rootDir>/tests/setup-db.js"
