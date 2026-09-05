@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { passwordSchema } from '../../shared/utils/passwordPolicy.js';
 import { ALL_ROLES } from '../../constants/roles.js';
 
+const uuid = (label) => z.string().uuid(`${label} inválido`);
 const roleEnum = z.enum(ALL_ROLES);
 
 // Identidad nacional peruana (DNI 8 dígitos / Carné de Extranjería 9-12).
