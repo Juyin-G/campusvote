@@ -28,6 +28,13 @@ const tokenRateLimiter = rateLimit({
  */
 
 router.get(
+  '/verify',
+  authenticate,
+  authorize([ROLES.ADMIN, ROLES.SUPERADMIN, ROLES.ELECTORAL_COMMISSION]),
+  asyncHandler(auditController.verifyAuditChain.bind(auditController))
+);
+
+router.get(
   '/logs',
   authenticate,
   authorize(GESTORES),

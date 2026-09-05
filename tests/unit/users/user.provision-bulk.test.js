@@ -189,6 +189,8 @@ describe('User Service - createUsersBulk (admin crea jurados)', () => {
           first_name: 'J',
           last_name: 'U',
           role: 'JURY',
+          document_type: 'DNI',
+          document_number: '12345670',
         },
       ],
       ADMIN_ACTOR
@@ -216,8 +218,8 @@ describe('User Service - createUsersBulk (admin crea jurados)', () => {
 
     const result = await userService.createUsersBulk(
       [
-        { username: 'a', email: 'a@x.com', password: 'Password123!', first_name: 'A', last_name: 'A' },
-        { username: 'b', email: 'b@x.com', password: 'Password123!', first_name: 'B', last_name: 'B' },
+        { username: 'a', email: 'a@x.com', password: 'Password123!', first_name: 'A', last_name: 'A', role: 'STUDENT' },
+        { username: 'b', email: 'b@x.com', password: 'Password123!', first_name: 'B', last_name: 'B', role: 'STUDENT' },
       ],
       ADMIN_ACTOR
     );

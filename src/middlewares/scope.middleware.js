@@ -3,6 +3,26 @@
 import * as electionRepository from '../modules/elections/elections/election.repository.js';
 import { ApiError } from '../shared/errors/ApiError.js';
 import { ROLES } from '../constants/roles.js';
+import auditService from '../modules/audit/audit.service.js';
+import logger from '../config/logger.js';
+
+/**
+ * Registra en auditoría los intentos de acceso fuera del ámbito (anti-IDOR)
+ * para poder contabilizar y bloquear comportamientos sospechosos.
+ */
+const logAccessDenied = async ({ req, electionId, reason }) => {
+  try {
+    await auditService.logAction({
+      actorId: req.user?.id ?? req.user?.userId ?? null,
+      electionId: electionId || null,
+      action: 'ACCESS_DENIED',
+      ipAddress: req.ip ?? null,
+      metadata: { reason, path: req.originalUrl },
+    });
+  } catch (err) {
+    logger.warn('No se pudo registrar ACCESO_DENIED en auditoría', { error: err.message });
+  }
+};
 
 /**
  * Middleware que verifica que la elección pertenezca a la misma organización del
@@ -33,12 +53,14 @@ export const requireElectionInScope = async (req, res, next) => {
 
     if (!isSuperAdmin) {
       if (!req.user?.organizationId) {
+        await logAccessDenied({ req, electionId, reason: 'no_organization' });
         return next(ApiError.forbidden('Tu cuenta no está vinculada a ninguna organización'));
       }
       
       const ownerOrgId = await electionRepository.findElectionOwnerOrganization(electionId);
 
       if (ownerOrgId && ownerOrgId !== req.user.organizationId) {
+        await logAccessDenied({ req, electionId, reason: 'election_scope_mismatch' });
         return next(ApiError.forbidden('La elección no pertenece a tu organización'));
       }
     }

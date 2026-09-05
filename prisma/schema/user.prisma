@@ -37,6 +37,14 @@ enum AvatarType {
   @@map("avatar_type")
 }
 
+// Perú: Documento Nacional de Identidad / Carnet de Extranjería
+enum DocumentType {
+  DNI
+  CE
+
+  @@map("document_type")
+}
+
 // MODELOS
 
 model User {
@@ -74,6 +82,14 @@ model User {
   institutionalId String     @unique @map("institutional_id") @db.Citext
   role            UserRole   @default(STUDENT)
   isVerified      Boolean    @default(false) @map("is_verified")
+
+  // ------------------------------------------------------
+  // IDENTIDAD NACIONAL (PERÚ)
+  // Opcional para estudiantes; obligatorio para JURY / ELECTORAL_COMMISSION /
+  // ADMIN y docentes (validado por el IdentityProvider RENIEC/PIDE en service).
+  // ------------------------------------------------------
+  documentType   DocumentType? @map("document_type")
+  documentNumber String?       @map("document_number") @db.VarChar(20)
 
   // ------------------------------------------------------
   // TENANT Y CONTEXTO ACADÉMICO
@@ -155,6 +171,11 @@ model User {
   voterRegistryClaims     VoterRegistryClaim[]     @relation("UserClaims")
   reviewedVoterRegistryClaims VoterRegistryClaim[] @relation("ReviewerClaims")
   mediaFiles              media_files[]
+  advisorForCandidacies   Candidacy[]              @relation("AdvisorCandidacies")
+  juryAssignments         JuryAssignment[]         @relation("JuryAssignments")
+  assignedJuryAssignments JuryAssignment[]         @relation("JuryAssignmentsBy")
+  objectionsFiled         CandidacyObjection[]     @relation("ObjectionFiler")
+  objectionsReviewed      CandidacyObjection[]     @relation("ObjectionReviewer")
 
   // ------------------------------------------------------
   // ÍNDICES
@@ -163,6 +184,8 @@ model User {
   @@index([role], map: "idx_users_role")
   @@index([status], map: "idx_users_status")
   @@index([institutionalId], map: "idx_users_institutional_id")
+  @@index([documentNumber], map: "idx_users_document_number")
+  @@unique([organizationId, documentNumber], map: "uq_users_organization_document")
   @@map("users")
 }
 

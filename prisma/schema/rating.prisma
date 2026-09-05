@@ -20,18 +20,61 @@ model Rating {
   electionId  String       @map("election_id") @db.Uuid
   candidacyId String       @map("candidacy_id") @db.Uuid
   jurorId     String       @map("juror_id") @db.Uuid
-  score       Int          @db.SmallInt // 1-5
+  score       Decimal      @db.Decimal(5, 2) // Puntaje final ponderado (escala vigesimal 0-20)
   comment     String?      @db.Text
   status      RatingStatus @default(ACTIVE)
   createdAt   DateTime     @default(now()) @map("created_at") @db.Timestamptz
   updatedAt   DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
-  election  Election  @relation(fields: [electionId], references: [id], onDelete: Cascade)
-  candidacy Candidacy @relation(fields: [candidacyId], references: [id], onDelete: Cascade)
-  juror     User      @relation("JurorRatings", fields: [jurorId], references: [id], onDelete: Restrict)
+  election  Election          @relation(fields: [electionId], references: [id], onDelete: Cascade)
+  candidacy Candidacy         @relation(fields: [candidacyId], references: [id], onDelete: Cascade)
+  juror     User              @relation("JurorRatings", fields: [jurorId], references: [id], onDelete: Restrict)
+  ratingDetails RatingDetail[]
 
   @@unique([candidacyId, jurorId], name: "uq_ratings_candidacy_juror")
   @@index([electionId], map: "idx_ratings_election")
   @@index([candidacyId], map: "idx_ratings_candidacy")
   @@map("ratings")
+}
+
+// ─────────────────────────────────────────────────────────────
+// RÚBRICAS MULTICRITERIO (CONCYTEC/OCDE) — Ferias del Perú
+// La feria define criterios dinámicos; el jurado asigna una nota parcial
+// por criterio y el back-end calcula el puntaje ponderado final sobre la
+// escala vigesimal (20). Los criterios son INMUTABLES una vez que la feria
+// pasa a OPEN (trigger).
+// ─────────────────────────────────────────────────────────────
+
+model FeriaCriterion {
+  id            String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  electionId    String          @map("election_id") @db.Uuid
+  name          String          @db.VarChar(120)     // "Metodología", "Innovación"...
+  weight        Decimal         @db.Decimal(5, 2)    // 0.30 (30%). Σ weights = 1.00 (validado en service)
+  maxScore      Int             @default(20) @map("max_score") @db.SmallInt // escala vigesimal
+
+  createdAt     DateTime        @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime        @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  tieBrokenRule ElectionRule? @relation("TieBreaker") // regla que usa este criterio como desempate
+
+  election      Election         @relation(fields: [electionId], references: [id], onDelete: Cascade)
+  ratingDetails RatingDetail[]
+
+  @@unique([electionId, name], map: "uq_feria_criteria_election_name")
+  @@index([electionId], map: "idx_feria_criteria_election")
+  @@map("feria_criteria")
+}
+
+model RatingDetail {
+  id          String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ratingId    String          @map("rating_id") @db.Uuid
+  criterionId String          @map("criterion_id") @db.Uuid
+  score       Decimal         @db.Decimal(5, 2)     // nota parcial por criterio (0..maxScore)
+
+  rating      Rating          @relation(fields: [ratingId], references: [id], onDelete: Cascade)
+  criterion   FeriaCriterion  @relation(fields: [criterionId], references: [id], onDelete: Restrict)
+
+  @@unique([ratingId, criterionId], map: "uq_rating_details_rating_criterion")
+  @@index([criterionId], map: "idx_rating_details_criterion")
+  @@map("rating_details")
 }

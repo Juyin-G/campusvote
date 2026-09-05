@@ -16,6 +16,7 @@ enum DeliveryChannel {
   IN_APP
   EMAIL
   PUSH
+  SMS
 
   @@map("delivery_channel")
 }

@@ -38,6 +38,7 @@ const MIGRATION_FILES = [
   'user/008_login_security.sql',
   'user/009_cleanup_tokens.sql',
   'user/010_media_files.sql',
+  'user/011_document_identity.sql',
   'organizations/003_organization_requests.sql',
   'academic/000_prerequisites.sql',
   'academic/001_faculties.sql',
@@ -45,12 +46,16 @@ const MIGRATION_FILES = [
   'academic/009_careers.sql',
   'academic/003_academic_periods.sql',
   'academic/004_voter_registries.sql',
+  'academic/010_voter_stake.sql',
   'elections/002_elections.sql',
   'elections/003_positions.sql',
   'elections/004_candidate_lists.sql',
   'elections/005_candidacies.sql',
   'elections/006_election_rules.sql',
   'elections/007_candidacy_documents.sql',
+  'elections/008_candidate_lists_fair_profile.sql',
+  'elections/009_election_rules_peru.sql',
+  'elections/010_candidacy_advisor.sql',
   'ballots/002_ballots.sql',
   'ballots/003_ballot_positions.sql',
   'ballots/004_ballot_options.sql',
@@ -59,6 +64,7 @@ const MIGRATION_FILES = [
   'audit/004_voting_access_tokens.sql',
   'audit/005_token_consumption.sql',
   'audit/006_audit_permissions.sql',
+  'audit/007_actions_peru.sql',
   'results/001_tallies.sql',
   'results/002_election_results.sql',
   'voting/001_voting_sessions.sql',
@@ -73,18 +79,22 @@ const MIGRATION_FILES = [
   'organizations/004_approval_functions.sql',
   'reports/001_election_report_history.sql',
   'claims/001_voter_registry_claims.sql',
-  'challenges/001_candidacy_challenges.sql',
+  'objections/001_candidacy_objections.sql',
   'public/001_public_election_landing.sql',
   'results/003_turnout_trigger.sql',
   'results/004_tally_votes.sql',
   'results/005_certify_election.sql',
+  'results/006_weighted_fair.sql',
   'voting/004_start_session.sql',
   'voting/005_cast_vote.sql',
   'voting/006_session_management.sql',
   'voting/007_vote_integrity.sql',
   'voting/008_scrutiny.sql',
   'ratings/001_ratings.sql',
+  'ratings/002_feria_rubrics.sql',
+  'ratings/003_jury_assignments.sql',
   'notifications/001_notifications.sql',
+  'notifications/002_channels.sql',
   'i18n/001_locales_and_translations.sql',
   '999_foreign_keys.sql',
 ];
@@ -122,7 +132,7 @@ async function main() {
         // Archivos opcionales (módulos/extensiones que pueden no desplegarse)
         const optional =
           relativePath.includes('claims/') ||
-          relativePath.includes('challenges/') ||
+          relativePath.includes('objections/') ||
           relativePath.includes('public/') ||
           relativePath.includes('reports/');
         if (optional) {

@@ -46,6 +46,11 @@ model Organization {
   // Ejemplo: ["universidad.edu.pe", "gmail.com", "empresa.com"].
   allowedEmailDomains   Json             @default("[]") @map("allowed_email_domains")
 
+  // Catálogo de categorías extendido de la org (extiende el catálogo OCDE/CONCYTEC
+  // del sistema). Arreglo de strings; la validación del campo category de los
+  // proyectos (candidate_lists) usa: catálogo org ∪ catálogo sistema.
+  categoryCatalog       Json             @default("[]") @map("category_catalog")
+
   // Relaciones
   users                 User[]
   careers               Career[]

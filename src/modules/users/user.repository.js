@@ -7,6 +7,8 @@ export const USER_PUBLIC_SELECT = {
   firstName: true,
   lastName: true,
   institutionalId: true,
+  documentType: true,
+  documentNumber: true,
   role: true,
   status: true,
   isVerified: true,

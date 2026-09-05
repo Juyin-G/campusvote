@@ -11,15 +11,59 @@ const getActor = (user) => ({
   isSuperuser: user.isSuperuser || false,
 });
 
+// POST /api/elections/:electionId/criteria
+export const createCriterion = async (req, res, next) => {
+  try {
+    const electionId = req.params.id;
+    const { name, weight, max_score } = req.body;
+    const result = await ratingService.createCriterion({
+      electionId,
+      name,
+      weight,
+      maxScore: max_score,
+      actor: getActor(req.user),
+    });
+    return res.status(201).json({ success: true, data: result });
+  } catch (err) {
+    return next(err);
+  }
+};
+
+// GET /api/elections/:electionId/criteria
+export const getCriteria = async (req, res, next) => {
+  try {
+    const electionId = req.params.id;
+    const result = await ratingService.getCriteria({ electionId });
+    return res.status(200).json({ success: true, data: result });
+  } catch (err) {
+    return next(err);
+  }
+};
+
+// DELETE /api/elections/:electionId/criteria/:criterionId
+export const removeCriterion = async (req, res, next) => {
+  try {
+    const { id, criterionId } = req.params;
+    const result = await ratingService.removeCriterion({
+      electionId: id,
+      criterionId,
+      actor: getActor(req.user),
+    });
+    return res.status(200).json({ success: true, data: result });
+  } catch (err) {
+    return next(err);
+  }
+};
+
 // POST /api/elections/:electionId/ratings/:candidacyId
 export const rateProject = async (req, res, next) => {
   try {
-    const { electionId, candidacyId } = req.params;
-    const { score, comment } = req.body;
+    const { id: electionId, candidacyId } = req.params;
+    const { details, comment } = req.body;
     const result = await ratingService.rateProject({
       electionId,
       candidacyId,
-      score,
+      details,
       comment,
       actor: getActor(req.user),
     });
@@ -47,12 +91,45 @@ export const getRatingResults = async (req, res, next) => {
 export const listRatings = async (req, res, next) => {
   try {
     const electionId = req.params.id;
-    const { candidacyId, limit, offset } = req.query;
+    const { candidacyId, status, limit, offset } = req.query;
     const result = await ratingService.listRatings({
       electionId,
       candidacyId,
+      status,
       limit,
       offset,
+      actor: getActor(req.user),
+    });
+    return res.status(200).json({ success: true, data: result });
+  } catch (err) {
+    return next(err);
+  }
+};
+
+// POST /api/elections/:electionId/ratings/:ratingId/revoke
+export const revokeRating = async (req, res, next) => {
+  try {
+    const { id: electionId, ratingId } = req.params;
+    const { reason } = req.body;
+    const result = await ratingService.revokeRating({
+      electionId,
+      ratingId,
+      reason,
+      actor: getActor(req.user),
+    });
+    return res.status(200).json({ success: true, data: result });
+  } catch (err) {
+    return next(err);
+  }
+};
+
+// POST /api/elections/:electionId/ratings/:ratingId/restore
+export const restoreRating = async (req, res, next) => {
+  try {
+    const { id: electionId, ratingId } = req.params;
+    const result = await ratingService.restoreRating({
+      electionId,
+      ratingId,
       actor: getActor(req.user),
     });
     return res.status(200).json({ success: true, data: result });

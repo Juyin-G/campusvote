@@ -1,0 +1,55 @@
+// ─────────────────────────────────────────────────────────────
+// TACHAS E IMPUGNACIONES ELECTORALES (Perú)
+// Los usuarios/OBSERVER (personeros) pueden tachar una lista o candidato
+// durante la fase SCHEDULED. El Comité Electoral resuelve FOUNDED/UNFOUNDED.
+// El tránsito a OPEN exige 0 tachas pendientes.
+// ─────────────────────────────────────────────────────────────
+
+enum CandidacyObjectionType {
+  TACHA_LIST // tacha a una lista/proyecto completa
+  TACHA_CANDIDATE // tacha a un candidato específico
+  IMPUGNACION_VOTE
+  IMPUGNACION_RESULT
+
+  @@map("objection_type")
+}
+
+enum CandidacyObjectionStatus {
+  PENDING
+  FOUNDED
+  UNFOUNDED
+  WITHDRAWN
+
+  @@map("objection_status")
+}
+
+model CandidacyObjection {
+  id             String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  electionId     String                    @map("election_id") @db.Uuid
+  candidateListId String?                  @map("candidate_list_id") @db.Uuid
+  candidacyId    String?                   @map("candidacy_id") @db.Uuid
+  objectionType  CandidacyObjectionType    @map("objection_type")
+  reason         String                    @db.Text
+  evidenceUrls   Json                      @default("[]") @map("evidence_urls")
+  filedBy        String                    @map("filed_by") @db.Uuid
+  status         CandidacyObjectionStatus  @default(PENDING)
+
+  resolutionNotes String?                  @map("resolution_notes") @db.Text
+  reviewedBy     String?                   @map("reviewed_by") @db.Uuid
+  reviewedAt     DateTime?                 @map("reviewed_at") @db.Timestamptz
+
+  createdAt      DateTime                  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime                  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  // Relaciones
+  election        Election        @relation(fields: [electionId], references: [id], onDelete: Cascade)
+  candidateList   CandidateList?  @relation("ObjectionTargetList", fields: [candidateListId, electionId], references: [id, electionId], onDelete: Cascade)
+  candidacy       Candidacy?      @relation("ObjectionTargetCandidacy", fields: [candidacyId, electionId], references: [id, electionId], onDelete: Cascade)
+  filer           User            @relation("ObjectionFiler", fields: [filedBy], references: [id], onDelete: Restrict)
+  reviewer        User?           @relation("ObjectionReviewer", fields: [reviewedBy], references: [id], onDelete: SetNull)
+
+  @@index([electionId, status], map: "idx_objections_election_status")
+  @@index([candidateListId], map: "idx_objections_candidate_list")
+  @@index([candidacyId], map: "idx_objections_candidacy")
+  @@map("candidacy_objections")
+}

@@ -30,6 +30,29 @@ class AuditService {
     }
   }
 
+  /**
+   * Verifica la integridad de la cadena de hashes (inmutabilidad de la auditoría).
+   * Requiere la función SQL verify_audit_chain() (audit/003).
+   */
+  async verifyChain() {
+    try {
+      const report = await auditRepository.verifyAuditChain();
+      if (!report) {
+        return { is_valid: false, message: 'No se pudo leer la cadena de auditoría' };
+      }
+      return {
+        total_records: Number(report.total_records ?? 0),
+        is_valid: Boolean(report.is_valid),
+        first_broken_id: report.first_broken_id ?? null,
+        first_broken_sequence: report.first_broken_sequence ?? null,
+        checked_at: new Date().toISOString(),
+      };
+    } catch (error) {
+      console.error('Error verificando la cadena de auditoría:', error);
+      throw new Error('No se pudo verificar la cadena de auditoría');
+    }
+  }
+
   async logAction(logData) {
     const {
       actorId,

@@ -1,9 +1,11 @@
 // src/modules/voting/voting.service.js
 
 import * as votingRepository from './voting.repository.js';
+import * as notificationService from '../notification/notification.service.js';
 import auditService from '../audit/audit.service.js';
 import { ApiError } from '../../shared/errors/ApiError.js';
 import MESSAGES from '../../constants/messages.js';
+import logger from '../../config/logger.js';
 
 /**
  * Extrae el mensaje legible de un error Prisma P2010 provocado por
@@ -132,6 +134,35 @@ export const castSecureVote = async ({
       selections
     );
     const receiptCode = row?.receipt_code;
+
+    // CAST_VOTE debe auditarse al EMITIR el voto (no solo al consumir el token).
+    try {
+      await auditService.logAction({
+        actorId: null, // Anonimato forzado (la BD además lo garantiza)
+        electionId: null,
+        action: 'CAST_VOTE',
+        metadata: { receipt: receiptCode, session_id: sessionId },
+      });
+    } catch (err) {
+      logger.warn('No se pudo registrar el voto en auditoría', { error: err.message });
+    }
+
+    // Confirmación ANÓNIMA al elector: no incluye selecciones ni payload.
+    try {
+      const session = await votingRepository.getSession(sessionId);
+      if (session?.electionId) {
+        await notificationService.createNotification({
+          user_id: session.voterId ?? actorId,
+          type: 'VOTE_CONFIRMATION',
+          title: 'Voto registrado',
+          message: 'Tu voto fue registrado correctamente. Tu comprobante quedó en tus manos.',
+          metadata: { election_id: session.electionId, receipt: receiptCode },
+          channels: ['IN_APP'],
+        });
+      }
+    } catch (err) {
+      logger.warn('No se pudo notificar la confirmación de voto', { error: err.message });
+    }
 
     return {
       receiptCode,

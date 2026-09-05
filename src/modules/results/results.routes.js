@@ -6,6 +6,7 @@ import * as resultsController from './results.controller.js';
 import * as certificationController from './certification/certification.controller.js';
 import * as publicationController from './publication/publication.controller.js';
 import * as tallyController from './tally/tally.controller.js';
+import * as peruController from './peru/peru.controller.js';
 import reportRoutes from './report/report.routes.js';
 import exportRoutes from './export/export.routes.js';
 import asyncHandler from '../../shared/utils/asyncHandler.js';
@@ -17,6 +18,8 @@ import {
   electionIdParamSchema,
   liveResultsQuerySchema,
   finalResultsQuerySchema,
+  certifyWeightedSchema,
+  finalizeFairSchema,
 } from './results.schema.js';
 
 const router = Router();
@@ -56,6 +59,28 @@ router.post(
   validate(electionIdParamSchema),
   asyncHandler(requireElectionInScope),
   asyncHandler(tallyController.recalculateTallies)
+);
+
+// Adaptación peruana (F2/F6/F7)
+
+// POST /api/elections/:id/certify-weighted — voto ponderado por estamento
+router.post(
+  '/elections/:id/certify-weighted',
+  authenticate,
+  authorize(GESTORES),
+  validate(certifyWeightedSchema),
+  asyncHandler(requireElectionInScope),
+  asyncHandler(peruController.certifyWeighted)
+);
+
+// POST /api/elections/:id/finalize-fair — ranking final de feria (80/20)
+router.post(
+  '/elections/:id/finalize-fair',
+  authenticate,
+  authorize(GESTORES),
+  validate(finalizeFairSchema),
+  asyncHandler(requireElectionInScope),
+  asyncHandler(peruController.finalizeFair)
 );
 
 // GET /api/elections/:id/tally

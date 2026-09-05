@@ -3,6 +3,21 @@ import * as otpRepository from '../repositories/otp.repository.js';
 import * as otpUtil from '../../../shared/utils/otp.util.js';
 import OTP_CONSTANTS from '../../../constants/otp.constants.js';
 import { ApiError } from '../../../shared/errors/ApiError.js';
+import auditService from '../../audit/audit.service.js';
+import logger from '../../../config/logger.js';
+
+const log2FASuccess = async (userId, method) => {
+  try {
+    await auditService.logAction({
+      actorId: userId,
+      electionId: null,
+      action: 'VERIFY_2FA',
+      metadata: { method },
+    });
+  } catch (error) {
+    logger.warn('No se pudo registrar VERIFY_2FA en auditoría', { error: error.message });
+  }
+};
 
 /**
  * Inicia el proceso de configuración de 2FA
@@ -88,6 +103,8 @@ export const verifyBackupCodeLogin = async (userId, backupCode) => {
   updatedCodes.splice(index, 1);
   await otpRepository.updateBackupCodes(userId, updatedCodes);
 
+  await log2FASuccess(userId, 'backup_code');
+
   return { 
     valid: true, 
     remainingCodes: updatedCodes.length 
@@ -119,6 +136,8 @@ export const verifyLoginTotp = async (userId, payload) => {
   if (!isValid) {
     throw ApiError.badRequest(OTP_CONSTANTS.MESSAGES.OTP_CODE_INVALID);
   }
+
+  await log2FASuccess(userId, 'totp');
 
   return { valid: true };
 };

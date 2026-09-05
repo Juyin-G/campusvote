@@ -1,5 +1,5 @@
 // src/modules/ratings/rating.repository.js
-// Acceso a datos para calificaciones por estrellas.
+// Acceso a datos para la calificación por rúbrica multicriterio.
 
 import { prisma } from '../../database/prisma.js';
 
@@ -15,20 +15,80 @@ export const RATING_SELECT = {
   updatedAt: true,
 };
 
+// ── CRITERIOS DE RÚBRICA ─────────────────────────────────────
+
+export const createCriterion = ({ electionId, name, weight, maxScore }) =>
+  prisma.feriaCriterion.create({
+    data: { electionId, name, weight, maxScore },
+  });
+
+export const listCriteria = (electionId) =>
+  prisma.feriaCriterion.findMany({
+    where: { electionId },
+    orderBy: [{ createdAt: 'asc' }],
+  });
+
+export const findCriterion = (criterionId, electionId) =>
+  prisma.feriaCriterion.findFirst({
+    where: { id: criterionId, electionId },
+    include: { ratingDetails: { select: { id: true } } },
+  });
+
+export const deleteCriterion = (criterionId) =>
+  prisma.feriaCriterion.delete({ where: { id: criterionId } });
+
+export const sumCriteriaWeights = (electionId) =>
+  prisma.feriaCriterion.aggregate({
+    where: { electionId },
+    _sum: { weight: true },
+  });
+
+export const countCriteria = (electionId) =>
+  prisma.feriaCriterion.count({ where: { electionId } });
+
+// ── CALIFICACIONES ───────────────────────────────────────────
+
 // Crea o actualiza una calificación (el UNIQUE candidacy_id + juror_id impide
 // que un jurado califique dos veces el mismo proyecto; por eso usamos upsert).
-export const upsertRating = ({ electionId, candidacyId, jurorId, score, comment }) =>
+// `details` es la matriz [ { criterionId, score } ]; `score` es el puntaje
+// ponderado FINAL calculado en el service (Σ score·peso), nunca del cliente.
+export const upsertRating = ({ electionId, candidacyId, jurorId, score, comment, details = [] }) =>
   prisma.rating.upsert({
     where: {
-      // @@unique([candidacyId, jurorId])
       candidacyId_jurorId: {
         candidacyId,
         jurorId,
       },
     },
-    update: { score, comment, status: 'ACTIVE' },
-    create: { electionId, candidacyId, jurorId, score, comment },
-    select: RATING_SELECT,
+    update: {
+      score,
+      comment,
+      status: 'ACTIVE',
+      ratingDetails: {
+        deleteMany: {},
+        create: details.map((d) => ({
+          criterionId: d.criterionId,
+          score: d.score,
+        })),
+      },
+    },
+    create: {
+      electionId,
+      candidacyId,
+      jurorId,
+      score,
+      comment,
+      ratingDetails: {
+        create: details.map((d) => ({
+          criterionId: d.criterionId,
+          score: d.score,
+        })),
+      },
+    },
+    select: {
+      ...RATING_SELECT,
+      ratingDetails: { select: { id: true, criterionId: true, score: true } },
+    },
   });
 
 export const findRating = (candidacyId, jurorId) =>
@@ -37,9 +97,32 @@ export const findRating = (candidacyId, jurorId) =>
     select: RATING_SELECT,
   });
 
-export const listRatingsByElection = ({ electionId, candidacyId, limit = 50, offset = 0 }) =>
-  prisma.rating.findMany({
-    where: { electionId, ...(candidacyId ? { candidacyId } : {}) },
+export const findRatingById = (ratingId, electionId) =>
+  prisma.rating.findFirst({
+    where: { id: ratingId, electionId },
+    select: RATING_SELECT,
+  });
+
+export const updateRatingStatus = (ratingId, status) =>
+  prisma.rating.update({
+    where: { id: ratingId },
+    data: { status },
+    select: RATING_SELECT,
+  });
+
+export const listRatingsByElection = ({
+  electionId,
+  candidacyId,
+  status,
+  limit = 50,
+  offset = 0,
+}) => {
+  const where = { electionId };
+  if (candidacyId) where.candidacyId = candidacyId;
+  if (status) where.status = status;
+
+  return prisma.rating.findMany({
+    where,
     select: {
       ...RATING_SELECT,
       juror: { select: { id: true, firstName: true, lastName: true, username: true } },
@@ -55,6 +138,7 @@ export const listRatingsByElection = ({ electionId, candidacyId, limit = 50, off
     skip: offset,
     take: limit,
   });
+};
 
 // Resumen agregado por candidatura: promedio, total, distribución 1-5.
 export const ratingsSummaryByCandidacy = (electionId) =>
@@ -77,6 +161,8 @@ export const ratingsSummaryByCandidacy = (electionId) =>
 export default {
   upsertRating,
   findRating,
+  findRatingById,
+  updateRatingStatus,
   listRatingsByElection,
   ratingsSummaryByCandidacy,
 };

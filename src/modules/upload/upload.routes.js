@@ -1,56 +1,88 @@
 import { Router } from 'express';
+import fs from 'node:fs/promises';
 import { uploadMiddleware } from '../../middlewares/upload.middleware.js';
 import { authenticate } from '../../middlewares/auth.middleware.js';
 import env from '../../config/env.js';
 import { prisma } from '../../database/prisma.js';
+import { hasValidSignature } from '../../shared/utils/fileSignature.js';
 import logger from '../../config/logger.js';
 
 const router = Router();
 
 // POST /api/upload
-// Requiere autenticación. Acepta un campo form-data llamado 'file'.
-router.post('/', authenticate, uploadMiddleware.single('file'), async (req, res) => {
-  if (!req.file) {
-    return res.status(400).json({
-      success: false,
-      message: 'No se subió ningún archivo',
-    });
+// Requiere autenticación. Acepta form-data con campo 'file' (1..N según env).
+router.post(
+  '/',
+  authenticate,
+  uploadMiddleware.array('file', env.UPLOAD_MAX_FILES),
+  async (req, res) => {
+    const files = Array.isArray(req.files) ? req.files : [];
+
+    if (files.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'No se subió ningún archivo',
+      });
+    }
+
+    // Verificación de contenido REAL (magic bytes): el MIME declarado no basta.
+    for (const file of files) {
+      try {
+        const valid = await hasValidSignature(file.path, file.mimetype);
+        if (!valid) {
+          await fs.unlink(file.path).catch(() => {});
+          return res.status(400).json({
+            success: false,
+            message: `El archivo "${file.originalname}" no coincide con su tipo declarado.`,
+          });
+        }
+      } catch (err) {
+        logger.error('Error verificando firma del archivo:', err);
+        return res.status(500).json({
+          success: false,
+          message: 'No se pudo verificar el contenido del archivo',
+        });
+      }
+    }
+
+    try {
+      const records = [];
+      for (const file of files) {
+        // Construimos la URL pública para el frontend
+        const fileUrl = `${env.APP_URL}/uploads/${file.filename}`;
+        records.push(
+          await prisma.media_files.create({
+            data: {
+              user_id: req.user.id,
+              filename: file.filename,
+              original_name: file.originalname,
+              mime_type: file.mimetype,
+              size_bytes: file.size,
+              url: fileUrl,
+            },
+          })
+        );
+      }
+
+      return res.status(201).json({
+        success: true,
+        message: 'Archivo(s) subido(s) correctamente',
+        data: {
+          files: records.map((r) => ({
+            url: r.url,
+            mimetype: r.mime_type,
+            size: r.size_bytes,
+          })),
+        },
+      });
+    } catch (error) {
+      logger.error('Error al guardar el registro de Media:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Error al registrar el archivo en la base de datos',
+      });
+    }
   }
-
-  // Construimos la URL pública para el frontend
-  // Ej: http://localhost:3000/uploads/file-123.jpg
-  const fileUrl = `${env.APP_URL}/uploads/${req.file.filename}`;
-
-  try {
-    // Guardamos el registro en la base de datos (Modelo Media)
-    await prisma.media_files.create({
-      data: {
-        user_id: req.user.id, // El usuario autenticado que subió el archivo
-        filename: req.file.filename,
-        original_name: req.file.originalname,
-        mime_type: req.file.mimetype,
-        size_bytes: req.file.size,
-        url: fileUrl,
-      },
-    });
-
-    res.status(201).json({
-      success: true,
-      message: 'Archivo subido correctamente',
-      data: {
-        url: fileUrl,
-        mimetype: req.file.mimetype,
-        size: req.file.size,
-      },
-    });
-  } catch (error) {
-    logger.error('Error al guardar el registro de Media:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error al registrar el archivo en la base de datos',
-    });
-  }
-});
+);
 
 export default router;
-

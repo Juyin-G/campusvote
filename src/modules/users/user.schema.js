@@ -4,6 +4,23 @@ import { ALL_ROLES } from '../../constants/roles.js';
 
 const roleEnum = z.enum(ALL_ROLES);
 
+// Identidad nacional peruana (DNI 8 dígitos / Carné de Extranjería 9-12).
+// Obligatorio para JURY / ELECTORAL_COMMISSION / ADMIN y docentes; opcional
+// para estudiantes. La verificación externa la hace el IdentityProvider.
+export const documentIdentitySchema = z
+  .object({
+    document_type: z.enum(['DNI', 'CE']).optional(),
+    document_number: z
+      .string()
+      .trim()
+      .max(20, 'El número de documento no puede superar 20 caracteres')
+      .optional(),
+  })
+  .refine(
+    (d) => (d.document_type === undefined) === (d.document_number === undefined),
+    'document_type y document_number deben enviarse juntos'
+  );
+
 // Validar parámetros con ID
 export const userParamsSchema = z.object({
   params: z.object({
@@ -35,6 +52,9 @@ export const createUserSchema = z.object({
     program_id: z.string().uuid('ID inválido').optional(),
     faculty_id: z.string().uuid('ID inválido').optional(),
     current_cycle: z.number().int().min(1, 'Como mínimo 1').max(20, 'Como máximo 20').optional(),
+    document_type: z.enum(['DNI', 'CE']).optional(),
+    document_number: z.string().trim().max(20).optional(),
+    phone_number: z.string().trim().max(20).optional(),
   })
   .superRefine((data, ctx) => {
     const addIssue = (field, message) =>
@@ -52,10 +72,15 @@ const profileBodySchema = z
   .object({
     first_name: z.string().min(1, 'Como mínimo 1 carácter').max(50).optional(),
     last_name: z.string().min(1, 'Como mínimo 1 carácter').max(50).optional(),
+    document_type: z.enum(['DNI', 'CE']).optional(),
+    document_number: z.string().trim().max(20).optional(),
+    phone_number: z.string().trim().max(20).optional(),
   })
-  .refine((data) => Object.keys(data).length > 0, {
-    message: 'Al menos un campo debe ser proporcionado',
-  });
+  .and(documentIdentitySchema)
+  .refine(
+    (data) => Object.keys(data).some((k) => data[k] !== undefined),
+    'Al menos un campo debe ser proporcionado'
+  );
 
 // Actualizar perfil propio (PUT /me)
 export const updateMeSchema = z.object({
@@ -72,6 +97,9 @@ export const updateUserSchema = z.object({
       first_name: z.string().min(1, 'Como mínimo 1 carácter').max(50).optional(),
       last_name: z.string().min(1, 'Como mínimo 1 carácter').max(50).optional(),
       organization_id: z.string().uuid('ID inválido').optional(),
+      document_type: z.enum(['DNI', 'CE']).optional(),
+      document_number: z.string().trim().max(20).optional(),
+      phone_number: z.string().trim().max(20).optional(),
     })
     .refine((data) => Object.keys(data).length > 0, {
       message: 'Al menos un campo debe ser proporcionado',
@@ -175,6 +203,8 @@ export const createUsersBulkSchema = z.object({
           last_name: z.string().min(1, 'Como mínimo 1 carácter').max(50),
           role: roleEnum.optional(),
           institutional_id: z.string().optional(),
+          document_type: z.enum(['DNI', 'CE']).optional(),
+          document_number: z.string().trim().max(20).optional(),
           must_change_password: z.boolean().optional(),
         })
       )

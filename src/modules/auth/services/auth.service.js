@@ -10,6 +10,7 @@ import { generateJwt, formatUserResponse, generateRefreshToken, hashToken } from
 import MESSAGES from '../../../constants/messages.js';
 import env from '../../../config/env.js';
 import logger from '../../../config/logger.js';
+import auditService from '../../audit/audit.service.js';
 import { extractDomain } from '../../../shared/utils/emailDomain.js';
 import { matchCareerFromCode, extractCycleFromCode } from '../../../shared/utils/careerParse.js';
 
@@ -75,6 +76,18 @@ export const login = async ({ email, password, ipAddress = null, userAgent = nul
   await authRepository.registerSuccessfulLogin(user.email, ipAddress, userAgent);
 
   const token = generateJwt(user);
+
+  try {
+    await auditService.logAction({
+      actorId: user.id,
+      electionId: null,
+      action: 'LOGIN',
+      ipAddress,
+      metadata: { method: 'password', must_change_password: user.mustChangePassword },
+    });
+  } catch (error) {
+    logger.warn('No se pudo registrar el login en auditoría', { error: error.message });
+  }
 
   // Persistir el refresh token para la sesión actual (flujo completo)
   const { rawToken: refreshToken, tokenHash } = generateRefreshToken();

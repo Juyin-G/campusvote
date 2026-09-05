@@ -51,9 +51,11 @@ function runEnvValidation(envVars) {
 describe('JWT_SECRET Security Validation', () => {
   describe('JWT_SECRET es obligatorio', () => {
     it('debe rechazar arranque cuando JWT_SECRET no está configurado', async () => {
-      // NODE_ENV=test carga .env.test (sin JWT_SECRET), evitando el .env real
+      // CAMPUSVOTE_SKIP_DOTENV evita cargar .env/.env.test: la validación se
+      // evalúa solo contra process.env, donde JWT_SECRET no está definido.
       const { code, stderr } = await runEnvValidation({
         NODE_ENV: 'test',
+        CAMPUSVOTE_SKIP_DOTENV: '1',
         JWT_SECRET: undefined,
       });
       expect(code).not.toBe(0);

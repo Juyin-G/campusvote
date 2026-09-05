@@ -16,11 +16,13 @@
 import * as electionService from '../../elections/elections/election.service.js';
 import * as electionRepository from '../../elections/elections/election.repository.js';
 import * as electionRulesRepository from '../../elections/electionRules/electionRules.repository.js';
+import * as notificationService from '../../notification/notification.service.js';
 import auditService from '../../audit/audit.service.js';
 import { AUDIT_ACTIONS } from '../../audit/audit.schema.js';
 import resultsRepository from '../results.repository.js';
 import { ApiError } from '../../../shared/errors/ApiError.js';
 import MESSAGES from '../../../constants/messages.js';
+import logger from '../../../config/logger.js';
 
 const assertElectionId = (electionId) => {
   if (!electionId || typeof electionId !== 'string') {
@@ -103,6 +105,26 @@ export const publishElection = async (electionId, actor = {}, ipAddress = null) 
       source: 'results.publication',
     },
   });
+
+  // 5. Difundir RESULTADOS_PUBLISHED a los votantes con un RESUMEN (sin detalle
+  //    por boleta): ganador/top del ranking final cuando exista.
+  try {
+    const summary = {
+      election_id: electionId,
+      winner_id: result.tieBreakWinnerId ?? null,
+      fair_ranking: result.fairRanking ?? null,
+      weighted_config: result.weightedConfig ?? null,
+    };
+    await notificationService.broadcastElectionResult({
+      electionId,
+      title: 'Resultados publicados',
+      message: `Los resultados de "${election.title}" ya están disponibles.`,
+      metadata: summary,
+      channels: ['IN_APP'],
+    });
+  } catch (err) {
+    logger.warn('No se pudo difundir los resultados por notificación', { error: err.message });
+  }
 
   return published;
 };

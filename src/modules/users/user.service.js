@@ -12,6 +12,51 @@ import { prisma } from '../../database/prisma.js';
 import * as otpUtil from '../../shared/utils/otp.util.js';
 import * as otpRepository from '../auth/repositories/otp.repository.js';
 import { isDomainAllowed } from '../../shared/utils/emailDomain.js';
+import { identityProvider } from '../../shared/providers/index.js';
+
+// Roles que SIEMPRE deben registrar su DNI/CE (decisión F1):
+// jurados, comisión electoral, administradores y docentes.
+const REQUIRED_IDENTITY_ROLES = [
+  ROLES.ADMIN,
+  ROLES.ELECTORAL_COMMISSION,
+  ROLES.JURY,
+  ROLES.TEACHER,
+];
+
+/**
+ * Normaliza y VERIFICA la identidad nacional (DNI/CE) contra el
+ * IdentityProvider. Devuelve { documentType, documentNumber } o null.
+ */
+const normalizeDocumentIdentity = async ({ document_type, document_number, role }) => {
+  const hasType = document_type !== undefined && document_type !== null && document_type !== '';
+  const hasNumber =
+    document_number !== undefined && document_number !== null && document_number !== '';
+
+  if (!hasType && !hasNumber) {
+    if (REQUIRED_IDENTITY_ROLES.includes(role)) {
+      throw ApiError.badRequest(
+        `Los usuarios con el rol ${role} deben registrar su DNI o Carné de Extranjería`
+      );
+    }
+    return null;
+  }
+
+  if (hasType !== hasNumber) {
+    throw ApiError.badRequest('document_type y document_number deben enviarse juntos');
+  }
+
+  if (!['DNI', 'CE'].includes(document_type)) {
+    throw ApiError.badRequest('El tipo de documento debe ser DNI o CE');
+  }
+
+  const cleanNumber = String(document_number).trim().toUpperCase();
+  const verification = await identityProvider.validateDocument(document_type, cleanNumber);
+  if (!verification.verified) {
+    throw ApiError.badRequest(verification.reason || 'Documento de identidad no válido');
+  }
+
+  return { documentType: document_type, documentNumber: cleanNumber };
+};
 
 const notFoundIfMissing = (err) => {
   if (err.code === 'P2025' || err.message.includes('not found')) throw ApiError.notFound(MESSAGES.USER.NOT_FOUND);
@@ -85,6 +130,8 @@ export const createUser = async (body = {}, actor = {}) => {
     program_id,
     faculty_id,
     current_cycle,
+    document_type,
+    document_number,
   } = body;
 
   // Defensa S2: Solo superusuarios pueden crear usuarios con roles privilegiados
@@ -94,6 +141,13 @@ export const createUser = async (body = {}, actor = {}) => {
   if (role && ADMIN_ROLES.includes(role) && !isSuperUser) {
     throw ApiError.forbidden('Solo superusuarios pueden crear usuarios con roles privilegiados');
   }
+
+  // F1: Identidad nacional (DNI/CE) — verificación contra IdentityProvider.
+  const identity = await normalizeDocumentIdentity({
+    document_type,
+    document_number,
+    role: role || ROLES.VOTER,
+  });
 
   const hashedPassword = await bcrypt.hash(password, 12);
 
@@ -109,6 +163,7 @@ export const createUser = async (body = {}, actor = {}) => {
     programId: program_id,
     facultyId: faculty_id,
     currentCycle: current_cycle,
+    ...(identity || {}),
   });
 
   return formatUserResponse(newUser);
@@ -291,6 +346,12 @@ export const createUsersBulk = async (items = [], actor = {}) => {
 
       await assertValidEmailDomain(cleanEmail, orgId);
 
+      const identity = await normalizeDocumentIdentity({
+        document_type: item.document_type,
+        document_number: item.document_number,
+        role,
+      });
+
       const existing = await userRepository.findByEmail(cleanEmail);
       if (existing) {
         throw ApiError.conflict(`El correo ${cleanEmail} ya está registrado`);
@@ -308,6 +369,7 @@ export const createUsersBulk = async (items = [], actor = {}) => {
         role,
         organizationId: orgId,
         mustChangePassword: item.must_change_password ?? true,
+        ...(identity || {}),
       });
 
       created.push(formatUserResponse(newUser));
@@ -326,6 +388,21 @@ export const updateUser = async (id, body = {}) => {
   if (body.first_name !== undefined) data.firstName = body.first_name;
   if (body.last_name !== undefined) data.lastName = body.last_name;
   if (body.organization_id !== undefined) data.organizationId = body.organization_id;
+  if (body.document_type !== undefined || body.document_number !== undefined) {
+    const existing = await prisma.user.findUnique({
+      where: { id },
+      select: { role: true, documentType: true, documentNumber: true },
+    });
+    const identity = await normalizeDocumentIdentity({
+      document_type: body.document_type ?? existing?.documentType,
+      document_number: body.document_number ?? existing?.documentNumber,
+      role: existing?.role,
+    });
+    if (identity) {
+      data.documentType = identity.documentType;
+      data.documentNumber = identity.documentNumber;
+    }
+  }
 
   if (Object.keys(data).length === 0) {
     throw ApiError.badRequest(MESSAGES.COMMON.BAD_REQUEST);
@@ -435,6 +512,21 @@ export const updateMyProfile = async (userId, body = {}) => {
   const data = {};
   if (body.first_name !== undefined) data.firstName = body.first_name;
   if (body.last_name !== undefined) data.lastName = body.last_name;
+  if (body.document_type !== undefined || body.document_number !== undefined) {
+    const existing = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true, documentType: true, documentNumber: true },
+    });
+    const identity = await normalizeDocumentIdentity({
+      document_type: body.document_type ?? existing?.documentType,
+      document_number: body.document_number ?? existing?.documentNumber,
+      role: existing?.role,
+    });
+    if (identity) {
+      data.documentType = identity.documentType;
+      data.documentNumber = identity.documentNumber;
+    }
+  }
 
   if (Object.keys(data).length === 0) {
     throw ApiError.badRequest(MESSAGES.COMMON.BAD_REQUEST);

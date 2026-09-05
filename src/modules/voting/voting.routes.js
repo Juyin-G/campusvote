@@ -4,6 +4,7 @@ import { Router } from 'express';
 
 import * as votingController from './voting.controller.js';
 import { authenticate } from '../../middlewares/auth.middleware.js';
+import { userLimiter } from '../../middlewares/rateLimiter.middleware.js';
 import { validate } from '../../middlewares/validate.middleware.js';
 import {
   startSessionSchema,
@@ -22,6 +23,7 @@ const router = Router();
 router.post(
   '/elections/:electionId/sessions',
   authenticate,
+  userLimiter({ windowMs: 60 * 60 * 1000, max: 30 }),
   validate(startSessionSchema),
   votingController.startVotingSession
 );
@@ -34,6 +36,7 @@ router.post(
 router.post(
   '/sessions/:sessionId/cast',
   authenticate,
+  userLimiter({ windowMs: 60 * 60 * 1000, max: 10 }),
   validate(castVoteParamsSchema),
   validate(castVoteBodySchema),
   votingController.castSecureVote

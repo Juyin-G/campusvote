@@ -33,7 +33,7 @@ export async function seedUsers(prisma: PrismaClient) {
   // ADMIN gestiona la organización y crea jurados; JURY califica proyectos.
   const teammates = [
     {
-      email: 'ushinahua.ricky@tecsup.edu.pe',
+      email: 'ricky.ushinahua@tecsup.edu.pe',
       username: 'ushinahua.ricky',
       firstName: 'Ricky',
       lastName: 'Ushinahua',
@@ -41,7 +41,7 @@ export async function seedUsers(prisma: PrismaClient) {
       role: 'ADMIN' as const,
     },
     {
-      email: 'garcia.rosa@tecsup.edu.pe',
+      email: 'rosa.garcia@tecsup.edu.pe',
       username: 'garcia.rosa',
       firstName: 'Rosa',
       lastName: 'García',
@@ -49,7 +49,7 @@ export async function seedUsers(prisma: PrismaClient) {
       role: 'JURY' as const,
     },
     {
-      email: 'inga.valeria@tecsup.edu.pe',
+      email: 'valeria.inga@tecsup.edu.pe',
       username: 'inga.valeria',
       firstName: 'Valeria',
       lastName: 'Inga',

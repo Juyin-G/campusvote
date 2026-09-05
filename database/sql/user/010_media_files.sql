@@ -3,7 +3,7 @@
 -- Descripción: Registro de archivos subidos al servidor (Imágenes, PDFs)
 -- ==============================================================================
 
-CREATE TABLE media_files (
+CREATE TABLE IF NOT EXISTS media_files (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL,
     filename VARCHAR(255) NOT NULL,
@@ -19,4 +19,4 @@ CREATE TABLE media_files (
         ON DELETE CASCADE
 );
 
-CREATE INDEX idx_media_files_user ON media_files(user_id);
+CREATE INDEX IF NOT EXISTS idx_media_files_user ON media_files(user_id);

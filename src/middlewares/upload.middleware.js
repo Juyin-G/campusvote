@@ -1,10 +1,16 @@
 import multer from 'multer';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import env from '../config/env.js';
 import { ApiError } from '../shared/errors/ApiError.js';
+import { isAllowedMimeType } from '../shared/utils/fileSignature.js';
 
 // Directorio destino
 const UPLOAD_DIR = path.join(process.cwd(), 'public', 'uploads');
+
+// Límites configurables por entorno (env.js): tamaño por archivo y cantidad.
+const MAX_FILE_SIZE = env.UPLOAD_MAX_FILE_SIZE_MB * 1024 * 1024;
+const MAX_FILES = env.UPLOAD_MAX_FILES;
 
 // Configuración del almacenamiento en disco local
 const storage = multer.diskStorage({
@@ -19,16 +25,10 @@ const storage = multer.diskStorage({
   },
 });
 
-// Filtro estricto de seguridad (MIME types permitidos)
+// Filtro estricto de seguridad (MIME types permitidos).
+// El contenido real se verifica por magic bytes en la ruta (upload.routes.js).
 const fileFilter = (req, file, cb) => {
-  const allowedMimeTypes = [
-    'image/jpeg',
-    'image/png',
-    'image/webp',
-    'application/pdf' // Útil para Planes de Gobierno o Pósters de Feria
-  ];
-
-  if (allowedMimeTypes.includes(file.mimetype)) {
+  if (isAllowedMimeType(file.mimetype)) {
     cb(null, true);
   } else {
     cb(
@@ -45,8 +45,9 @@ export const uploadMiddleware = multer({
   storage,
   fileFilter,
   limits: {
-    fileSize: 5 * 1024 * 1024, // 5 MB máximo para evitar DoS (Denial of Service)
-    files: 3, // Máximo 3 archivos a la vez
+    fileSize: MAX_FILE_SIZE, // Límite por archivo (env.UPLOAD_MAX_FILE_SIZE_MB)
+    files: MAX_FILES, // Máximo número de archivos por petición (env.UPLOAD_MAX_FILES)
   },
 });
 
+export default uploadMiddleware;

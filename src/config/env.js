@@ -5,10 +5,15 @@
 
 import dotenv from 'dotenv';
 
-if (process.env.NODE_ENV === 'test') {
-  dotenv.config({ path: '.env.test' });
-} else {
-  dotenv.config();
+// Permite aislar la validación de variables de entorno en tests de seguridad:
+// si CAMPUSVOTE_SKIP_DOTENV=1, no se carga ningún archivo .env, de modo que la
+// configuración depende exclusivamente de process.env del proceso.
+if (!process.env.CAMPUSVOTE_SKIP_DOTENV) {
+  if (process.env.NODE_ENV === 'test') {
+    dotenv.config({ path: '.env.test' });
+  } else {
+    dotenv.config();
+  }
 }
 
 const INSECURE_DEFAULT_SECRETS = [
@@ -55,6 +60,13 @@ const validateEnv = () => {
   if (process.env.JWT_REFRESH_SECRET) {
     validateSecret(process.env.JWT_REFRESH_SECRET, 'JWT_REFRESH_SECRET');
   }
+
+  // AUDIT_SECRET_KEY: si está definida se valida su robustez (firma HMAC de
+  // la cadena de auditoría). Es opcional al arrancar: cuando está ausente, el
+  // encadenado se registra sin firma criptográfica hasta que se provea la clave.
+  if (process.env.AUDIT_SECRET_KEY) {
+    validateSecret(process.env.AUDIT_SECRET_KEY, 'AUDIT_SECRET_KEY');
+  }
 };
 
 validateEnv();
@@ -96,6 +108,14 @@ export default {
   BCRYPT_ROUNDS: parseInt(process.env.BCRYPT_ROUNDS, 10) || 12,
   MAX_LOGIN_ATTEMPTS: parseInt(process.env.MAX_LOGIN_ATTEMPTS, 10) || 5,
   LOCK_TIME_MINUTES: parseInt(process.env.LOCK_TIME_MINUTES, 10) || 15,
+
+  // Upload (límites configurables)
+  UPLOAD_MAX_FILE_SIZE_MB: parseInt(process.env.UPLOAD_MAX_FILE_SIZE_MB, 10) || 5,
+  UPLOAD_MAX_FILES: parseInt(process.env.UPLOAD_MAX_FILES, 10) || 3,
+
+  // Auditoría (clave HMAC del encadenado) y worker de notificaciones
+  AUDIT_SECRET_KEY: process.env.AUDIT_SECRET_KEY,
+  NOTIFICATION_WORKER_ENABLED: process.env.NOTIFICATION_WORKER_ENABLED || 'false',
 
   // Email
   SMTP_HOST: process.env.SMTP_HOST,

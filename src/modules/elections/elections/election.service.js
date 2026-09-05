@@ -5,6 +5,9 @@ import * as positionRepository from '../positions/position.repository.js';
 import { ApiError } from '../../../shared/errors/ApiError.js';
 import { prismaPagination, parsePagination } from '../../../shared/utils/pagination.js';
 import MESSAGES from '../../../constants/messages.js';
+import { prisma } from '../../../database/prisma.js';
+import auditService from '../../audit/audit.service.js';
+import logger from '../../../config/logger.js';
 
 const ALLOWED_TRANSITIONS = Object.freeze({
   DRAFT: ['SCHEDULED'],
@@ -83,7 +86,20 @@ export const createElection = async (body = {}, createdBy) => {
   };
 
   try {
-    return await electionRepository.createElection(data);
+    const created = await electionRepository.createElection(data);
+
+    try {
+      await auditService.logAction({
+        actorId: createdBy,
+        electionId: created.id,
+        action: 'CREATE_ELECTION',
+        metadata: { title: data.title, process_type: data.processType },
+      });
+    } catch (err) {
+      logger.warn('No se pudo registrar CREATE_ELECTION en auditoría', { error: err.message });
+    }
+
+    return created;
   } catch (err) {
     throw translatePrismaError(err);
   }
@@ -150,16 +166,28 @@ export const deleteElection = async (id) => {
 // S4-13 — WORKFLOW DE ESTADOS
 
 const assertTransitionRules = async (election, target) => {
-  if (target !== 'SCHEDULED') return;
+  if (target === 'SCHEDULED') {
+    // Se utiliza findPositionsByElection para evitar llamadas a funciones inexistentes
+    const positions = await positionRepository.findPositionsByElection(election.id);
+    if (!positions || positions.length === 0) {
+      throw ApiError.badRequest('No se puede programar una elección que no tiene cargos definidos');
+    }
 
-  // Se utiliza findPositionsByElection para evitar llamadas a funciones inexistentes
-  const positions = await positionRepository.findPositionsByElection(election.id);
-  if (!positions || positions.length === 0) {
-    throw ApiError.badRequest('No se puede programar una elección que no tiene cargos definidos');
+    if (new Date(election.endAt) <= new Date()) {
+      throw ApiError.badRequest(MESSAGES.ELECTION.INVALID_DATES || 'La fecha de fin ya pasó');
+    }
   }
 
-  if (new Date(election.endAt) <= new Date()) { 
-    throw ApiError.badRequest(MESSAGES.ELECTION.INVALID_DATES || 'La fecha de fin ya pasó');
+  // F3: no se abre un proceso con tachas pendientes de resolver.
+  if (target === 'OPEN') {
+    const pending = await prisma.candidacyObjection.count({
+      where: { electionId: election.id, status: 'PENDING' },
+    });
+    if (pending > 0) {
+      throw ApiError.conflict(
+        `No se puede abrir la votación mientras existan ${pending} tacha(s) pendiente(s) de resolver`
+      );
+    }
   }
 };
 
@@ -191,7 +219,27 @@ export const changeStatus = async (id, targetStatus, actorId = null) => {
   }
 
   try {
-    return await electionRepository.updateElectionStatus(id, targetStatus);
+    const updated = await electionRepository.updateElectionStatus(id, targetStatus);
+
+    // Auditoría de cambio de estado (OPEN_ELECTION / CLOSE_ELECTION).
+    const stateActionMap = { OPEN: 'OPEN_ELECTION', CLOSED: 'CLOSE_ELECTION' };
+    const action = stateActionMap[targetStatus];
+    if (action && actorId) {
+      try {
+        await auditService.logAction({
+          actorId,
+          electionId: id,
+          action,
+          metadata: { from: current, to: targetStatus },
+        });
+      } catch (err) {
+        logger.warn('No se pudo registrar el cambio de estado en auditoría', {
+          error: err.message,
+        });
+      }
+    }
+
+    return updated;
   } catch (err) {
     throw translatePrismaError(err);
   }

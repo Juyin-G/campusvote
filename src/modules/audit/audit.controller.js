@@ -15,6 +15,17 @@ class AuditController {
    * AUDIT LOGS - CONTROLADORES
    */
 
+  // GET /audit/verify — Verifica la integridad de la cadena de hashes
+  async verifyAuditChain(req, res, next) {
+    try {
+      const report = await auditService.verifyChain();
+      return res.status(200).json({ success: true, data: report });
+    } catch (error) {
+      console.error('[AuditController] Error al verificar la cadena:', error);
+      return next(error);
+    }
+  }
+
   // GET /audit/logs - Consultar logs con filtros
   async getAuditLogs(req, res, next) {
     try {

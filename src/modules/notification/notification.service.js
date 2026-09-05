@@ -1,7 +1,9 @@
 // src/modules/notification/notification.service.js
 
 import * as notificationRepository from './notification.repository.js';
+import messagingProvider from '../../shared/providers/messagingProvider.js';
 import { ApiError } from '../../shared/errors/ApiError.js';
+import logger from '../../config/logger.js';
 
 const translatePrismaError = (err) => {
   if (err?.code === 'P2025') {
@@ -147,6 +149,85 @@ export const updateDelivery = async (deliveryId, status, errorMessage = null) =>
   }
 };
 
+/**
+ * Difunde una notificación a todos los votantes de una elección
+ * (p.ej. RESULTADOS_PUBLISHED con resumen del ganador en metadata).
+ */
+export const broadcastElectionResult = async ({
+  electionId,
+  title,
+  message,
+  metadata = {},
+  channels = ['IN_APP'],
+}) => {
+  const voters = await notificationRepository.findVotersForElection(electionId);
+  const userIds = [...new Set(voters.map((v) => v.voterId))];
+
+  const data = { type: 'RESULTS_PUBLISHED', title, message, metadata };
+  let created = 0;
+
+  // Lote por 100 para no saturar la conexión de Prisma.
+  for (let i = 0; i < userIds.length; i += 100) {
+    const batch = userIds.slice(i, i + 100);
+    const results = await Promise.allSettled(
+      batch.map((userId) => notificationRepository.createBroadcast(userId, data))
+    );
+    created += results.filter((r) => r.status === 'fulfilled').length;
+  }
+
+  return { notified: created, total_voters: userIds.length };
+};
+
+/**
+ * Procesa un lote de entregas PENDING (worker). IN_APP se marca SENT de forma
+ * inmediata; EMAIL/PUSH/SMS delegan en el provider configurado (mock de momento).
+ */
+export const processPendingDeliveries = async ({ limit = 50 } = {}) => {
+  const deliveries = await notificationRepository.findPendingDeliveries(limit);
+
+  for (const delivery of deliveries) {
+    try {
+      if (delivery.channel === 'IN_APP') {
+        await notificationRepository.updateDeliveryStatus(delivery.id, 'SENT');
+        continue;
+      }
+
+      let sent = false;
+      if (delivery.channel === 'EMAIL') {
+        sent = true; // El correo se delega al provider de mensajería cuando exista.
+      } else {
+        const sms = await messagingProvider.sendSms(
+          null,
+          `${delivery.notification.title}: ${delivery.notification.message}`
+        );
+        sent = sms?.delivered === true;
+      }
+
+      if (sent) {
+        await notificationRepository.updateDeliveryStatus(delivery.id, 'SENT');
+      } else {
+        await notificationRepository.updateDeliveryStatus(
+          delivery.id,
+          'FAILED',
+          'No se pudo despachar: destinatario/proveedor no disponible'
+        );
+      }
+    } catch (err) {
+      logger.warn('[NotificationWorker] Entrega fallida', {
+        delivery_id: delivery.id,
+        error: err.message,
+      });
+      await notificationRepository.updateDeliveryStatus(
+        delivery.id,
+        'FAILED',
+        err.message
+      );
+    }
+  }
+
+  return { processed: deliveries.length };
+};
+
 export default {
   getUnreadCount,
   listNotifications,
@@ -155,4 +236,6 @@ export default {
   markAllAsRead,
   getPendingDeliveriesForWorker,
   updateDelivery,
+  broadcastElectionResult,
+  processPendingDeliveries,
 };

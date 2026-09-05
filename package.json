@@ -16,6 +16,7 @@
     "db:setup": "powershell -ExecutionPolicy Bypass -File scripts/db-setup.ps1",
     "db:generate": "prisma generate",
     "db:migrate": "node scripts/apply-sql.js",
+    "i18n:check": "node scripts/verify-i18n.js",
     "db:seed": "prisma db seed",
     "test:email": "node scripts/test-email.js",
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js --config jest.config.js",
