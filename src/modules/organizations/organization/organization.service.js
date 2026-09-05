@@ -76,7 +76,11 @@ export const createOrganization = async (data = {}) => {
 /**
  * Actualizar una organización
  */
-export const updateOrganization = async (id, data = {}) => {
+export const updateOrganization = async (id, data = {}, actor = {}) => {
+  const isSuperAdmin = actor?.role === 'SUPERADMIN' || actor?.isSuperuser || actor?.isSuperAdmin;
+  if (!isSuperAdmin && actor?.organizationId !== id) {
+    throw ApiError.forbidden('Solo puedes actualizar la identidad de tu organización');
+  }
   const existingOrg = await orgRepository.findOrgById(id);
   if (!existingOrg) {
     throw ApiError.notFound('Organización no encontrada');

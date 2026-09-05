@@ -63,9 +63,24 @@ const notFoundIfMissing = (err) => {
   throw err;
 };
 
-export const listUsers = async (query = {}) => {
+const isGlobalAdmin = (actor = {}) =>
+  actor.role === ROLES.SUPERADMIN || actor.isSuperuser || actor.isSuperAdmin;
+
+const organizationScopeFor = (actor = {}, requestedOrganizationId) => {
+  if (isGlobalAdmin(actor)) return requestedOrganizationId;
+  if (!actor.organizationId) {
+    throw ApiError.forbidden('El usuario administrativo no tiene una organización asignada');
+  }
+  if (requestedOrganizationId && requestedOrganizationId !== actor.organizationId) {
+    throw ApiError.forbidden('No puedes acceder a usuarios de otra organización');
+  }
+  return actor.organizationId;
+};
+
+export const listUsers = async (query = {}, actor = {}) => {
   const { page, limit } = parsePagination(query);
   const skip = (page - 1) * limit;
+  const organizationId = organizationScopeFor(actor, query.organizationId);
 
   if (query.role && !isValidRole(query.role)) {
     throw ApiError.badRequest(MESSAGES.USER.INVALID_ROLE);
@@ -73,13 +88,13 @@ export const listUsers = async (query = {}) => {
 
   const [total, users] = await Promise.all([
     userRepository.count({
-      organizationId: query.organizationId,
+      organizationId,
       role: query.role,
       search: query.search,
       isActive: query.isActive,
     }),
     userRepository.list({
-      organizationId: query.organizationId,
+      organizationId,
       role: query.role,
       search: query.search,
       isActive: query.isActive,
@@ -113,6 +128,9 @@ export const getUserById = async (id, actor) => {
   const isSelf = actorId === id;
   const isAdmin = ADMIN_ROLES.includes(actor?.role);
   if (!isSelf && !isAdmin) throw ApiError.forbidden(MESSAGES.COMMON.FORBIDDEN);
+  if (isAdmin && !isGlobalAdmin(actor) && user.organizationId !== actor.organizationId) {
+    throw ApiError.forbidden('No puedes acceder a usuarios de otra organización');
+  }
 
   return formatUserResponse(user);
 };
@@ -142,6 +160,8 @@ export const createUser = async (body = {}, actor = {}) => {
     throw ApiError.forbidden('Solo superusuarios pueden crear usuarios con roles privilegiados');
   }
 
+  const organizationId = organizationScopeFor(actor, organization_id);
+
   // F1: Identidad nacional (DNI/CE) — verificación contra IdentityProvider.
   const identity = await normalizeDocumentIdentity({
     document_type,
@@ -159,7 +179,7 @@ export const createUser = async (body = {}, actor = {}) => {
     lastName: last_name,
     institutionalId: institutional_id,
     role: role || ROLES.VOTER,
-    organizationId: organization_id,
+    organizationId,
     programId: program_id,
     facultyId: faculty_id,
     currentCycle: current_cycle,
@@ -460,11 +480,19 @@ export const createUsersBulk = async (items = [], actor = {}) => {
 
   return { created, errors, totalOk: created.length, totalFailed: errors.length };
 };
-export const updateUser = async (id, body = {}) => {
+export const updateUser = async (id, body = {}, actor = {}) => {
+  const existingUser = await userRepository.findById(id);
+  if (!existingUser) throw ApiError.notFound(MESSAGES.USER.NOT_FOUND);
+  if (!isGlobalAdmin(actor) && existingUser.organizationId !== actor.organizationId) {
+    throw ApiError.forbidden('No puedes modificar usuarios de otra organización');
+  }
+
   const data = {};
   if (body.first_name !== undefined) data.firstName = body.first_name;
   if (body.last_name !== undefined) data.lastName = body.last_name;
-  if (body.organization_id !== undefined) data.organizationId = body.organization_id;
+  if (body.organization_id !== undefined) {
+    data.organizationId = organizationScopeFor(actor, body.organization_id);
+  }
   if (body.document_type !== undefined || body.document_number !== undefined) {
     const existing = await prisma.user.findUnique({
       where: { id },
@@ -498,6 +526,11 @@ export const setActiveStatus = async (id, isActive, actor) => {
   if (actorId === id && !isActive) {
     throw ApiError.badRequest('No puedes desactivar tu propia cuenta');
   }
+  const target = await userRepository.findById(id);
+  if (!target) throw ApiError.notFound(MESSAGES.USER.NOT_FOUND);
+  if (!isGlobalAdmin(actor) && target.organizationId !== actor.organizationId) {
+    throw ApiError.forbidden('No puedes modificar usuarios de otra organización');
+  }
 
   try {
     const updated = await userRepository.setActive(id, isActive);
@@ -507,7 +540,12 @@ export const setActiveStatus = async (id, isActive, actor) => {
   }
 };
 
-export const unlockUser = async (id) => {
+export const unlockUser = async (id, actor = {}) => {
+  const target = await userRepository.findById(id);
+  if (!target) throw ApiError.notFound(MESSAGES.USER.NOT_FOUND);
+  if (!isGlobalAdmin(actor) && target.organizationId !== actor.organizationId) {
+    throw ApiError.forbidden('No puedes modificar usuarios de otra organización');
+  }
   try {
     const updated = await userRepository.update(id, {
       failedLoginAttempts: 0,
@@ -547,6 +585,15 @@ export const updateUserRole = async (id, role, actor = {}) => {
     },
   });
   if (!existing) throw ApiError.notFound(MESSAGES.USER.NOT_FOUND);
+  if (!isGlobalAdmin(actor)) {
+    const targetOrganization = await prisma.user.findUnique({
+      where: { id },
+      select: { organizationId: true },
+    });
+    if (targetOrganization?.organizationId !== actor.organizationId) {
+      throw ApiError.forbidden('No puedes modificar usuarios de otra organización');
+    }
+  }
 
   if (existing.isSuperuser && !ADMIN_ROLES.includes(role)) {
     const superuserCount = await prisma.user.count({

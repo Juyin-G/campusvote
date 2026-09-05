@@ -50,7 +50,7 @@ const requireSuperUserForRole = (req, res, next) => {
 router.get(
   '/',
   authenticate,
-  authorize(ROLES.ADMIN, ROLES.ELECTORAL_COMMISSION),
+  authorize(ROLES.SUPERADMIN, ROLES.ADMIN, ROLES.ELECTORAL_COMMISSION),
   validate(listUserSchema),
   userController.listUsers
 );

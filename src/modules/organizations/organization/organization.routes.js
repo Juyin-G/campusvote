@@ -121,7 +121,13 @@ router.patch(
 // --- ORGANIZACIONES ---
 // ==========================================
 
-router.get('/', optionalAuthenticate, validate(listQuerySchema), getOrganizations);
+router.get(
+  '/',
+  authenticate,
+  authorize('SUPERADMIN'),
+  validate(listQuerySchema),
+  getOrganizations
+);
 
 router.post(
   '/',
