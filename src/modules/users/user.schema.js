@@ -206,6 +206,12 @@ export const provisionExistingAdminSchema = z.object({
   }),
 });
 
+export const regenerateAdminTotpSchema = z.object({
+  params: z.object({
+    organizationId: uuid('ID de la organización'),
+  }),
+});
+
 // ADMIN: crear jurados/usuarios en lote (bulk)
 export const createUsersBulkSchema = z.object({
   body: z.object({

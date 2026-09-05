@@ -16,6 +16,7 @@ const ORG_SELECT = {
   onboardingCompleted: true,      // No 'onboarding_completed'
   onboardingCompletedAt: true,    // No 'onboarding_completed_at'
   allowedEmailDomains: true,      // No 'allowed_email_domains'
+  memberLimit: true,              // No 'member_limit'
   createdAt: true,        // No 'created_at'
   updatedAt: true,        // No 'updated_at'
 };
@@ -74,6 +75,15 @@ export const listOrgs = ({ isActive, search, skip = 0, take = 10 } = {}) =>
 
 export const countOrgs = ({ isActive, search } = {}) => 
   prisma.organization.count({ where: buildOrgWhere({ isActive, search }) });
+
+export const countOrganizationMembers = (organizationId) =>
+  prisma.user.count({
+    where: {
+      organizationId,
+      role: { not: 'SUPERADMIN' },
+      status: { not: 'DELETED' },
+    },
+  });
 
 export const createOrg = (data) => 
   prisma.organization.create({ data, select: ORG_SELECT });
@@ -154,6 +164,7 @@ export default {
   findOrgByCode,
   listOrgs,
   countOrgs,
+  countOrganizationMembers,
   createOrg,
   updateOrg,
   setOrgActive,

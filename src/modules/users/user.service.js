@@ -77,6 +77,28 @@ const organizationScopeFor = (actor = {}, requestedOrganizationId) => {
   return actor.organizationId;
 };
 
+const assertOrganizationCapacity = async (organizationId, additionalSeats = 1) => {
+  if (!organizationId) return;
+  const organization = await prisma.organization.findUnique({
+    where: { id: organizationId },
+    select: { memberLimit: true },
+  });
+  if (!organization) throw ApiError.notFound('Organización no encontrada');
+
+  const currentMembers = await prisma.user.count({
+    where: {
+      organizationId,
+      role: { not: ROLES.SUPERADMIN },
+      status: { not: 'DELETED' },
+    },
+  });
+  if (currentMembers + additionalSeats > organization.memberLimit) {
+    throw ApiError.badRequest(
+      `La organización alcanzó su capacidad de ${organization.memberLimit} miembros. Solicita al SUPERADMIN una ampliación.`
+    );
+  }
+};
+
 export const listUsers = async (query = {}, actor = {}) => {
   const { page, limit } = parsePagination(query);
   const skip = (page - 1) * limit;
@@ -161,6 +183,7 @@ export const createUser = async (body = {}, actor = {}) => {
   }
 
   const organizationId = organizationScopeFor(actor, organization_id);
+  await assertOrganizationCapacity(organizationId);
 
   // F1: Identidad nacional (DNI/CE) — verificación contra IdentityProvider.
   const identity = await normalizeDocumentIdentity({
@@ -376,6 +399,41 @@ export const provisionExistingAdmin = async (organizationId, body = {}, actor = 
       backupCodes: plainBackupCodes,
       mustChangePassword: true,
     };
+
+};
+
+/**
+ * SUPERADMIN: invalida el autenticador anterior de una organización y genera
+ * un QR nuevo. El secreto anterior nunca se vuelve a mostrar.
+ */
+export const regenerateAdminTotp = async (organizationId, actor = {}) => {
+  const isSuperUser =
+    actor.isSuperuser || actor.isSuperAdmin || actor.role === ROLES.SUPERADMIN;
+  if (!isSuperUser) {
+    throw ApiError.forbidden('Solo el superadmin puede regenerar el acceso 2FA');
+  }
+
+  const admin = await prisma.user.findFirst({
+    where: { organizationId, role: ROLES.ADMIN, status: 'ACTIVE' },
+    select: { id: true, email: true, username: true },
+  });
+  if (!admin) throw ApiError.notFound('La organización no tiene un administrador activo');
+
+  const secret = otpUtil.generateTotpSecret();
+  const uri = otpUtil.generateTotpUri(secret, admin.email, admin.username);
+  const plainBackupCodes = otpUtil.generateBackupCodes();
+  await otpRepository.saveTotpSecret(admin.id, secret);
+  await otpRepository.enableTwoFactor(
+    admin.id,
+    plainBackupCodes.map((code) => otpUtil.hashBackupCode(code))
+  );
+
+  return {
+    user: { email: admin.email, username: admin.username },
+    qrCode: await otpUtil.generateQrCode(uri),
+    secret,
+    backupCodes: plainBackupCodes,
+  };
 };
 
 /**
@@ -419,6 +477,7 @@ export const createUsersBulk = async (items = [], actor = {}) => {
   }
 
   const orgId = actor.organizationId || null;
+  await assertOrganizationCapacity(orgId, items.length);
 
   const created = [];
   const errors = [];

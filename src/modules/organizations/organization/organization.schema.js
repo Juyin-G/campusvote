@@ -142,6 +142,7 @@ export const createOrganizationSchema = z.object({
       .default('America/Lima'),
 
     allowed_email_domains: emailDomainsSchema,
+    member_limit: z.coerce.number().int().min(1).max(1000000).optional(),
   }),
 });
 
@@ -206,6 +207,7 @@ export const updateOrganizationSchema = z.object({
       onboarding_completed: z.boolean().optional(),
 
       allowed_email_domains: emailDomainsSchema,
+      member_limit: z.coerce.number().int().min(1).max(1000000).optional(),
     })
     .refine((data) => Object.keys(data).length > 0, {
       message: 'Debes proporcionar al menos un campo para actualizar',

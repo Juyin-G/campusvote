@@ -77,6 +77,7 @@ const MIGRATION_FILES = [
   'ballots/005_views.sql',
   'ballots/006_functions.sql',
   'organizations/004_approval_functions.sql',
+  'organizations/005_organization_member_limit.sql',
   'reports/001_election_report_history.sql',
   'claims/001_voter_registry_claims.sql',
   'objections/001_candidacy_objections.sql',

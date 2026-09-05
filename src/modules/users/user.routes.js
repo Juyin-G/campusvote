@@ -17,6 +17,7 @@ import {
   changePasswordSchema,
   provisionAdminSchema,
   provisionExistingAdminSchema,
+  regenerateAdminTotpSchema,
   createUsersBulkSchema,
 } from './user.schema.js';
 
@@ -99,6 +100,14 @@ router.post(
   authorize(ROLES.SUPERADMIN),
   validate(provisionExistingAdminSchema),
   userController.provisionExistingAdmin
+);
+
+router.post(
+  '/admin/regenerate-totp/:organizationId',
+  authenticate,
+  authorize(ROLES.SUPERADMIN),
+  validate(regenerateAdminTotpSchema),
+  userController.regenerateAdminTotp
 );
 
 // ADMIN/SUPERADMIN: crea jurados/usuarios en lote (bulk)

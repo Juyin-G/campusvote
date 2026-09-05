@@ -60,42 +60,6 @@ export async function seedUsers(prisma: PrismaClient) {
     isStaff: true,
   });
 
-  // Cuentas del equipo de desarrollo (org+feria). El rol determina el flujo:
-  // ADMIN gestiona la organización y crea jurados; JURY califica proyectos.
-  const teammates = [
-    {
-      email: 'ricky.ushinahua@tecsup.edu.pe',
-      username: 'ushinahua.ricky',
-      firstName: 'Ricky',
-      lastName: 'Ushinahua',
-      institutionalId: 'C-01',
-      role: UserRole.ADMIN,
-    },
-    {
-      email: 'rosa.garcia@tecsup.edu.pe',
-      username: 'garcia.rosa',
-      firstName: 'Rosa',
-      lastName: 'García',
-      institutionalId: 'C-02',
-      role: UserRole.JURY,
-    },
-    {
-      email: 'valeria.inga@tecsup.edu.pe',
-      username: 'inga.valeria',
-      firstName: 'Valeria',
-      lastName: 'Inga',
-      institutionalId: 'C-03',
-      role: UserRole.JURY,
-    },
-  ];
-
-  const created = [];
-  for (const t of teammates) {
-    const user = await provisionUser(t);
-    created.push(user);
-    console.log(`Usuario verificado/creado: ${user.email} (${user.role})`);
-  }
-
   console.log(`Usuario SuperAdmin verificado/creado: ${superAdmin.email}`);
-  return { superAdmin, teammates: created };
+  return { superAdmin };
 }

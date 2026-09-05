@@ -51,6 +51,10 @@ model Organization {
   // proyectos (candidate_lists) usa: catálogo org ∪ catálogo sistema.
   categoryCatalog       Json             @default("[]") @map("category_catalog")
 
+  // Capacidad máxima de miembros de la organización (incluye ADMIN, JURY y
+  // perfiles operativos; excluye SUPERADMIN porque es global).
+  memberLimit           Int              @default(100) @map("member_limit")
+
   // Relaciones
   users                 User[]
   careers               Career[]

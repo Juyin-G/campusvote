@@ -147,7 +147,7 @@ router.get(
 router.patch(
   '/:id',
   authenticate,
-  authorize('ADMIN'),
+  authorize('ADMIN', 'SUPERADMIN'),
   validate(idParamSchema),
   validate(updateOrganizationSchema),
   updateOrganization

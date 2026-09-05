@@ -62,6 +62,17 @@ export const provisionExistingAdmin = asyncHandler(async (req, res) => {
   );
 });
 
+export const regenerateAdminTotp = asyncHandler(async (req, res) => {
+  const result = await userService.regenerateAdminTotp(req.params.organizationId, req.user);
+  return sendSuccess(
+    res,
+    result,
+    '2FA regenerado. Entrega el nuevo QR y códigos por un canal seguro.',
+    { requestId: req.requestId },
+    HTTP_STATUS.OK
+  );
+});
+
 // ADMIN: crear jurados/usuarios en lote (bulk)
 export const createUsersBulk = asyncHandler(async (req, res) => {
   const result = await userService.createUsersBulk(req.body.users, req.user);
