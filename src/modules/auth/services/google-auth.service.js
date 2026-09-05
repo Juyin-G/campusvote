@@ -4,15 +4,58 @@
 // obtención del perfil, sin dependencias extra.
 
 import * as authRepository from '../repositories/auth.repository.js';
+import jwt from 'jsonwebtoken';
 import { ApiError } from '../../../shared/errors/ApiError.js';
 import { generateJwt, generateRefreshToken } from './auth.helpers.js';
 import { formatUserResponse } from '../../../shared/utils/formatUserResponse.js';
 import env from '../../../config/env.js';
 import logger from '../../../config/logger.js';
+import { cert, getApps, initializeApp } from 'firebase-admin/app';
+import { getAuth } from 'firebase-admin/auth';
 
 const GOOGLE_AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
 const GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const GOOGLE_USERINFO_URL = 'https://www.googleapis.com/oauth2/v2/userinfo';
+
+export const createOAuthState = () =>
+  jwt.sign({ purpose: 'GOOGLE_OAUTH_STATE' }, env.JWT_SECRET, {
+    expiresIn: '10m',
+  });
+
+export const verifyOAuthState = (state) => {
+  try {
+    const payload = jwt.verify(state, env.JWT_SECRET, { algorithms: ['HS256'] });
+    return payload.purpose === 'GOOGLE_OAUTH_STATE';
+  } catch {
+    return false;
+  }
+};
+
+const getFirebaseAuth = () => {
+  if (
+    !env.FIREBASE_PROJECT_ID ||
+    !env.FIREBASE_CLIENT_EMAIL ||
+    !env.FIREBASE_PRIVATE_KEY
+  ) {
+    throw ApiError.serviceUnavailable(
+      'Firebase Authentication no está configurado en el servidor',
+      null,
+      'FIREBASE_NOT_CONFIGURED'
+    );
+  }
+
+  const app =
+    getApps()[0] ||
+    initializeApp({
+      credential: cert({
+        projectId: env.FIREBASE_PROJECT_ID,
+        clientEmail: env.FIREBASE_CLIENT_EMAIL,
+        privateKey: env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+      }),
+    });
+
+  return getAuth(app);
+};
 
 const durationToMs = (duration) => {
   const str = String(duration ?? '').trim();
@@ -168,8 +211,75 @@ export const authenticateWithGoogle = async (code) => {
   return issueSession(user);
 };
 
+/**
+ * Verifica un ID token de Firebase y autentica una cuenta ya registrada.
+ * Firebase identifica al usuario; CampusVote conserva la autorización, padrón
+ * y emisión de sus propios access/refresh tokens.
+ */
+export const authenticateWithFirebase = async (idToken) => {
+  let decodedToken;
+
+  try {
+    decodedToken = await getFirebaseAuth().verifyIdToken(idToken);
+  } catch (error) {
+    logger.warn('Verificación de ID token Firebase fallida', {
+      code: error.code,
+    });
+    throw ApiError.unauthorized('El ID token de Firebase es inválido');
+  }
+
+  const email = decodedToken.email?.toLowerCase().trim();
+  if (
+    !email ||
+    decodedToken.email_verified !== true ||
+    decodedToken.firebase?.sign_in_provider !== 'google.com'
+  ) {
+    throw ApiError.forbidden(
+      'Debes iniciar sesión con una cuenta Google verificada'
+    );
+  }
+
+  let user = await authRepository.findByFirebaseUid(decodedToken.uid);
+  if (!user) {
+    user = await authRepository.findByEmail(email);
+  }
+
+  if (!user) {
+    throw ApiError.forbidden(
+      'No existe una cuenta institucional con este correo. Solicita tu registro al administrador.'
+    );
+  }
+
+  if (user.status !== 'ACTIVE' || !user.isVerified) {
+    throw ApiError.forbidden('La cuenta no está activa o verificada');
+  }
+
+  if (!user.googleId || user.googleId !== decodedToken.uid) {
+    user = await authRepository.linkGoogleIdentity(user.id, decodedToken.uid);
+  }
+
+  if (user.twoFactorEnabled) {
+    const tempToken = jwt.sign(
+      { userId: user.id, email: user.email, purpose: 'TOTP_PENDING' },
+      env.JWT_SECRET,
+      { expiresIn: '5m' }
+    );
+
+    return {
+      requiresTotp: true,
+      tempToken,
+      mustChangePassword: user.mustChangePassword,
+    };
+  }
+
+  return issueSession(user);
+};
+
 export default {
+  createOAuthState,
+  verifyOAuthState,
   getAuthUrl,
   authenticateWithGoogle,
+  authenticateWithFirebase,
   getGoogleProfile,
 };

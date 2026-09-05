@@ -15,6 +15,7 @@ import { extractDomain } from '../../../shared/utils/emailDomain.js';
 import { matchCareerFromCode, extractCycleFromCode } from '../../../shared/utils/careerParse.js';
 
 export { setupTotp, verifyTotp, verifyLoginTotp } from './auth.totp.service.js';
+export { authenticateWithFirebase } from './google-auth.service.js';
 
 const SALT_ROUNDS = 12;
 // Hash dummy precalculado para mitigar ataques de timing en login

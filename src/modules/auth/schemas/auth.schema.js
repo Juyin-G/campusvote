@@ -166,3 +166,10 @@ export const googleVerifySchema = z.object({
     code: z.string().min(1, 'El código de Google es obligatorio'),
   }),
 });
+
+// ID token emitido por Firebase Authentication para login con Google.
+export const firebaseVerifySchema = z.object({
+  body: z.object({
+    idToken: z.string().min(1, 'El ID token de Firebase es obligatorio'),
+  }),
+});

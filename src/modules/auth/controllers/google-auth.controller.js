@@ -8,15 +8,25 @@ import env from '../../../config/env.js';
 import crypto from 'node:crypto';
 import logger from '../../../config/logger.js';
 
-// Genera token anti-CSRF para el flujo OAuth
-const generateState = () => crypto.randomBytes(16).toString('hex');
+const OAUTH_STATE_COOKIE = 'campusvote_oauth_state';
+const ACCESS_COOKIE = 'campusvote_access';
+const REFRESH_COOKIE = 'campusvote_refresh';
+
+const cookieOptions = (maxAge) => ({
+  httpOnly: true,
+  secure: env.NODE_ENV === 'production',
+  sameSite: 'lax',
+  maxAge,
+  path: '/',
+});
 
 /**
  * GET /auth/google — redirige al navegador a Google para autorizar.
  */
 export const redirectToGoogle = asyncHandler(async (req, res) => {
-  const state = generateState();
+  const state = googleAuthService.createOAuthState();
   const authUrl = googleAuthService.getAuthUrl(state);
+  res.cookie(OAUTH_STATE_COOKIE, state, cookieOptions(10 * 60 * 1000));
 
   logger.info('Redirección a Google OAuth iniciada', { requestId: req.requestId });
 
@@ -28,13 +38,27 @@ export const redirectToGoogle = asyncHandler(async (req, res) => {
  */
 export const googleCallback = asyncHandler(async (req, res) => {
   const code = req.query.code;
+  const state = req.query.state;
 
-  if (!code) {
+  if (!code || !state || !req.headers.cookie?.includes(`${OAUTH_STATE_COOKIE}=`)) {
     const redirect = `${env.FRONTEND_URL}/login?error=google_denied`;
     return res.redirect(redirect);
   }
 
   try {
+    const stateCookie = req.headers.cookie
+      .split(';')
+      .map((value) => value.trim())
+      .find((value) => value.startsWith(`${OAUTH_STATE_COOKIE}=`))
+      ?.slice(`${OAUTH_STATE_COOKIE}=`.length);
+    if (
+      !stateCookie ||
+      !crypto.timingSafeEqual(Buffer.from(state), Buffer.from(stateCookie)) ||
+      !googleAuthService.verifyOAuthState(state)
+    ) {
+      return res.redirect(`${env.FRONTEND_URL}/login?error=google_state_invalid`);
+    }
+
     const session = await googleAuthService.authenticateWithGoogle(code);
 
     logger.info('Login con Google exitoso', {
@@ -42,10 +66,10 @@ export const googleCallback = asyncHandler(async (req, res) => {
       requestId: req.requestId,
     });
 
-    // Redirige al frontend con un token de sesión (código de acceso).
-    return res.redirect(
-      `${env.FRONTEND_URL}/oauth/callback?token=${encodeURIComponent(session.token)}&refreshToken=${encodeURIComponent(session.refreshToken)}`
-    );
+    res.clearCookie(OAUTH_STATE_COOKIE, { path: '/' });
+    res.cookie(ACCESS_COOKIE, session.token, cookieOptions(24 * 60 * 60 * 1000));
+    res.cookie(REFRESH_COOKIE, session.refreshToken, cookieOptions(7 * 24 * 60 * 60 * 1000));
+    return res.redirect(`${env.FRONTEND_URL}/oauth/callback`);
   } catch (error) {
     logger.warn('Login con Google falló', {
       message: error.message,
