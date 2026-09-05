@@ -45,10 +45,18 @@ export const getUnreadCount = async (userId) => {
  * Lista las notificaciones del usuario autenticado.
  */
 export const listNotifications = async (userId, query) => {
-  const { page, limit, type, is_read } = query;
+  const page = Math.max(1, Number(query?.page) || 1);
+  const limit = Math.min(50, Math.max(1, Number(query?.limit) || 20));
+  const type = query?.type;
+  let is_read;
+  if (query?.is_read === true || query?.is_read === 'true') {
+    is_read = true;
+  } else if (query?.is_read === false || query?.is_read === 'false') {
+    is_read = false;
+  }
   
   const [total, notifications] = await Promise.all([
-    notificationRepository.countUnreadNotifications(userId), // Opcional: contar total con filtros si se necesita paginación real
+    notificationRepository.countNotificationsByUser(userId, { type, isRead: is_read }),
     notificationRepository.findNotificationsByUser(userId, { page, limit, type, isRead: is_read }),
   ]);
 
