@@ -134,6 +134,33 @@
 
 /**
  * @openapi
+ * /api/public/elections:
+ *   get:
+ *     tags: [Results]
+ *     summary: Listar elecciones con resultados publicados
+ *     description: Catálogo público de elecciones cuyo estado es PUBLISHED. No devuelve datos del padrón ni información privada.
+ *     security: []
+ *     responses:
+ *       200: { description: Elecciones publicadas }
+ */
+
+/**
+ * @openapi
+ * /api/public/results/final:
+ *   get:
+ *     tags: [Results]
+ *     summary: Consultar resultados oficiales publicados
+ *     description: Devuelve resultados únicamente cuando la elección está en estado PUBLISHED. No requiere autenticación.
+ *     security: []
+ *     parameters:
+ *       - { in: query, name: election_id, required: true, schema: { type: string, format: uuid } }
+ *     responses:
+ *       200: { description: Resultados oficiales publicados }
+ *       404: { description: La elección no está publicada o no existe }
+ */
+
+/**
+ * @openapi
  * /api/results/live:
  *   get:
  *     tags: [Results]
