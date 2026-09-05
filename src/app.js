@@ -96,15 +96,23 @@ if (env.SWAGGER_ENABLED !== false && env.NODE_ENV !== 'test') {
   swaggerSetup(app);
 }
 
-// Archivos estáticos
-app.use(express.static(path.join(__dirname, '../public')));
+// El frontend se despliega como servicio independiente. El backend no debe
+// asumir que existe una carpeta `public` en Render.
+const publicDirectory = path.join(__dirname, '../public');
+app.use(express.static(publicDirectory));
 
 // Rutas de la API
 app.use('/api', routes);
 
-// Vista demo en la raíz
+// Información del servicio en la raíz. La interfaz web vive en el servicio
+// frontend y consume esta API mediante /api.
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, '../public/index.html'));
+  res.status(200).json({
+    name: 'CampusVote API',
+    status: 'UP',
+    health: '/health',
+    documentation: env.SWAGGER_ENABLED !== false ? '/api-docs' : null,
+  });
 });
 
 // Manejo de rutas no encontradas (404)
