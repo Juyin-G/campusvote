@@ -4,7 +4,7 @@ import { seedUsers } from '../database/seeds/user';
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log('🚀 Iniciando proceso global de Seed...');
+  console.log('Iniciando proceso global de Seed...');
 
   // Aquí agregas más módulos según vayas creando (ej: seedOrganizations, etc.)
   await seedUsers(prisma);
