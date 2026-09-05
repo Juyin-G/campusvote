@@ -229,4 +229,4 @@ const voterRegistryDocs = {
   },
 };
 
-module.exports = voterRegistryDocs;
+export default voterRegistryDocs;
