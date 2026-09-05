@@ -13,6 +13,7 @@ const allowedOrigins = new Set([
   // Local development uses both the Vite default and the project's configured port.
   'http://localhost:3000',
   'http://localhost:5173',
+  'https://campusvote-front.onrender.com',
 ]);
 
 const corsOptions = {
