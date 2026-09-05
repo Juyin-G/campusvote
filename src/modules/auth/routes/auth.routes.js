@@ -22,6 +22,7 @@ import {
   verifyEmailSchema,
   resendVerificationSchema,
   refreshSchema,
+  firebaseVerifySchema,
 } from '../schemas/auth.schema.js';
 
 const router = Router();
@@ -41,6 +42,13 @@ router.post(
   loginLimiter,
   validate(loginSchema),
   authController.login
+);
+
+router.post(
+  '/firebase/verify',
+  authLimiter,
+  validate(firebaseVerifySchema),
+  authController.verifyFirebase
 );
 
 // Paso 2 del Login: Verificación TOTP (o Código de Respaldo)

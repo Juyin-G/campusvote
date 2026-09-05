@@ -80,6 +80,8 @@ export const findByGoogleId = async (googleId) => {
   });
 };
 
+export const findByFirebaseUid = findByGoogleId;
+
 /**
  * Busca organizaciones cuyo `allowed_email_domains` contenga el dominio dado.
  * Usa JSONB containment (@>). @param {string} domain - dominio del correo (ej: "upc.edu.pe")

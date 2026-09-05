@@ -109,6 +109,11 @@ export default {
   GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET,
   GOOGLE_CALLBACK_URL: process.env.GOOGLE_CALLBACK_URL,
 
+  // Firebase Authentication (opcional; login Google desde Flutter/Web)
+  FIREBASE_PROJECT_ID: process.env.FIREBASE_PROJECT_ID,
+  FIREBASE_CLIENT_EMAIL: process.env.FIREBASE_CLIENT_EMAIL,
+  FIREBASE_PRIVATE_KEY: process.env.FIREBASE_PRIVATE_KEY,
+
   // Frontend URL
   FRONTEND_URL: process.env.FRONTEND_URL || 'http://localhost:5173',
 };

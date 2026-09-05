@@ -103,6 +103,17 @@ See [SECURITY-DATABASE.md](SECURITY-DATABASE.md) for a complete production secur
 ## Documentación
 Una vez corriendo el servidor, visita: `http://localhost:3000/api/docs`
 
+Documentos de flujo y revisión:
+- [Revisión de producción F0-F9](docs/REVISION_PRODUCCION_F0_F9.md)
+- [Flujo administrativo y panel público](docs/FLUJO_ADMINISTRATIVO_Y_PANEL_PUBLICO.md)
+- [Flujo Flutter, jurado y votación](docs/FLUJO_FLUTTER_JURADO_VOTACION.md)
+- [Auditoría completa de producción](docs/AUDITORIA_COMPLETA_PRODUCCION.md)
+- [Despliegue en Render](docs/DEPLOY_RENDER_STAGING_Y_PRODUCCION.md)
+- [Plan del frontend administrativo web](docs/PLAN_FRONTEND_ADMIN_WEB.md)
+- [Piloto staging de 100 personas y configuración opcional de Google](docs/DEPLOY_RENDER_STAGING_Y_PRODUCCION.md)
+- [Guía Firebase Web, Flutter e iOS](docs/GUIA_FIREBASE_WEB_FLUTTER_IOS.md)
+- [Variables públicas del frontend](.env.frontend.example)
+
 ## Arquitectura de Carpetas
 - `src/modules/`: Feature-based (auth, users, elections).
 - `src/common/`: Errores tipados, utilidades compartidas.
