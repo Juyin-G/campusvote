@@ -190,6 +190,21 @@ export const provisionAdminSchema = z.object({
   }),
 });
 
+export const provisionExistingAdminSchema = z.object({
+  params: z.object({
+    organizationId: uuid('ID de la organización'),
+  }),
+  body: z.object({
+    username: z.string().min(3, 'Como mínimo 3 caracteres').max(50),
+    email: z.string().email('Email inválido'),
+    password: passwordSchema,
+    first_name: z.string().min(1, 'Como mínimo 1 carácter').max(50),
+    last_name: z.string().min(1, 'Como mínimo 1 carácter').max(50),
+    document_type: z.enum(['DNI', 'CE']),
+    document_number: z.string().trim().min(1).max(20),
+  }),
+});
+
 // ADMIN: crear jurados/usuarios en lote (bulk)
 export const createUsersBulkSchema = z.object({
   body: z.object({

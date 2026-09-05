@@ -16,6 +16,7 @@ import {
   setActiveSchema,
   changePasswordSchema,
   provisionAdminSchema,
+  provisionExistingAdminSchema,
   createUsersBulkSchema,
 } from './user.schema.js';
 
@@ -90,6 +91,14 @@ router.post(
   authorize(ROLES.SUPERADMIN),
   validate(provisionAdminSchema),
   userController.provisionAdmin
+);
+
+router.post(
+  '/admin/provision-existing/:organizationId',
+  authenticate,
+  authorize(ROLES.SUPERADMIN),
+  validate(provisionExistingAdminSchema),
+  userController.provisionExistingAdmin
 );
 
 // ADMIN/SUPERADMIN: crea jurados/usuarios en lote (bulk)

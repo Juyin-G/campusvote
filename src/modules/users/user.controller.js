@@ -47,6 +47,21 @@ export const provisionAdmin = asyncHandler(async (req, res) => {
   );
 });
 
+export const provisionExistingAdmin = asyncHandler(async (req, res) => {
+  const result = await userService.provisionExistingAdmin(
+    req.params.organizationId,
+    req.body,
+    req.user
+  );
+  return sendSuccess(
+    res,
+    result,
+    'Administrador creado. Entrega el QR y los códigos de respaldo de primer acceso.',
+    { requestId: req.requestId },
+    HTTP_STATUS.CREATED
+  );
+});
+
 // ADMIN: crear jurados/usuarios en lote (bulk)
 export const createUsersBulk = asyncHandler(async (req, res) => {
   const result = await userService.createUsersBulk(req.body.users, req.user);

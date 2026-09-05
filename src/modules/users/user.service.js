@@ -281,6 +281,83 @@ export const provisionAdmin = async (body = {}, actor = {}) => {
   };
 };
 
+export const provisionExistingAdmin = async (organizationId, body = {}, actor = {}) => {
+    const isSuperUser =
+      actor.isSuperuser || actor.isSuperAdmin || actor.role === ROLES.SUPERADMIN;
+    if (!isSuperUser) {
+      throw ApiError.forbidden('Solo el superadmin puede crear administradores');
+    }
+
+    const organization = await prisma.organization.findUnique({
+      where: { id: organizationId },
+      select: { id: true, name: true, code: true, isActive: true },
+    });
+    if (!organization) throw ApiError.notFound('La organización no existe');
+    if (!organization.isActive) throw ApiError.conflict('La organización está inactiva');
+
+    const existingAdmin = await prisma.user.findFirst({
+      where: { organizationId, role: ROLES.ADMIN, status: 'ACTIVE' },
+      select: { id: true },
+    });
+    if (existingAdmin) {
+      throw ApiError.conflict('La organización ya tiene un administrador activo');
+    }
+
+    const cleanEmail = body.email.toLowerCase().trim();
+    const cleanUsername = body.username.toLowerCase().trim();
+    if (await userRepository.findByEmail(cleanEmail)) {
+      throw ApiError.conflict(MESSAGES.USER.ALREADY_EXISTS);
+    }
+    if (await userRepository.findByUsername(cleanUsername)) {
+      throw ApiError.conflict(MESSAGES.USER.USERNAME_TAKEN);
+    }
+
+    const identity = await normalizeDocumentIdentity({
+      document_type: body.document_type,
+      document_number: body.document_number,
+      role: ROLES.ADMIN,
+    });
+    const hashedPassword = await bcrypt.hash(body.password, 12);
+    let newUser;
+    try {
+      newUser = await userRepository.create({
+        username: cleanUsername,
+        email: cleanEmail,
+        password: hashedPassword,
+        firstName: body.first_name,
+        lastName: body.last_name,
+        institutionalId: cleanUsername,
+        role: ROLES.ADMIN,
+        organizationId,
+        mustChangePassword: true,
+        ...(identity || {}),
+      });
+    } catch (error) {
+      if (error?.code === 'P2002') {
+        throw ApiError.conflict('El usuario o documento ya está registrado');
+      }
+      throw error;
+    }
+
+    const secret = otpUtil.generateTotpSecret();
+    const uri = otpUtil.generateTotpUri(secret, cleanEmail, newUser.username);
+    const plainBackupCodes = otpUtil.generateBackupCodes();
+    await otpRepository.saveTotpSecret(newUser.id, secret);
+    await otpRepository.enableTwoFactor(
+      newUser.id,
+      plainBackupCodes.map((code) => otpUtil.hashBackupCode(code))
+    );
+
+    return {
+      organization,
+      user: formatUserResponse(newUser),
+      qrCode: await otpUtil.generateQrCode(uri),
+      secret,
+      backupCodes: plainBackupCodes,
+      mustChangePassword: true,
+    };
+};
+
 /**
  * Obtiene la organización y valida que el email del jurado pertenezca a un
  * dominio permitido (si la organización define allowed_email_domains).
@@ -584,6 +661,7 @@ export default {
   getUserById,
   createUser,
   provisionAdmin,
+  provisionExistingAdmin,
   createUsersBulk,
   updateUser,
   setActiveStatus,
