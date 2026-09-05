@@ -132,7 +132,7 @@ router.get(
 router.post(
   '/',
   authenticate,
-  authorize('ADMIN'),
+  authorize('SUPERADMIN'),
   validate(createOrganizationSchema),
   createOrganization
 );
@@ -156,7 +156,7 @@ router.patch(
 router.delete(
   '/:id',
   authenticate,
-  authorize('ADMIN'),
+  authorize('SUPERADMIN'),
   validate(idParamSchema),
   deleteOrganization
 );

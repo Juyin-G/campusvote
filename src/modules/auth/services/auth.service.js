@@ -43,6 +43,9 @@ export const login = async ({ email, password, ipAddress = null, userAgent = nul
     await bcrypt.compare(password, DUMMY_HASH);
     throw ApiError.unauthorized(MESSAGES.AUTH.LOGIN_FAILED);
   }
+  if (user.role === 'ADMIN' && !user.organizationId) {
+    throw ApiError.forbidden('La cuenta ADMIN no está vinculada a una organización');
+  }
 
   const isAllowed = await authRepository.loginIsAllowed(user.email);
   if (!isAllowed) {
@@ -281,7 +284,6 @@ export const getProfile = async (userId) => {
   if (!user) {
     throw ApiError.notFound(MESSAGES.USER.NOT_FOUND);
   }
-
   return formatUserResponse(user);
 };
 

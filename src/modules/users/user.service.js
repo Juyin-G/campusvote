@@ -183,6 +183,9 @@ export const createUser = async (body = {}, actor = {}) => {
   }
 
   const organizationId = organizationScopeFor(actor, organization_id);
+  if (role === ROLES.ADMIN && !organizationId) {
+    throw ApiError.badRequest('Todo ADMIN debe estar vinculado a una organización');
+  }
   await assertOrganizationCapacity(organizationId);
 
   // F1: Identidad nacional (DNI/CE) — verificación contra IdentityProvider.
@@ -492,6 +495,9 @@ export const createUsersBulk = async (items = [], actor = {}) => {
       // Solo superusuarios pueden crear/usar roles privilegiados.
       const isSuperUser =
         actor.isSuperuser || actor.isSuperAdmin || actor.role === ROLES.SUPERADMIN;
+      if (role === ROLES.ADMIN && !orgId) {
+        throw ApiError.badRequest('Todo ADMIN debe estar vinculado a una organización');
+      }
       if (ADMIN_ROLES.includes(role) && !isSuperUser) {
         throw ApiError.forbidden(
           'Solo superusuarios pueden crear usuarios con roles privilegiados'
@@ -651,6 +657,9 @@ export const updateUserRole = async (id, role, actor = {}) => {
     });
     if (targetOrganization?.organizationId !== actor.organizationId) {
       throw ApiError.forbidden('No puedes modificar usuarios de otra organización');
+    }
+    if (role === ROLES.ADMIN && !existing.organizationId) {
+      throw ApiError.badRequest('No se puede asignar ADMIN sin una organización');
     }
   }
 
