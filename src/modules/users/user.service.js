@@ -376,6 +376,8 @@ export const provisionExistingAdmin = async (organizationId, body = {}, actor = 
         role: ROLES.ADMIN,
         organizationId,
         mustChangePassword: true,
+        status: 'ACTIVE',
+        isVerified: true,
         ...(identity || {}),
       });
     } catch (error) {
