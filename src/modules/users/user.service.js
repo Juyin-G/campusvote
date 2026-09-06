@@ -9,8 +9,6 @@ import { parsePagination } from '../../shared/utils/pagination.js';
 import { formatUserResponse } from '../../shared/utils/formatUserResponse.js';
 import MESSAGES from '../../constants/messages.js';
 import { prisma } from '../../database/prisma.js';
-import * as otpUtil from '../../shared/utils/otp.util.js';
-import * as otpRepository from '../auth/repositories/otp.repository.js';
 import { isDomainAllowed } from '../../shared/utils/emailDomain.js';
 import { identityProvider } from '../../shared/providers/index.js';
 import * as authRepository from '../auth/repositories/auth.repository.js';
@@ -394,11 +392,11 @@ export const provisionExistingAdmin = async (organizationId, body = {}, actor = 
     if (!organization.isActive) throw ApiError.conflict('La organización está inactiva');
 
     const existingAdmin = await prisma.user.findFirst({
-      where: { organizationId, role: ROLES.ADMIN, status: 'ACTIVE' },
+      where: { organizationId, role: ROLES.ADMIN, status: { not: 'DELETED' } },
       select: { id: true },
     });
     if (existingAdmin) {
-      throw ApiError.conflict('La organización ya tiene un administrador activo');
+      throw ApiError.conflict('La organización ya tiene un administrador');
     }
 
     const cleanEmail = body.email.toLowerCase().trim();
@@ -508,40 +506,6 @@ export const provisionExistingAdmin = async (organizationId, body = {}, actor = 
       must_change_password: true,
       must_setup_2fa: true,
     };
-};
-
-/**
- * SUPERADMIN: invalida el autenticador anterior de una organización y genera
- * un QR nuevo. El secreto anterior nunca se vuelve a mostrar.
- */
-export const regenerateAdminTotp = async (organizationId, actor = {}) => {
-  const isSuperUser =
-    actor.isSuperuser || actor.isSuperAdmin || actor.role === ROLES.SUPERADMIN;
-  if (!isSuperUser) {
-    throw ApiError.forbidden('Solo el superadmin puede regenerar el acceso 2FA');
-  }
-
-  const admin = await prisma.user.findFirst({
-    where: { organizationId, role: ROLES.ADMIN, status: 'ACTIVE' },
-    select: { id: true, email: true, username: true },
-  });
-  if (!admin) throw ApiError.notFound('La organización no tiene un administrador activo');
-
-  const secret = otpUtil.generateTotpSecret();
-  const uri = otpUtil.generateTotpUri(secret, admin.email, admin.username);
-  const plainBackupCodes = otpUtil.generateBackupCodes();
-  await otpRepository.saveTotpSecret(admin.id, secret);
-  await otpRepository.enableTwoFactor(
-    admin.id,
-    plainBackupCodes.map((code) => otpUtil.hashBackupCode(code))
-  );
-
-  return {
-    user: { email: admin.email, username: admin.username },
-    qrCode: await otpUtil.generateQrCode(uri),
-    secret,
-    backupCodes: plainBackupCodes,
-  };
 };
 
 /**
@@ -846,10 +810,13 @@ export const changeMyPassword = async (userId, body = {}) => {
 
   const dbUser = await prisma.user.findUnique({
     where: { id: userId },
-    select: { password: true, status: true },
+    select: { password: true, status: true, mustSetup2fa: true, twoFactorEnabled: true },
   });
   if (dbUser?.status !== 'ACTIVE' || !dbUser.password) {
     throw ApiError.notFound(MESSAGES.USER.NOT_FOUND);
+  }
+  if (dbUser.mustSetup2fa || !dbUser.twoFactorEnabled) {
+    throw ApiError.badRequest('Primero debes completar la configuración de 2FA');
   }
 
   const matches = await bcrypt.compare(currentPassword, dbUser.password);

@@ -42,7 +42,7 @@ export const setupTotp = async (userId) => {
   return {
     secret,
     uri,
-    backupCodes: otpUtil.generateBackupCodes(),
+    qrCode: await otpUtil.generateQrCode(uri),
   };
 };
 
@@ -68,7 +68,11 @@ export const verifyAndEnableTotp = async (userId, totpCode) => {
     otpUtil.hashBackupCode(code)
   );
 
-  await otpRepository.enableTwoFactor(userId, hashedBackupCodes);
+  await otpRepository.completeOnboardingTwoFactor(
+    userId,
+    hashedBackupCodes,
+    user.status === 'PENDING_ACTIVATION'
+  );
 
   return {
     message: OTP_CONSTANTS.MESSAGES.OTP_ENABLED,

@@ -12,6 +12,7 @@ export const getUserWithTwoFactor = async (userId) => {
       id: true,
       email: true,
       username: true,
+      status: true,
       password: true, // Incluido para permitir validación en disableTotp
       twoFactorEnabled: true,
       twoFactorSecret: true,
@@ -44,6 +45,18 @@ export const enableTwoFactor = async (userId, hashedBackupCodes) => {
     data: {
       twoFactorEnabled: true,
       twoFactorBackupCodes: hashedBackupCodes,
+    },
+  });
+};
+
+export const completeOnboardingTwoFactor = async (userId, hashedBackupCodes, activateAccount) => {
+  return prisma.user.update({
+    where: { id: userId },
+    data: {
+      twoFactorEnabled: true,
+      twoFactorBackupCodes: hashedBackupCodes,
+      mustSetup2fa: false,
+      ...(activateAccount ? { status: 'ACTIVE' } : {}),
     },
   });
 };
@@ -98,6 +111,7 @@ export default {
   getUserWithTwoFactor,
   saveTotpSecret,
   enableTwoFactor,
+  completeOnboardingTwoFactor,
   disableTwoFactor,
   updateBackupCodes,
   consumeBackupCode,

@@ -157,6 +157,7 @@ BEGIN
     SET
         password = p_password_hash,
         must_change_password = FALSE,
+        must_setup_2fa = TRUE,
         is_verified = TRUE,
         failed_login_attempts = 0,
         locked_until = NULL,

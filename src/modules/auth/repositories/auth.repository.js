@@ -229,6 +229,7 @@ export const finalizeOnboarding = async (userId) => {
     where: { id: userId },
     data: {
       mustSetup2fa: false,
+      mustChangePassword: false,
       status: 'ACTIVE',
     },
     select: {

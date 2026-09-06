@@ -65,7 +65,7 @@ export const login = async ({ email, password, ipAddress = null, userAgent = nul
   // Onboarding (Opción 2): cuenta con credenciales temporales que aún debe
   // enrolar 2FA. NO se emite JWT final ni se pide TOTP aún; se entrega un
   // token de propósito ONBOARDING que solo permite las rutas /onboarding.
-  if (user.mustSetup2fa && !user.twoFactorEnabled) {
+  if (user.mustSetup2fa) {
     const tempToken = jwt.sign(
       { userId: user.id, email: user.email, purpose: 'ONBOARDING' },
       env.JWT_SECRET,
