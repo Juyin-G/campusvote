@@ -182,27 +182,32 @@ export const provisionAdminSchema = z.object({
         .optional(),
     }),
     admin: z.object({
-      username: z.string().min(3, 'Como mínimo 3 caracteres').max(50),
+      username: z.string().min(3, 'Como mínimo 3 caracteres').max(50).optional(),
       email: z.string().email('Email inválido'),
-      password: passwordSchema,
-      first_name: z.string().min(1, 'Como mínimo 1 carácter').max(50),
-      last_name: z.string().min(1, 'Como mínimo 1 carácter').max(50),
+      password: passwordSchema.optional(),
+      first_name: z.string().min(1, 'Como mínimo 1 carácter').max(50).optional(),
+      last_name: z.string().min(1, 'Como mínimo 1 carácter').max(50).optional(),
     }),
   }),
 });
 
+// SUPERADMIN: crear/otorgar un ADMIN en una organización existente.
+// - Si hay canal de email configurado → invitación (Opción 1): solo se usan
+//   email + rol; el admin define su contraseña con el enlace de activación.
+// - Si no → credenciales temporales (Opción 2): se requiere `password`.
+// Los campos personales/identidad son opcionales durante el onboarding.
 export const provisionExistingAdminSchema = z.object({
   params: z.object({
     organizationId: uuid('ID de la organización'),
   }),
   body: z.object({
-    username: z.string().min(3, 'Como mínimo 3 caracteres').max(50),
+    username: z.string().min(3, 'Como mínimo 3 caracteres').max(50).optional(),
     email: z.string().email('Email inválido'),
-    password: passwordSchema,
-    first_name: z.string().min(1, 'Como mínimo 1 carácter').max(50),
-    last_name: z.string().min(1, 'Como mínimo 1 carácter').max(50),
-    document_type: z.enum(['DNI', 'CE']),
-    document_number: z.string().trim().min(1).max(20),
+    password: passwordSchema.optional(),
+    first_name: z.string().min(1, 'Como mínimo 1 carácter').max(50).optional(),
+    last_name: z.string().min(1, 'Como mínimo 1 carácter').max(50).optional(),
+    document_type: z.enum(['DNI', 'CE']).optional(),
+    document_number: z.string().trim().min(1).max(20).optional(),
   }),
 });
 

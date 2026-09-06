@@ -3,6 +3,7 @@ import { Router } from 'express';
 
 import authRoutes from '../modules/auth/routes/auth.routes.js';
 import otpRoutes from '../modules/auth/routes/otp.routes.js';
+import onboardingRoutes from '../modules/auth/routes/onboarding.routes.js';
 import googleRoutes from '../modules/auth/routes/google.routes.js';
 import userRoutes from '../modules/users/user.routes.js';
 import healthRoutes from '../modules/health/health.routes.js';
@@ -30,6 +31,7 @@ router.use('/health', healthRoutes);
 router.use('/auth', authRoutes);
 router.use('/auth', googleRoutes);
 router.use('/auth/otp', otpRoutes);
+router.use('/auth/onboarding', onboardingRoutes);
 router.use('/users', userRoutes);
 
 // Dominio Académico e Institucional

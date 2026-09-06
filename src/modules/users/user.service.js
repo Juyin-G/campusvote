@@ -13,6 +13,10 @@ import * as otpUtil from '../../shared/utils/otp.util.js';
 import * as otpRepository from '../auth/repositories/otp.repository.js';
 import { isDomainAllowed } from '../../shared/utils/emailDomain.js';
 import { identityProvider } from '../../shared/providers/index.js';
+import * as authRepository from '../auth/repositories/auth.repository.js';
+import { sendActivation, hasEmailConfigured } from '../../shared/services/email.service.js';
+import env from '../../config/env.js';
+import logger from '../../config/logger.js';
 
 // Roles que SIEMPRE deben registrar su DNI/CE (decisión F1):
 // jurados, comisión electoral, administradores y docentes.
@@ -239,7 +243,6 @@ export const provisionAdmin = async (body = {}, actor = {}) => {
   }
 
   const {
-    username,
     email,
     password,
     first_name,
@@ -247,7 +250,7 @@ export const provisionAdmin = async (body = {}, actor = {}) => {
   } = admin;
 
   const cleanEmail = email.toLowerCase().trim();
-  const cleanUsername = username.toLowerCase().trim();
+  const cleanUsername = (admin.username || cleanEmail.split('@')[0]).toLowerCase().trim();
 
   const existingEmail = await userRepository.findByEmail(cleanEmail);
   if (existingEmail) {
@@ -289,44 +292,93 @@ export const provisionAdmin = async (body = {}, actor = {}) => {
     },
   });
 
-  // 2. Crear el ADMIN asociado a la organización recién creada.
+  // 2. Crear el ADMIN asociado a la organización recién creada usando el flujo
+  //    de onboarding (sin 2FA automático): invitación por email si hay canal de
+  //    email, o credenciales temporales (must_setup_2fa) si no lo hay.
+  if (hasEmailConfigured()) {
+    const newUser = await userRepository.create({
+      username: cleanUsername,
+      email: cleanEmail,
+      password: null,
+      firstName: first_name || '',
+      lastName: last_name || '',
+      institutionalId: cleanUsername,
+      role: ROLES.ADMIN,
+      organizationId: newOrg.id,
+      mustChangePassword: false,
+      status: 'PENDING_ACTIVATION',
+      isVerified: true,
+    });
+
+    let activationEmailSent = false;
+    let activationEmailError = null;
+    try {
+      const token = await authRepository.generateActivationToken(newUser.id);
+      if (token) {
+        await sendActivation({ email: cleanEmail, token, firstName: first_name ?? 'Administrador' });
+        activationEmailSent = true;
+      }
+    } catch (error) {
+      logger.warn('No se pudo enviar la invitación de activación', {
+        userId: newUser.id,
+        error: error.message,
+      });
+      activationEmailError = env.NODE_ENV === 'development' ? error.message : null;
+    }
+
+    return {
+      organization: newOrg,
+      user: formatUserResponse(newUser),
+      status: 'PENDING_ACTIVATION',
+      onboarding_mode: 'email',
+      activation_email_sent: activationEmailSent,
+      ...(activationEmailError ? { activation_email_error: activationEmailError } : {}),
+    };
+  }
+
+  if (!password) {
+    throw ApiError.badRequest(
+      'Debes proporcionar una contraseña temporal (no hay servicio de email configurado)'
+    );
+  }
+
   const hashedPassword = await bcrypt.hash(password, 12);
 
   const newUser = await userRepository.create({
     username: cleanUsername,
     email: cleanEmail,
     password: hashedPassword,
-    firstName: first_name,
-    lastName: last_name,
+    firstName: first_name || '',
+    lastName: last_name || '',
     institutionalId: cleanUsername,
     role: ROLES.ADMIN,
     organizationId: newOrg.id,
     mustChangePassword: true,
+    mustSetup2fa: true,
+    status: 'ACTIVE',
+    isVerified: true,
   });
-
-  // 3. Provisionar 2FA de primer acceso (OTP/QR).
-  const secret = otpUtil.generateTotpSecret();
-  const uri = otpUtil.generateTotpUri(secret, cleanEmail, newUser.username);
-  const plainBackupCodes = otpUtil.generateBackupCodes();
-  const hashedBackupCodes = plainBackupCodes.map((code) =>
-    otpUtil.hashBackupCode(code)
-  );
-
-  await otpRepository.saveTotpSecret(newUser.id, secret);
-  await otpRepository.enableTwoFactor(newUser.id, hashedBackupCodes);
-
-  const qrCode = await otpUtil.generateQrCode(uri);
 
   return {
     organization: newOrg,
     user: formatUserResponse(newUser),
-    qrCode,
-    secret,
-    backupCodes: plainBackupCodes,
-    mustChangePassword: true,
+    status: 'ACTIVE',
+    onboarding_mode: 'temp',
+    must_change_password: true,
+    must_setup_2fa: true,
   };
 };
 
+/**
+ * SUPERADMIN: crea el ADMIN de una organización existente usando el flujo de
+ * onboarding (sin 2FA forzado al momento de crear la cuenta — el admin lo
+ * enróla él mismo en su primer acceso).
+ *
+ * - Con canal de email configurado (SMTP/Resend) → Opción 1: cuenta en
+ *   PENDING_ACTIVATION sin contraseña; se envía invitación con token (24h).
+ * - Sin email → Opción 2: cuenta ACTIVE con contraseña temporal, 2FA off y
+ *   must_setup_2fa = TRUE (el login emite token de onboarding, no JWT).
+ */
 export const provisionExistingAdmin = async (organizationId, body = {}, actor = {}) => {
     const isSuperUser =
       actor.isSuperuser || actor.isSuperAdmin || actor.role === ROLES.SUPERADMIN;
@@ -350,7 +402,7 @@ export const provisionExistingAdmin = async (organizationId, body = {}, actor = 
     }
 
     const cleanEmail = body.email.toLowerCase().trim();
-    const cleanUsername = body.username.toLowerCase().trim();
+    const cleanUsername = (body.username || cleanEmail.split('@')[0]).toLowerCase().trim();
     if (await userRepository.findByEmail(cleanEmail)) {
       throw ApiError.conflict(MESSAGES.USER.ALREADY_EXISTS);
     }
@@ -358,53 +410,104 @@ export const provisionExistingAdmin = async (organizationId, body = {}, actor = 
       throw ApiError.conflict(MESSAGES.USER.USERNAME_TAKEN);
     }
 
-    const identity = await normalizeDocumentIdentity({
-      document_type: body.document_type,
-      document_number: body.document_number,
+    // La identidad nacional es opcional durante el onboarding; si se envía se
+    // valida contra el IdentityProvider (DNI/CE).
+    const hasDocument =
+      body.document_type !== undefined && body.document_number !== undefined;
+    const identity = hasDocument
+      ? await normalizeDocumentIdentity({
+          document_type: body.document_type,
+          document_number: body.document_number,
+          role: ROLES.ADMIN,
+        })
+      : null;
+
+    const commonData = {
+      username: cleanUsername,
+      email: cleanEmail,
+      firstName: body.first_name ?? '',
+      lastName: body.last_name ?? '',
+      institutionalId: cleanUsername,
       role: ROLES.ADMIN,
-    });
-    const hashedPassword = await bcrypt.hash(body.password, 12);
-    let newUser;
-    try {
-      newUser = await userRepository.create({
-        username: cleanUsername,
-        email: cleanEmail,
-        password: hashedPassword,
-        firstName: body.first_name,
-        lastName: body.last_name,
-        institutionalId: cleanUsername,
-        role: ROLES.ADMIN,
-        organizationId,
-        mustChangePassword: true,
-        status: 'ACTIVE',
-        isVerified: true,
-        ...(identity || {}),
-      });
-    } catch (error) {
-      if (error?.code === 'P2002') {
-        throw ApiError.conflict('El usuario o documento ya está registrado');
+      organizationId,
+      isVerified: true,
+      ...(identity || {}),
+    };
+
+    const createUser = async (data) => {
+      try {
+        return await userRepository.create(data);
+      } catch (error) {
+        if (error?.code === 'P2002') {
+          throw ApiError.conflict('El usuario o documento ya está registrado');
+        }
+        throw error;
       }
-      throw error;
+    };
+
+    // Opción 1 — Invitación por email
+    if (hasEmailConfigured()) {
+      const newUser = await createUser({
+        ...commonData,
+        password: null,
+        mustChangePassword: false,
+        status: 'PENDING_ACTIVATION',
+      });
+
+      let activationEmailSent = false;
+      let activationEmailError = null;
+      try {
+        const token = await authRepository.generateActivationToken(newUser.id);
+        if (token) {
+          await sendActivation({
+            email: cleanEmail,
+            token,
+            firstName: body.first_name ?? 'Administrador',
+          });
+          activationEmailSent = true;
+        }
+      } catch (error) {
+        logger.warn('No se pudo enviar la invitación de activación', {
+          userId: newUser.id,
+          error: error.message,
+        });
+        activationEmailError =
+          env.NODE_ENV === 'development' ? error.message : null;
+      }
+
+      return {
+        organization,
+        user: formatUserResponse(newUser),
+        status: 'PENDING_ACTIVATION',
+        onboarding_mode: 'email',
+        activation_email_sent: activationEmailSent,
+        ...(activationEmailError ? { activation_email_error: activationEmailError } : {}),
+      };
     }
 
-    const secret = otpUtil.generateTotpSecret();
-    const uri = otpUtil.generateTotpUri(secret, cleanEmail, newUser.username);
-    const plainBackupCodes = otpUtil.generateBackupCodes();
-    await otpRepository.saveTotpSecret(newUser.id, secret);
-    await otpRepository.enableTwoFactor(
-      newUser.id,
-      plainBackupCodes.map((code) => otpUtil.hashBackupCode(code))
-    );
+    // Opción 2 — Credenciales temporales (sin email configurado)
+    if (!body.password) {
+      throw ApiError.badRequest(
+        'Debes proporcionar una contraseña temporal (no hay servicio de email configurado)'
+      );
+    }
+    const hashedPassword = await bcrypt.hash(body.password, 12);
+    const newUser = await createUser({
+      ...commonData,
+      password: hashedPassword,
+      mustChangePassword: true,
+      mustSetup2fa: true,
+      status: 'ACTIVE',
+    });
 
     return {
       organization,
       user: formatUserResponse(newUser),
-      qrCode: await otpUtil.generateQrCode(uri),
-      secret,
-      backupCodes: plainBackupCodes,
-      mustChangePassword: true,
+      status: 'ACTIVE',
+      onboarding_mode: 'temp',
+      must_change_password: true,
+      must_setup_2fa: true,
     };
-
 };
 
 /**

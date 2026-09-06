@@ -39,6 +39,8 @@ const MIGRATION_FILES = [
   'user/009_cleanup_tokens.sql',
   'user/010_media_files.sql',
   'user/011_document_identity.sql',
+  'user/012_activation_enum.sql',
+  'user/013_activation.sql',
   'organizations/003_organization_requests.sql',
   'academic/000_prerequisites.sql',
   'academic/001_faculties.sql',

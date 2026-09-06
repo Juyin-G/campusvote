@@ -23,12 +23,14 @@ const userAuthSelect = {
   programId: true,
   currentCycle: true,
   mustChangePassword: true,
+  mustSetup2fa: true,
   twoFactorEnabled: true,
   twoFactorSecret: true,
   twoFactorBackupCodes: true,
   failedLoginAttempts: true,
   lockedUntil: true,
   lastLogin: true,
+  dateJoined: true,
 };
 
 // BÚSQUEDAS
@@ -61,6 +63,7 @@ export const findById = async (id) => {
       programId: true,
       currentCycle: true,
       mustChangePassword: true,
+      mustSetup2fa: true,
       twoFactorEnabled: true,
       lastLogin: true,
       dateJoined: true,
@@ -201,6 +204,39 @@ export const verifyEmailWithToken = async (token) => {
   `;
 
   return result[0]?.success ?? false;
+};
+
+// FUNCIONES SQL NATIVAS - ACTIVACIÓN DE ADMINISTRADORES (ONBOARDING)
+
+export const generateActivationToken = async (userId) => {
+  const result = await prisma.$queryRaw`
+    SELECT generate_activation_token(${userId}::text::uuid) AS token
+  `;
+
+  return result[0]?.token;
+};
+
+export const activateAccountWithToken = async (token, newPasswordHash) => {
+  const result = await prisma.$queryRaw`
+    SELECT activate_account_with_token(${token}::text, ${newPasswordHash}::text) AS user_id
+  `;
+
+  return result[0]?.user_id;
+};
+
+export const finalizeOnboarding = async (userId) => {
+  return prisma.user.update({
+    where: { id: userId },
+    data: {
+      mustSetup2fa: false,
+      status: 'ACTIVE',
+    },
+    select: {
+      id: true,
+      status: true,
+      mustSetup2fa: true,
+    },
+  });
 };
 
 // GESTIÓN DE REFRESH TOKENS (SESIONES)

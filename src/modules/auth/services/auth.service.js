@@ -62,6 +62,24 @@ export const login = async ({ email, password, ipAddress = null, userAgent = nul
     throw ApiError.forbidden(MESSAGES.AUTH.LOGIN_EMAIL_NOT_VERIFIED);
   }
 
+  // Onboarding (Opción 2): cuenta con credenciales temporales que aún debe
+  // enrolar 2FA. NO se emite JWT final ni se pide TOTP aún; se entrega un
+  // token de propósito ONBOARDING que solo permite las rutas /onboarding.
+  if (user.mustSetup2fa && !user.twoFactorEnabled) {
+    const tempToken = jwt.sign(
+      { userId: user.id, email: user.email, purpose: 'ONBOARDING' },
+      env.JWT_SECRET,
+      { expiresIn: '15m' }
+    );
+
+    return {
+      requiresOnboarding: true,
+      tempToken,
+      email: user.email,
+      mustChangePassword: user.mustChangePassword,
+    };
+  }
+
   if (user.twoFactorEnabled) {
     const tempToken = jwt.sign(
       { userId: user.id, email: user.email, purpose: 'TOTP_PENDING' },
@@ -110,6 +128,97 @@ export const login = async ({ email, password, ipAddress = null, userAgent = nul
     refreshToken,
     mustChangePassword: user.mustChangePassword,
     user: formatUserResponse(user),
+  };
+};
+
+/**
+ * Opción 1 — Activa la cuenta del admin mediante el token de la invitación y
+ * define su contraseña. Pasa de PENDING_ACTIVATION a una sesión de onboarding
+ * (token ONBOARDING) para configurar 2FA; recién al verificar el TOTP y
+ * finalizar se emite el JWT de acceso completo.
+ */
+export const activateAccount = async (token, newPassword) => {
+  const hashedPassword = await bcrypt.hash(newPassword, SALT_ROUNDS);
+  const userId = await authRepository.activateAccountWithToken(token, hashedPassword);
+
+  if (!userId) {
+    throw ApiError.invalidToken(MESSAGES.AUTH.ACTIVATION_INVALID_TOKEN);
+  }
+
+  const user = await authRepository.findById(userId);
+  if (!user) {
+    throw ApiError.notFound(MESSAGES.USER.NOT_FOUND);
+  }
+
+  const tempToken = jwt.sign(
+    { userId: user.id, email: user.email, purpose: 'ONBOARDING' },
+    env.JWT_SECRET,
+    { expiresIn: '15m' }
+  );
+
+  return {
+    requiresOnboarding: true,
+    tempToken,
+    user: formatUserResponse(user),
+  };
+};
+
+/**
+ * Finaliza el onboarding (Opción 1 y Opción 2): exige 2FA enrólado y
+ * contraseña definida, limpia los flags de onboarding y emite el JWT final.
+ */
+export const finalizeOnboarding = async (userId, { ipAddress = null, userAgent = null } = {}) => {
+  const user = await authRepository.findById(userId);
+  if (!user) {
+    throw ApiError.notFound(MESSAGES.USER.NOT_FOUND);
+  }
+
+  if (user.status !== 'PENDING_ACTIVATION' && user.status !== 'ACTIVE') {
+    throw ApiError.forbidden(MESSAGES.AUTH.LOGIN_ACCOUNT_INACTIVE);
+  }
+
+  if (!user.twoFactorEnabled) {
+    throw ApiError.badRequest(MESSAGES.AUTH.ONBOARDING_COMPLETE_2FA_FIRST);
+  }
+
+  if (user.mustChangePassword) {
+    throw ApiError.badRequest(MESSAGES.AUTH.LOGIN_MUST_CHANGE_PASSWORD);
+  }
+
+  await authRepository.finalizeOnboarding(user.id);
+  await authRepository.registerSuccessfulLogin(user.email, ipAddress, userAgent);
+
+  const refreshed = await authRepository.findByEmail(user.email);
+
+  const token = generateJwt(refreshed);
+  const { rawToken: refreshToken, tokenHash } = generateRefreshToken();
+  const expiresAt = new Date(Date.now() + durationToMs(env.JWT_REFRESH_EXPIRES_IN));
+  await authRepository.createRefreshToken({
+    userId: user.id,
+    tokenHash,
+    expiresAt,
+    ipAddress,
+    userAgent,
+  });
+
+  try {
+    await auditService.logAction({
+      actorId: user.id,
+      electionId: null,
+      action: 'LOGIN',
+      ipAddress,
+      metadata: { method: 'onboarding' },
+    });
+  } catch (error) {
+    logger.warn('No se pudo registrar el login en auditoría', { error: error.message });
+  }
+
+  return {
+    requiresOnboarding: false,
+    token,
+    refreshToken,
+    mustChangePassword: false,
+    user: formatUserResponse(refreshed),
   };
 };
 

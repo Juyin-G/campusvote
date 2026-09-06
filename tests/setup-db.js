@@ -75,6 +75,8 @@ export default async function setupTestDB() {
     await executeFile('user/009_cleanup_tokens.sql');
     await executeFile('user/010_media_files.sql');
     await executeFile('user/011_document_identity.sql');
+    await executeFile('user/012_activation_enum.sql');
+    await executeFile('user/013_activation.sql');
 
     console.log('7. Creando solicitudes de organizaciones...');
 

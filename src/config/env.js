@@ -124,6 +124,10 @@ export default {
   SMTP_PASS: process.env.SMTP_PASS,
   SMTP_FROM: process.env.SMTP_FROM || 'noreply@campusvote.com',
 
+  // Email API (proveedor alternativo a SMTP: Resend)
+  RESEND_API_KEY: process.env.RESEND_API_KEY,
+  RESEND_FROM: process.env.RESEND_FROM || 'CampusVote <onboarding@resend.dev>',
+
   // Google OAuth
   GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID,
   GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET,
