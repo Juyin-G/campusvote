@@ -15,10 +15,11 @@ export class IdentityProvider {
 const DNI_PATTERN = /^\d{8}$/;
 const CE_PATTERN = /^[0-9A-Za-z]{9,12}$/;
 
-// Checksum del DNI peruano (módulo 11, algoritmo de Reniec).
+// Checksum del DNI peruano (módulo 11, algoritmo de Reniec: 7 pesos sobre los
+// primeros 7 dígitos; el 8.º dígito es el verificador y no participa en la suma).
 const isValidDniChecksum = (dni) => {
-  const weights = [3, 2, 7, 6, 5, 4, 3, 2];
-  const sum = dni.split('').reduce((acc, digit, i) => acc + parseInt(digit, 10) * weights[i], 0);
+  const weights = [3, 2, 7, 6, 5, 4, 3];
+  const sum = dni.slice(0, 7).split('').reduce((acc, digit, i) => acc + parseInt(digit, 10) * weights[i], 0);
   const check = 11 - (sum % 11);
   if (check === 10 || check === 11) return dni[7] === '0';
   return parseInt(dni[7], 10) === check;
