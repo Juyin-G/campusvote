@@ -104,6 +104,14 @@ export const MESSAGES = {
     RECEIVED_CTA: 'Visitar CampusVote',
     RECEIVED_FOOTER:
       'Si no solicitaste este registro, puedes ignorar este mensaje.',
+
+    APPROVED_SUBJECT: 'Tu solicitud fue aprobada — CampusVote',
+    APPROVED_HEADING: 'Tu solicitud fue aprobada',
+    APPROVED_BODY:
+      'La solicitud de "{institution}" fue aprobada por {approver}. Nuestro equipo se pondra en contacto contigo para coordinar el alta administrativa.',
+    APPROVED_CTA: 'Conocer CampusVote',
+    APPROVED_FOOTER:
+      'Este correo es informativo; no requiere ninguna accion inmediata.',
   },
 
   // ELECCIONES (ELECTIONS)
