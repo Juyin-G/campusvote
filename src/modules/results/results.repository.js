@@ -86,8 +86,34 @@ export const findElectionStatus = (electionId) =>
     select: { id: true, status: true },
   });
 
+export const findPublishedElections = () =>
+  prisma.election.findMany({
+    where: { status: 'PUBLISHED' },
+    select: {
+      id: true,
+      title: true,
+      description: true,
+      startAt: true,
+      endAt: true,
+      status: true,
+      creator: {
+        select: {
+          organization: {
+            select: {
+              name: true,
+              code: true,
+              logo: true,
+            },
+          },
+        },
+      },
+    },
+    orderBy: { updatedAt: 'desc' },
+  });
+
 export default {
   findElectionResult,
   findTalliesWithContext,
   findElectionStatus,
+  findPublishedElections,
 };

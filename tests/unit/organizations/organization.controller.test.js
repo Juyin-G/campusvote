@@ -1,5 +1,11 @@
 import { jest, describe, it, expect, beforeEach } from '@jest/globals';
 
+// El controller importa env.js, que valida los secretos al cargarse.
+process.env.JWT_SECRET =
+  process.env.JWT_SECRET || 'test-jwt-secret-with-at-least-32-characters-x7';
+process.env.DATABASE_URL =
+  process.env.DATABASE_URL || 'postgresql://test';
+
 jest.unstable_mockModule(
   '../../../src/modules/organizations/organization/organization.service.js',
   () => ({

@@ -5,13 +5,15 @@ import { sendSuccess } from '../../../shared/utils/apiResponse.js';
 import { HTTP_STATUS } from '../../../constants/httpStatus.js';
 
 /**
- * Listar las listas candidatas de una elección
+ * Listar los proyectos/listas credenciales de una elección con filtros de búsqueda.
  * @route GET /api/elections/:electionId/candidate-lists
  * @access Autenticado
  */
 export const listCandidateLists = asyncHandler(async (req, res) => {
-  const { candidateLists, total } =
-    await candidateListService.listCandidateLists(req.params.electionId);
+  const { candidateLists, total } = await candidateListService.listCandidateLists(
+    req.params.electionId,
+    req.query
+  );
 
   // Sin paginar a propósito: la papeleta necesita todas las listas.
   return sendSuccess(

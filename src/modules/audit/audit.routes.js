@@ -1,5 +1,8 @@
+// src/modules/audit/audit.routes.js
+
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
+import asyncHandler from '../../shared/utils/asyncHandler.js';
 import auditController from './audit.controller.js';
 import { authenticate, authorize } from '../../middlewares/auth.middleware.js';
 import { ROLES } from '../../constants/roles.js';
@@ -20,14 +23,16 @@ const tokenRateLimiter = rateLimit({
   }
 });
 
-// Middleware para envolver handlers asíncronos sin repetir try/catch
-const asyncHandler = (fn) => (req, res, next) => {
-  Promise.resolve(fn(req, res, next)).catch(next);
-};
-
 /**
  * RUTAS DE AUDIT LOGS (Trazabilidad e historial)
  */
+
+router.get(
+  '/verify',
+  authenticate,
+  authorize([ROLES.ADMIN, ROLES.SUPERADMIN, ROLES.ELECTORAL_COMMISSION]),
+  asyncHandler(auditController.verifyAuditChain.bind(auditController))
+);
 
 router.get(
   '/logs',
@@ -54,10 +59,11 @@ router.post(
  * RUTAS DE ONE-TIME TOKENS / VOTING TOKENS
  */
 
-// Generar token para un usuario (requiere sesión autenticada)
+// Generar token para un usuario (Restringido a GESTORES para evitar acuñación no autorizada)
 router.post(
   '/tokens',
   authenticate,
+  authorize(GESTORES),
   asyncHandler(auditController.createOneTimeToken.bind(auditController))
 );
 

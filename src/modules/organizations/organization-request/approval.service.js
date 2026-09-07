@@ -29,7 +29,7 @@ const assertPending = async (requestId) => {
 // Aprueba una solicitud delegando en la función SQL nativa (bloqueo pesimista)
 export const approveRequest = async (requestId, reviewerId) => {
   assertUuid(requestId);
-  await assertPending(requestId);
+  const request = await assertPending(requestId);
 
   const newOrg = await orgRepository.approveOrganizationRequest(
     requestId,
@@ -40,7 +40,19 @@ export const approveRequest = async (requestId, reviewerId) => {
     throw ApiError.conflict('La solicitud no generó una organización (posible condición de carrera o error en la función SQL)');
   }
 
-  return newOrg;
+  // La capacidad solicitada se convierte en la cuota inicial. El SUPERADMIN
+  // puede ampliarla o reducirla después, pero nunca por debajo de los miembros
+  // actualmente registrados.
+  const currentMembers = await orgRepository.countOrganizationMembers(newOrg.id);
+  if (request.estimatedMembers < currentMembers) {
+    throw ApiError.conflict(
+      'La capacidad solicitada es menor que los miembros existentes de la organización'
+    );
+  }
+
+  return orgRepository.updateOrg(newOrg.id, {
+    memberLimit: request.estimatedMembers,
+  });
 };
 
 // Rechaza una solicitud guardando el motivo y marcando REJECTED

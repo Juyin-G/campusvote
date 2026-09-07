@@ -9,6 +9,16 @@ import logger from '../../config/logger.js';
 import { ApiError } from '../errors/ApiError.js';
 
 let transport;
+let resend;
+
+/**
+ * Indica si hay algún canal de envío de correo configurado.
+ * Con esto el onboarding decide entre invitar por email (Opción 1) o crear
+ * credenciales temporales (Opción 2).
+ */
+export const hasEmailConfigured = () => {
+  return Boolean(env.RESEND_API_KEY || (env.SMTP_HOST && env.SMTP_USER && env.SMTP_PASS));
+};
 
 const assertSmtpConfig = () => {
   if (!env.SMTP_HOST || !env.SMTP_USER || !env.SMTP_PASS) {
@@ -39,8 +49,36 @@ const getTransport = () => {
   return transport;
 };
 
+const getResend = async () => {
+  if (!resend) {
+    // Import dinámico: evita cargar Resend si no se usa
+    const { Resend } = await import('resend');
+    resend = new Resend(env.RESEND_API_KEY);
+  }
+  return resend;
+};
+
 const sendMail = async ({ to, subject, html, text }) => {
   try {
+    if (env.RESEND_API_KEY) {
+      const client = await getResend();
+      const { data, error } = await client.emails.send({
+        from: env.RESEND_FROM,
+        to,
+        subject,
+        html,
+        text,
+      });
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      logger.info('Correo enviado (Resend)', { to, subject, messageId: data?.id });
+
+      return data;
+    }
+
     const info = await getTransport().sendMail({
       from: env.SMTP_FROM,
       to,
@@ -112,5 +150,31 @@ export const sendReset = async ({ email, token }) => {
     text: ['Restablece tu contraseña en CampusVote:', link, 'Expira en 1 hora.'].join(
       '\n',
     ),
+  });
+};
+
+export const sendActivation = async ({
+  email,
+  token,
+  firstName = 'Administrador',
+}) => {
+  const link = `${env.FRONTEND_URL}/activate-account?token=${encodeURIComponent(token)}`;
+
+  await sendMail({
+    to: email,
+    subject: 'Activa tu cuenta de administrador en CampusVote',
+    html: `
+      <p>Hola ${firstName},</p>
+      <p>Fuiste asignado como administrador en CampusVote. Para activar tu cuenta y configurar tu acceso, usa este enlace:</p>
+      <p><a href="${link}">${link}</a></p>
+      <p>Este enlace expira en 24 horas.</p>
+      <p>Si no esperabas este correo, ignóralo.</p>
+    `,
+    text: [
+      `Hola ${firstName},`,
+      'Activa tu cuenta de administrador en CampusVote:',
+      link,
+      'Este enlace expira en 24 horas.',
+    ].join('\n'),
   });
 };

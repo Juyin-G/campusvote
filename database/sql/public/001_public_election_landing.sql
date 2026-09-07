@@ -32,7 +32,10 @@ position_data AS (
     LEFT JOIN candidate_data cd 
         ON cd.candidate_list_id = cl.id 
        AND cd.position_id = p.id
-    WHERE cl.status = 'APPROVED'
+    WHERE EXISTS (
+        SELECT 1 FROM candidacies c2
+        WHERE c2.candidate_list_id = cl.id AND c2.status = 'APPROVED'
+    )
     GROUP BY cl.id
 ),
 list_data AS (
@@ -51,7 +54,10 @@ list_data AS (
         ) AS candidate_lists
     FROM candidate_lists cl
     LEFT JOIN position_data pd ON pd.candidate_list_id = cl.id
-    WHERE cl.status = 'APPROVED'
+    WHERE EXISTS (
+        SELECT 1 FROM candidacies c2
+        WHERE c2.candidate_list_id = cl.id AND c2.status = 'APPROVED'
+    )
     GROUP BY cl.election_id
 )
 -- 4. Elecciones visibles al público (excluye DRAFT)

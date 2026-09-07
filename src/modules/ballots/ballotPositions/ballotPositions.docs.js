@@ -43,7 +43,7 @@
  *               type: string
  *               nullable: true
  *               example: Cargo ejecutivo principal
- *             maxSelectableOptions:
+ *             seats:
  *               type: integer
  *               example: 1
  *         options:

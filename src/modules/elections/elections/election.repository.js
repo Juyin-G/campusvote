@@ -54,6 +54,27 @@ export const findElectionById = (id) =>
     select: ELECTION_SELECT,
   });
 
+/**
+ * Resuelve la organización dueña de una elección a través de su creador
+ * (elections.created_by -> users.organization_id). Usado por el middleware
+ * de ámbito (Anti-IDOR). Retorna null si la elección no existe o su creador
+ * no pertenece a ninguna organización.
+ */
+export const findElectionOwnerOrganization = async (electionId) => {
+  const election = await prisma.election.findUnique({
+    where: { id: electionId },
+    select: { createdBy: true },
+  });
+  if (!election) return null;
+
+  const creator = await prisma.user.findUnique({
+    where: { id: election.createdBy },
+    select: { organizationId: true },
+  });
+
+  return creator?.organizationId ?? null;
+};
+
 /** Solo el estado y fechas: para validar transiciones sin traer toda la fila. */
 export const findElectionStatus = (id) =>
   prisma.election.findUnique({
@@ -114,6 +135,7 @@ export const certifyElection = async (electionId, actorId) => {
 
 export default {
   findElectionById,
+  findElectionOwnerOrganization,
   findElectionStatus,
   listElections,
   countElections,

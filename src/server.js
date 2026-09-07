@@ -2,10 +2,14 @@
 import app from './app.js';
 import env from './config/env.js';
 import logger from './config/logger.js';
+import { startScheduler } from './jobs/scheduler.js';
 // import { prisma } from './config/db.js'; // O tu cliente de base de datos
 
 const PORT = env.PORT || 3000;
 let isShuttingDown = false; // Bandera para prevenir ejecuciones múltiples
+
+// Tareas en segundo plano (solo se ejecutan si BACKUP_ENABLED=true)
+const stopScheduler = startScheduler();
 
 const server = app.listen(PORT, () => {
   logger.info('CampusVote API server started', {
@@ -41,7 +45,10 @@ const shutdown = async (signal) => {
     await new Promise((resolve) => server.close(resolve));
     logger.info('Servidor HTTP cerrado correctamente.', { category: 'SERVER' });
 
-    // 3. Desconectar servicios externos (Base de Datos, Redis, etc.)
+    // 3. Detener scheduler de tareas en segundo plano
+    stopScheduler();
+
+    // 4. Desconectar servicios externos (Base de Datos, Redis, etc.)
     // await prisma.$disconnect();
     // logger.info('Conexión a la base de datos cerrada.', { category: 'SERVER' });
 

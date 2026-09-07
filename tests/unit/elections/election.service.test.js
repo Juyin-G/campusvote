@@ -127,7 +127,7 @@ describe('Election Service — CRUD', () => {
       service.createElection(
         {
           title: 'X',
-          election_type: 'UNIVERSITY',
+          scope_type: 'UNIVERSITY',
           period_id: PERIODO,
           start_at: enElFuturo(1),
           end_at: enElFuturo(2),

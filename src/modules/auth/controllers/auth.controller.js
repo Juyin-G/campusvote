@@ -3,7 +3,10 @@
  * Manejo de capa HTTP y delegación a Auth Service
  */
 import * as authService from '../services/auth.service.js';
-import { disableTotp as disableTotpService } from '../services/auth.totp.service.js';
+import {
+  disableTotp as disableTotpService,
+  getTwoFactorStatus as getTwoFactorStatusService,
+} from '../services/auth.totp.service.js';
 import asyncHandler from '../../../shared/utils/asyncHandler.js';
 import { sendSuccess } from '../../../shared/utils/apiResponse.js';
 import { HTTP_STATUS } from '../../../constants/httpStatus.js';
@@ -172,6 +175,18 @@ export const disableTotp = asyncHandler(async (req, res) => {
   );
 });
 
+export const getTwoFactorStatus = asyncHandler(async (req, res) => {
+  const result = await getTwoFactorStatusService(req.user.userId);
+
+  return sendSuccess(
+    res,
+    result,
+    'Estado de 2FA obtenido',
+    { requestId: req.requestId },
+    HTTP_STATUS.OK
+  );
+});
+
 export const requestPasswordReset = asyncHandler(async (req, res) => {
   const result = await authService.requestPasswordReset(req.body.email);
 
@@ -204,6 +219,20 @@ export const verifyEmail = asyncHandler(async (req, res) => {
     res,
     result,
     MESSAGES.AUTH.EMAIL_VERIFIED_SUCCESS,
+    { requestId: req.requestId },
+    HTTP_STATUS.OK
+  );
+});
+
+export const verifyFirebase = asyncHandler(async (req, res) => {
+  const result = await authService.authenticateWithFirebase(req.body.idToken);
+
+  return sendSuccess(
+    res,
+    result,
+    result.requiresTotp
+      ? MESSAGES.AUTH.TWO_FACTOR_REQUIRED
+      : MESSAGES.AUTH.LOGIN_SUCCESS,
     { requestId: req.requestId },
     HTTP_STATUS.OK
   );

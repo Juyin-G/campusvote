@@ -6,8 +6,10 @@ export const ROLES = Object.freeze({
   STUDENT: 'STUDENT',
   TEACHER: 'TEACHER',
   ADMIN: 'ADMIN',
+  SUPERADMIN: 'SUPERADMIN',
   ELECTORAL_COMMISSION: 'ELECTORAL_COMMISSION',
   OBSERVER: 'OBSERVER',
+  JURY: 'JURY',
 });
 
 /**
@@ -19,6 +21,7 @@ export const ALL_ROLES = Object.values(ROLES);
  * Roles que tienen acceso administrativo
  */
 export const ADMIN_ROLES = [
+  ROLES.SUPERADMIN,
   ROLES.ADMIN,
   ROLES.ELECTORAL_COMMISSION,
 ];
@@ -31,6 +34,7 @@ export const ELECTORAL_ROLES = [
   ROLES.TEACHER,
   ROLES.ADMIN,
   ROLES.ELECTORAL_COMMISSION,
+  ROLES.JURY,
 ];
 
 /**

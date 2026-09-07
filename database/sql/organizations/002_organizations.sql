@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS organizations (
     timezone VARCHAR(50) NOT NULL DEFAULT 'America/Lima',
     onboarding_completed BOOLEAN NOT NULL DEFAULT FALSE,
     onboarding_completed_at TIMESTAMPTZ NULL,
+    allowed_email_domains JSONB NOT NULL DEFAULT '[]'::jsonb,
 
     CONSTRAINT chk_org_name_not_empty CHECK (length(trim(name)) > 0),
     CONSTRAINT chk_org_code_not_empty CHECK (length(trim(code)) > 0),

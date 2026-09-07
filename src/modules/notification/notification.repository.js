@@ -27,7 +27,6 @@ const DELIVERY_SELECT = {
 
 /**
  * Obtiene el conteo de notificaciones no leídas de un usuario.
- * (Aprovecha el índice parcial idx_notifications_user_unread)
  */
 export const countUnreadNotifications = (userId) =>
   prisma.notification.count({
@@ -58,18 +57,23 @@ export const findNotificationsByUser = (userId, { page, limit, type, isRead }) =
   });
 };
 
+export const countNotificationsByUser = (userId, { type, isRead } = {}) => {
+  const where = { userId };
+  if (type) where.type = type;
+  if (isRead !== undefined) where.readAt = isRead ? { not: null } : null;
+  return prisma.notification.count({ where });
+};
+
 /**
  * Crea una notificación y sus registros de entrega en una sola transacción.
  */
 export const createNotificationWithDeliveries = async (notificationData, channels) => {
   return prisma.$transaction(async (tx) => {
-    // 1. Crear la notificación principal
     const notification = await tx.notification.create({
       data: notificationData,
       select: NOTIFICATION_SELECT,
     });
 
-    // 2. Crear los registros de entrega para cada canal solicitado
     const deliveries = await Promise.all(
       channels.map((channel) =>
         tx.notificationDelivery.create({
@@ -94,7 +98,7 @@ export const createNotificationWithDeliveries = async (notificationData, channel
  */
 export const updateNotificationReadStatus = (id, userId, isRead) =>
   prisma.notification.update({
-    where: { id, userId }, // El userId en el where asegura que el usuario solo marque SUS propias notificaciones
+    where: { id, userId },
     data: {
       readAt: isRead ? new Date() : null,
     },
@@ -102,7 +106,16 @@ export const updateNotificationReadStatus = (id, userId, isRead) =>
   });
 
 /**
- * Actualiza el estado de un registro de entrega (Usado por el Worker de colas).
+ * Marca todas las notificaciones de un usuario como leídas.
+ */
+export const markAllNotificationsAsRead = (userId) =>
+  prisma.notification.updateMany({
+    where: { userId, readAt: null },
+    data: { readAt: new Date() },
+  });
+
+/**
+ * Actualiza el estado de un registro de entrega.
  */
 export const updateDeliveryStatus = (id, status, errorMessage = null) => {
   const data = { status };
@@ -112,7 +125,6 @@ export const updateDeliveryStatus = (id, status, errorMessage = null) => {
   } else if (status === 'FAILED') {
     data.errorMessage = errorMessage;
     data.attemptCount = { increment: 1 };
-    // Programar el próximo intento (ej: en 5 minutos)
     data.nextAttemptAt = new Date(Date.now() + 5 * 60 * 1000); 
   }
 
@@ -148,11 +160,41 @@ export const findPendingDeliveries = (limit = 50) =>
     take: limit,
   });
 
+/**
+ * Lista los votantes de una elección (para difundir RESULTADOS_PUBLISHED).
+ */
+export const findVotersForElection = (electionId, limit = 5000) =>
+  prisma.vote.findMany({
+    where: { electionId },
+    select: { voterId: true },
+    distinct: ['voterId'],
+    take: limit,
+  });
+
+/**
+ * Crea N notificaciones idénticas (broadcast) a una lista de destinatarios.
+ */
+export const createBroadcast = (userId, data) =>
+  prisma.notification.create({
+    data: {
+      userId,
+      type: data.type,
+      title: data.title,
+      message: data.message,
+      metadata: data.metadata || {},
+    },
+    select: NOTIFICATION_SELECT,
+  });
+
 export default {
   countUnreadNotifications,
   findNotificationsByUser,
+  countNotificationsByUser,
   createNotificationWithDeliveries,
   updateNotificationReadStatus,
+  markAllNotificationsAsRead,
   updateDeliveryStatus,
   findPendingDeliveries,
+  findVotersForElection,
+  createBroadcast,
 };

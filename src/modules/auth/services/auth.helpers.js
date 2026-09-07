@@ -42,24 +42,9 @@ export const hashToken = (token) => {
   return crypto.createHash('sha256').update(token).digest('hex');
 };
 
-/**
- * Verifica la autenticidad y vigencia de un JWT
- */
-export const verifyJwt = (token) => {
-  try {
-    // Se fija el algoritmo igual que en el middleware de autenticación.
-    return jwt.verify(token, env.JWT_SECRET, { algorithms: ['HS256'] });
-  } catch {
-    // Token inválido, expirado o mal formado: para quien llama solo importa
-    // que no es válido, así que se devuelve null en lugar de propagar.
-    return null;
-  }
-};
-
 export default {
   generateJwt,
   generateRefreshToken,
   hashToken,
-  verifyJwt,
   formatUserResponse,
 };

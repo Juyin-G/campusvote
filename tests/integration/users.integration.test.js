@@ -9,6 +9,8 @@ import { createAcademicFixture } from './academic.fixture.js';
 jest.unstable_mockModule('../../src/middlewares/rateLimiter.middleware.js', () => ({
   loginLimiter: (_req, _res, next) => next(),
   authLimiter: (_req, _res, next) => next(),
+  userLimiter: () => (_req, _res, next) => next(),
+  userElectionLimiter: () => (_req, _res, next) => next(),
 }));
 
 const app = (await import('../../src/app.js')).default;
@@ -308,10 +310,10 @@ describe('Users Integration (HTTP + DB)', () => {
       const res = await request(app)
         .patch(`/api/users/${targetId}/role`)
         .set('Authorization', `Bearer ${adminToken}`)
-        .send({ role: 'TEACHER' });
+        .send({ role: 'OBSERVER' });
 
       expect(res.status).toBe(200);
-      expect(res.body.data.role).toBe('TEACHER');
+      expect(res.body.data.role).toBe('OBSERVER');
     });
   });
 

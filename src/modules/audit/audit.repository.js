@@ -245,6 +245,16 @@ class AuditRepository {
     return result.rowCount;
   }
 
+  /**
+   * Verifica la integridad de la cadena de hashes (función SQL
+   * `verify_audit_chain()` de 003_audit_protection.sql).
+   */
+  async verifyAuditChain() {
+    const query = `SELECT * FROM verify_audit_chain()`;
+    const result = await pool.query(query);
+    return result.rows[0] || null;
+  }
+
   async close() {
     await pool.end();
   }

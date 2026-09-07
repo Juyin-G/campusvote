@@ -142,7 +142,10 @@ export const getFinalResults = async (electionId) => {
   };
 };
 
+export const listPublishedElections = () => resultsRepository.findPublishedElections();
+
 export default {
   getLiveResults,
   getFinalResults,
+  listPublishedElections,
 };

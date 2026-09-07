@@ -15,8 +15,47 @@ const CANDIDATE_LIST_SELECT = {
   acronym: true,
   motto: true,
   logo: true,
+  description: true,
+  imageUrl: true,     // No 'image_url'
+  category: true,
+  tags: true,
   createdAt: true,    // No 'created_at'
   updatedAt: true,    // No 'updated_at'
+};
+
+/**
+ * Filtros de búsqueda por proyecto (ferias/concursos):
+ * - search: coincidencia parcial insensible a mayúsculas en nombre/acrónimo/descripción
+ * - category: categoría exacta
+ * - status: estado de la candidatura (PENDING/APPROVED/REJECTED) al menos una
+ */
+const buildCandidateListWhere = (electionId, { search, category, status, fromDate, toDate } = {}) => {
+  const where = { electionId };
+
+  if (search) {
+    where.OR = [
+      { name: { contains: search, mode: 'insensitive' } },
+      { acronym: { contains: search, mode: 'insensitive' } },
+      { description: { contains: search, mode: 'insensitive' } },
+    ];
+  }
+  if (category) where.category = category;
+  if (status) where.candidacies = { some: { status } };
+
+  if (fromDate || toDate) {
+    where.createdAt = {};
+    if (fromDate) where.createdAt.gte = new Date(fromDate);
+    if (toDate) where.createdAt.lte = new Date(toDate);
+  }
+
+  return where;
+};
+
+// El orden por rating no puede resolverse en SQL puro (promedio agregado de una
+// relación), así que 'rating' se ordena en el service tras adjuntar el resumen.
+const buildCandidateListOrderBy = (sortBy = 'name') => {
+  if (sortBy === 'createdAt') return [{ createdAt: 'desc' }];
+  return [{ name: 'asc' }];
 };
 
 export const findCandidateListById = (id) =>
@@ -25,17 +64,17 @@ export const findCandidateListById = (id) =>
     select: CANDIDATE_LIST_SELECT,
   });
 
-/** Las listas de una elección, ordenadas por nombre. */
-export const findCandidateListsByElection = (electionId) =>
+/** Las listas/proyectos de una elección, con filtros de búsqueda opcionales. */
+export const findCandidateListsByElection = (electionId, filters = {}) =>
   prisma.candidateList.findMany({
-    where: { electionId },
+    where: buildCandidateListWhere(electionId, filters),
     select: CANDIDATE_LIST_SELECT,
-    orderBy: { name: 'asc' },
+    orderBy: buildCandidateListOrderBy(filters.sortBy),
   });
 
-export const countCandidateListsByElection = (electionId) =>
+export const countCandidateListsByElection = (electionId, filters = {}) =>
   prisma.candidateList.count({
-    where: { electionId },
+    where: buildCandidateListWhere(electionId, filters),
   });
 
 export const createCandidateList = (data) =>

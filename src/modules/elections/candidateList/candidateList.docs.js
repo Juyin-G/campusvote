@@ -11,8 +11,8 @@
  * @swagger
  * /api/elections/{electionId}/candidate-lists:
  *   get:
- *     summary: Listar listas candidatas de una elección
- *     description: Obtiene todas las listas candidatas registradas para una elección específica. No se usa paginación para facilitar la generación de la papeleta.
+ *     summary: Listar proyectos/listas candidatas de una elección (con filtros)
+ *     description: "Obtiene los proyectos (listas candidatas) de una elección con filtros de búsqueda por proyecto: search (nombre/acrónimo/descripción), category, status de la candidatura, orden y paginación opcional. Sin limit se devuelven todas las listas (requerido por la papeleta)."
  *     tags: [Listas Candidatas]
  *     security:
  *       - bearerAuth: []
@@ -24,9 +24,49 @@
  *           type: string
  *           format: uuid
  *         description: ID de la elección
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *         description: Búsqueda parcial en nombre, acrónimo o descripción del proyecto
+ *       - in: query
+ *         name: category
+ *         schema:
+ *           type: string
+ *         description: Filtra por categoría exacta del proyecto
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [PENDING, APPROVED, REJECTED]
+ *         description: Filtra por estado de la candidatura del proyecto
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [name, createdAt, rating]
+ *         description: Orden de resultados (rating requiere withRatings=true)
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 200
+ *         description: Paginación (opcional, sin limit se devuelve todo)
+ *       - in: query
+ *         name: offset
+ *         schema:
+ *           type: integer
+ *           minimum: 0
+ *         description: Desplazamiento para paginación
+ *       - in: query
+ *         name: withRatings
+ *         schema:
+ *           type: boolean
+ *         description: Adjunta ratings.count, ratings.average y latestComment de la feria
  *     responses:
  *       200:
- *         description: Lista de candidaturas obtenida exitosamente
+ *         description: Lista de proyectos obtenida exitosamente
  *         content:
  *           application/json:
  *             schema:
@@ -103,6 +143,31 @@
  *                 nullable: true
  *                 description: URL del logo de la lista (opcional)
  *                 example: "https://example.com/logos/lue.png"
+ *               description:
+ *                 type: string
+ *                 maxLength: 10000
+ *                 nullable: true
+ *                 description: Descripción del proyecto (usado en ferias/concursos)
+ *                 example: "Proyecto de reciclaje con impacto en 3 facultades"
+ *               imageUrl:
+ *                 type: string
+ *                 maxLength: 1000
+ *                 nullable: true
+ *                 description: URL de la imagen del proyecto
+ *                 example: "https://example.com/uploads/proyecto.jpg"
+ *               category:
+ *                 type: string
+ *                 maxLength: 80
+ *                 nullable: true
+ *                 description: Categoría del proyecto (filtro de búsqueda)
+ *                 example: "Tecnología"
+ *               tags:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                 maxItems: 20
+ *                 description: Etiquetas del proyecto para búsqueda
+ *                 example: ["sostenibilidad", "2026-II"]
  *     responses:
  *       201:
  *         description: Lista candidata creada exitosamente
@@ -234,6 +299,23 @@
  *                 type: string
  *                 maxLength: 500
  *                 nullable: true
+ *               description:
+ *                 type: string
+ *                 maxLength: 10000
+ *                 nullable: true
+ *               imageUrl:
+ *                 type: string
+ *                 maxLength: 1000
+ *                 nullable: true
+ *               category:
+ *                 type: string
+ *                 maxLength: 80
+ *                 nullable: true
+ *               tags:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                 maxItems: 20
  *     responses:
  *       200:
  *         description: Lista candidata actualizada exitosamente
@@ -354,6 +436,36 @@
  *           type: string
  *           nullable: true
  *           description: URL del logo
+ *         description:
+ *           type: string
+ *           nullable: true
+ *           description: Descripción del proyecto (ferias/concursos)
+ *         imageUrl:
+ *           type: string
+ *           nullable: true
+ *           description: URL de la imagen del proyecto
+ *         category:
+ *           type: string
+ *           nullable: true
+ *           description: Categoría del proyecto
+ *         tags:
+ *           type: array
+ *           items:
+ *             type: string
+ *           description: Etiquetas del proyecto
+ *         ratings:
+ *           type: object
+ *           nullable: true
+ *           description: Resumen de calificaciones (solo con withRatings=true)
+ *           properties:
+ *             count:
+ *               type: integer
+ *             average:
+ *               type: number
+ *         latestComment:
+ *           type: string
+ *           nullable: true
+ *           description: Último comentario de un jurado
  *         created_at:
  *           type: string
  *           format: date-time

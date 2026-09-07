@@ -5,7 +5,7 @@ import * as electionRepository from '../elections/election.repository.js';
 import { ApiError } from '../../../shared/errors/ApiError.js';
 import MESSAGES from '../../../constants/messages.js';
 
-const EDITABLE_STATUSES = ['DRAFT', 'SCHEDULED'];
+const EDITABLE_STATUSES = ['DRAFT'];
 
 const asText = (value) => (typeof value === 'string' ? value.trim() : '');
 

@@ -1,4 +1,4 @@
--- sql/voting/005_cast_vote.sql
+-- database/sql/voting/005_cast_vote.sql
 
 BEGIN;
 
@@ -7,7 +7,8 @@ CREATE OR REPLACE FUNCTION cast_secure_vote_with_session(
     p_voter_id UUID,
     p_encrypted_payload TEXT,
     p_payload_hash VARCHAR,
-    p_selections JSONB
+    p_selections JSONB,
+    p_voting_token VARCHAR DEFAULT NULL
 )
 RETURNS VARCHAR
 LANGUAGE plpgsql
@@ -34,6 +35,11 @@ BEGIN
 
     IF v_session.voter_id != p_voter_id THEN
         RAISE EXCEPTION 'Acceso denegado: La sesión no pertenece al usuario autenticado.';
+    END IF;
+
+    -- Consumo defensivo en base de datos si el token es enviado al emitir el voto
+    IF p_voting_token IS NOT NULL AND p_voting_token <> '' THEN
+        PERFORM audit.consume_voting_access_token(p_voting_token, v_session.election_id);
     END IF;
 
     SELECT allow_blank_vote INTO v_allow_blank 
@@ -94,7 +100,7 @@ BEGIN
 END;
 $$;
 
-REVOKE ALL ON FUNCTION cast_secure_vote_with_session(UUID, UUID, TEXT, VARCHAR, JSONB) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION cast_secure_vote_with_session(UUID, UUID, TEXT, VARCHAR, JSONB) TO app_user;
+REVOKE ALL ON FUNCTION cast_secure_vote_with_session(UUID, UUID, TEXT, VARCHAR, JSONB, VARCHAR) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION cast_secure_vote_with_session(UUID, UUID, TEXT, VARCHAR, JSONB, VARCHAR) TO app_user;
 
 COMMIT;

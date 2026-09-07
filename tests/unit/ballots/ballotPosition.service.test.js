@@ -13,7 +13,7 @@ const mockFindBallotById = jest.fn();
 const mockFindPositionById = jest.fn();
 
 jest.unstable_mockModule(
-  '../../../src/modules/ballots/ballotOptions/ballotOption.repository.js',
+  '../../../src/modules/ballots/ballotPositions/ballotPosition.repository.js',
   () => ({
     findBallotPositionById: mockFindBallotPositionById,
     findBallotPositionsByBallot: mockFindBallotPositionsByBallot,

@@ -3,7 +3,7 @@
 
 import { z } from 'zod';
 
-export const PROCESS_TYPES = ['VOTE', 'FAIR', 'FEEDBACK', 'FORM'];
+export const PROCESS_TYPES = ['VOTE', 'FAIR', 'FEEDBACK', 'FORM', 'EVENT_POLL', 'AWARD'];
 export const SCOPE_TYPES = ['UNIVERSITY', 'FACULTY', 'PROGRAM'];
 export const STATUS_TYPES = ['DRAFT', 'SCHEDULED', 'OPEN', 'CLOSED', 'CERTIFIED', 'PUBLISHED'];
 

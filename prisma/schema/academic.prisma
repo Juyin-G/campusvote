@@ -37,6 +37,29 @@ model Program {
 }
 
 
+// 2.5 CARRERAS POR ORGANIZACIÓN
+// "Carrera" es la forma en que cada organización (universidad/proyecto) llama a
+// sus programas académicos, identificados por un CÓDIGO CORTO (ej: "C-24", "DDS").
+// Se usa para derivar automáticamente la carrera/ciclo del código institucional
+// del estudiante al registrarse.
+model Career {
+  id             String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String                  @map("organization_id") @db.Uuid
+  code           String                  @db.VarChar(20)
+  name           String                  @db.VarChar(150)
+  cycle          Int?                    @db.SmallInt
+  isActive       Boolean                 @default(true) @map("is_active")
+  createdAt      DateTime                @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime                @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  users        User[]
+
+  @@unique([organizationId, code], name: "uq_careers_org_code")
+  @@index([organizationId, isActive], name: "idx_careers_org_active")
+  @@map("careers")
+}
+
 // 3. PERÍODOS ACADÉMICOS
 
 model AcademicPeriod {
@@ -60,12 +83,23 @@ model AcademicPeriod {
 
 // 4. PADRÓN ELECTORAL (VOTER REGISTRY)
 
+// Estamento congelado al momento de inscribirse en el padrón. NO es el rol
+// actual del usuario: define el peso electoral (Ley Universitaria: 2/3 docentes,
+// 1/3 estudiantes) frente a futuros cambios de rol o categoría.
+enum StakeType {
+  STUDENT
+  TEACHER
+
+  @@map("stake_type")
+}
+
 model VoterRegistry {
   id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   userId            String   @map("user_id") @db.Uuid
   programId         String   @map("program_id") @db.Uuid
   periodId          String   @map("period_id") @db.Uuid
   semester          Int      @db.SmallInt
+  stake             StakeType @default(STUDENT) @map("stake")
   isEligible        Boolean  @default(true) @map("is_eligible")
   eligibilityReason String?  @map("eligibility_reason") @db.Text
   createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz

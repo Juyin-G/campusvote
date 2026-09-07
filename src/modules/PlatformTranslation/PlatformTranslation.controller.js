@@ -12,9 +12,9 @@ import { HTTP_STATUS } from '../../constants/httpStatus.js';
  */
 export const getDictionary = asyncHandler(async (req, res) => {
   const { locale, category } = req.query;
-  
+
   const translations = await translationService.getUiTranslations(locale, category);
-  
+
   return sendSuccess(
     res,
     translations,
@@ -31,9 +31,9 @@ export const getDictionary = asyncHandler(async (req, res) => {
  */
 export const getEffectiveLocale = asyncHandler(async (req, res) => {
   const { userId } = req.params;
-  
+
   const locale = await translationService.getEffectiveLocale(userId);
-  
+
   return sendSuccess(
     res,
     { locale },
@@ -50,11 +50,9 @@ export const getEffectiveLocale = asyncHandler(async (req, res) => {
  */
 export const listTranslations = asyncHandler(async (req, res) => {
   const { category } = req.query;
-  
-  // Nota: Asegúrate de agregar 'listTranslations' a las exportaciones de tu service.js
-  // o impórtalo directamente del repository si prefieres.
+
   const translations = await translationService.listTranslations({ category });
-  
+
   return sendSuccess(
     res,
     translations,
@@ -71,7 +69,7 @@ export const listTranslations = asyncHandler(async (req, res) => {
  */
 export const getTranslationById = asyncHandler(async (req, res) => {
   const translation = await translationService.getTranslationById(req.params.id);
-  
+
   return sendSuccess(
     res,
     translation,
@@ -88,7 +86,7 @@ export const getTranslationById = asyncHandler(async (req, res) => {
  */
 export const createTranslation = asyncHandler(async (req, res) => {
   const translation = await translationService.createTranslation(req.body);
-  
+
   return sendSuccess(
     res,
     translation,
@@ -105,7 +103,7 @@ export const createTranslation = asyncHandler(async (req, res) => {
  */
 export const updateTranslation = asyncHandler(async (req, res) => {
   const translation = await translationService.updateTranslation(req.params.id, req.body);
-  
+
   return sendSuccess(
     res,
     translation,
@@ -122,7 +120,7 @@ export const updateTranslation = asyncHandler(async (req, res) => {
  */
 export const deleteTranslation = asyncHandler(async (req, res) => {
   await translationService.deleteTranslation(req.params.id);
-  
+
   return sendSuccess(
     res,
     { deleted: true },

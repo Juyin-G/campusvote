@@ -14,6 +14,7 @@ model Tally {
   positionId  String    @map("position_id") @db.Uuid
   optionId    String    @map("option_id") @db.Uuid
   votesCount  Int       @default(0) @map("votes_count")
+  stake       StakeType? @map("stake")
   updatedAt   DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
 
   // Relaciones
@@ -21,7 +22,7 @@ model Tally {
   ballotOption BallotOption @relation(fields: [optionId], references: [id], onDelete: Cascade, onUpdate: NoAction)
   position     Position     @relation(fields: [positionId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
-  @@unique([electionId, positionId, optionId], map: "uq_tallies_election_position_option")
+  @@unique([electionId, positionId, optionId, stake], map: "uq_tallies_election_position_option_stake")
   @@index([positionId], map: "idx_tallies_position")
   @@map("tallies")
 }
@@ -117,6 +118,17 @@ model ElectionResult {
   reportPdf         String?   @map("report_pdf") @db.VarChar(500)
   reportHash        String?   @map("report_hash") @db.VarChar(64)
   reportSignature   String?   @map("report_signature") @db.Text
+
+  // DESEMPATE (F7): resolución registrada, nunca mezclada con conteos.
+  tieBreakApplied   Boolean   @default(false) @map("tie_break_applied")
+  tieBreakWinnerId  String?   @map("tie_break_winner_id") @db.Uuid
+  tieBreakAt        DateTime? @map("tie_break_at") @db.Timestamptz
+
+  // CONFIG DE ESCRUTINIO APLICADA (F2/F6): pesos, quórum por estamento,
+  // y ranking final de ferias (jurados + voto popular) derivado.
+  weightedConfig    Json?     @map("weighted_config")
+  fairRanking       Json?     @map("fair_ranking")
+
   createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz
   updatedAt         DateTime  @default(now()) @map("updated_at") @db.Timestamptz
 

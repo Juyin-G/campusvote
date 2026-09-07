@@ -33,6 +33,21 @@ const optionalNullableString = (maxLen) =>
     .optional()
     .or(z.literal(''));
 
+// Dominios de correo permitidos (ej: "universidad.edu.pe", "gmail.com").
+// Se acepta con o sin el "@"; se normaliza quitando el "@" inicial.
+const emailDomainsSchema = z
+  .array(
+    z
+      .string()
+      .trim()
+      .min(2, 'Un dominio debe tener al menos 2 caracteres')
+      .max(255, 'El dominio no puede exceder los 255 caracteres')
+      .regex(/^@?[a-zA-Z0-9.-]+$/, 'Dominio de correo inválido')
+      .transform((d) => d.replace(/^@/, '')),
+  )
+  .max(100, 'No puedes configurar más de 100 dominios')
+  .optional();
+
 // ==========================================
 // PARÁMETROS DE RUTA
 // ==========================================
@@ -125,6 +140,9 @@ export const createOrganizationSchema = z.object({
       .max(50, 'La zona horaria no puede exceder los 50 caracteres')
       .optional()
       .default('America/Lima'),
+
+    allowed_email_domains: emailDomainsSchema,
+    member_limit: z.coerce.number().int().min(1).max(1000000).optional(),
   }),
 });
 
@@ -187,6 +205,9 @@ export const updateOrganizationSchema = z.object({
       is_active: z.boolean().optional(),
 
       onboarding_completed: z.boolean().optional(),
+
+      allowed_email_domains: emailDomainsSchema,
+      member_limit: z.coerce.number().int().min(1).max(1000000).optional(),
     })
     .refine((data) => Object.keys(data).length > 0, {
       message: 'Debes proporcionar al menos un campo para actualizar',

@@ -73,6 +73,10 @@ export default async function setupTestDB() {
     await executeFile('user/007_email_verification.sql');
     await executeFile('user/008_login_security.sql');
     await executeFile('user/009_cleanup_tokens.sql');
+    await executeFile('user/010_media_files.sql');
+    await executeFile('user/011_document_identity.sql');
+    await executeFile('user/012_activation_enum.sql');
+    await executeFile('user/013_activation.sql');
 
     console.log('7. Creando solicitudes de organizaciones...');
 
@@ -81,9 +85,11 @@ export default async function setupTestDB() {
     console.log('8. Creando tablas académicas...');
 
     await executeFile('academic/001_faculties.sql');
-    await executeFile('academic/002_programs.sql');
+    await executeFile('academic/002_programs.sql');                 
+    await executeFile('academic/009_careers.sql');                  
     await executeFile('academic/003_academic_periods.sql');
     await executeFile('academic/004_voter_registries.sql');
+    await executeFile('academic/010_voter_stake.sql');
 
     console.log('9. Creando elecciones...');
 
@@ -93,6 +99,9 @@ export default async function setupTestDB() {
     await executeFile('elections/005_candidacies.sql');
     await executeFile('elections/006_election_rules.sql');
     await executeFile('elections/007_candidacy_documents.sql');
+    await executeFile('elections/008_candidate_lists_fair_profile.sql');
+    await executeFile('elections/009_election_rules_peru.sql');
+    await executeFile('elections/010_candidacy_advisor.sql');
 
     console.log('10. Creando ballots...');
 
@@ -107,6 +116,7 @@ export default async function setupTestDB() {
     await executeFile('audit/004_voting_access_tokens.sql');
     await executeFile('audit/005_token_consumption.sql');
     await executeFile('audit/006_audit_permissions.sql');
+    await executeFile('audit/007_actions_peru.sql');
 
     console.log('12. Creando resultados...');
 
@@ -131,19 +141,29 @@ export default async function setupTestDB() {
 
     await executeFile('organizations/004_approval_functions.sql');
 
+    await executeFile('reports/001_election_report_history.sql');
+    await executeFile('claims/001_voter_registry_claims.sql');
+    await executeFile('objections/001_candidacy_objections.sql');
+    await executeFile('public/001_public_election_landing.sql');
+
     await executeFile('results/003_turnout_trigger.sql');
     await executeFile('results/004_tally_votes.sql');
     await executeFile('results/005_certify_election.sql');
+    await executeFile('results/006_weighted_fair.sql');
 
     await executeFile('voting/004_start_session.sql');
     await executeFile('voting/005_cast_vote.sql');
     await executeFile('voting/006_session_management.sql');
     await executeFile('voting/007_vote_integrity.sql');
     await executeFile('voting/008_scrutiny.sql');
+    await executeFile('ratings/001_ratings.sql');
+    await executeFile('ratings/002_feria_rubrics.sql');
+    await executeFile('ratings/003_jury_assignments.sql');
 
     console.log('15. Cargando notificaciones e i18n...');
 
     await executeFile('notifications/001_notifications.sql');
+    await executeFile('notifications/002_channels.sql');
     await executeFile('i18n/001_locales_and_translations.sql');
 
     console.log('16. Cargando foreign keys finales...');

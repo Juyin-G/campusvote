@@ -41,7 +41,7 @@ const UserSchema = {
     },
     role: {
       type: 'string',
-      enum: ['STUDENT', 'TEACHER', 'ADMIN', 'ELECTORAL_COMMISSION', 'OBSERVER'],
+      enum: ['SUPERADMIN', 'STUDENT', 'TEACHER', 'ADMIN', 'ELECTORAL_COMMISSION', 'JURY', 'OBSERVER'],
       description: 'Rol del usuario en el sistema',
       example: 'STUDENT',
     },

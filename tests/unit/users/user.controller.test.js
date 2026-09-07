@@ -133,7 +133,7 @@ describe('User Controller', () => {
 
       await userController.createUser(req, res, next);
 
-      expect(mockCreateUser).toHaveBeenCalledWith(body);
+      expect(mockCreateUser).toHaveBeenCalledWith(body, req.user);
       expect(res.status).toHaveBeenCalledWith(201);
       expect(res.json).toHaveBeenCalledWith(
         expect.objectContaining({ success: true, data: created })
@@ -162,7 +162,7 @@ describe('User Controller', () => {
 
       await userController.changeRole(req, res, next);
 
-      expect(mockUpdateUserRole).toHaveBeenCalledWith('user-uuid-2', 'TEACHER');
+      expect(mockUpdateUserRole).toHaveBeenCalledWith('user-uuid-2', 'TEACHER', req.user);
       expect(res.status).toHaveBeenCalledWith(200);
     });
   });

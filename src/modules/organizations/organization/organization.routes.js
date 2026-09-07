@@ -57,7 +57,7 @@ const getUserId = (req) => req.user?.id || req.user?.userId;
 router.get(
   '/requests',
   authenticate,
-  authorize('ADMIN'),
+  authorize('SUPERADMIN'),
   validate(listRequestsQuerySchema),
   listRequests
 );
@@ -71,7 +71,7 @@ router.post(
 router.get(
   '/requests/:id',
   authenticate,
-  authorize('ADMIN'),
+  authorize('SUPERADMIN'),
   validate(requestParamsSchema),
   getRequestById
 );
@@ -79,7 +79,7 @@ router.get(
 router.patch(
   '/requests/:id/approve',
   authenticate,
-  authorize('ADMIN'),
+  authorize('SUPERADMIN'),
   validate(requestParamsSchema),
   asyncHandler(async (req, res) => {
     const newOrganization = await approvalService.approveRequest(
@@ -99,7 +99,7 @@ router.patch(
 router.patch(
   '/requests/:id/reject',
   authenticate,
-  authorize('ADMIN'),
+  authorize('SUPERADMIN'),
   validate(rejectRequestSchema),
   asyncHandler(async (req, res) => {
     const request = await approvalService.rejectRequest(
@@ -121,12 +121,18 @@ router.patch(
 // --- ORGANIZACIONES ---
 // ==========================================
 
-router.get('/', optionalAuthenticate, validate(listQuerySchema), getOrganizations);
+router.get(
+  '/',
+  authenticate,
+  authorize('SUPERADMIN'),
+  validate(listQuerySchema),
+  getOrganizations
+);
 
 router.post(
   '/',
   authenticate,
-  authorize('ADMIN'),
+  authorize('SUPERADMIN'),
   validate(createOrganizationSchema),
   createOrganization
 );
@@ -141,7 +147,7 @@ router.get(
 router.patch(
   '/:id',
   authenticate,
-  authorize('ADMIN'),
+  authorize('ADMIN', 'SUPERADMIN'),
   validate(idParamSchema),
   validate(updateOrganizationSchema),
   updateOrganization
@@ -150,7 +156,7 @@ router.patch(
 router.delete(
   '/:id',
   authenticate,
-  authorize('ADMIN'),
+  authorize('SUPERADMIN'),
   validate(idParamSchema),
   deleteOrganization
 );

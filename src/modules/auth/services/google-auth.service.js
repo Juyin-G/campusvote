@@ -1,0 +1,285 @@
+// src/modules/auth/services/google-auth.service.js
+// Flujo OAuth 2.0 con Google (login con cuenta de Google).
+// Usa fetch nativo de Node (>=20) para el intercambio de código/token y la
+// obtención del perfil, sin dependencias extra.
+
+import * as authRepository from '../repositories/auth.repository.js';
+import jwt from 'jsonwebtoken';
+import { ApiError } from '../../../shared/errors/ApiError.js';
+import { generateJwt, generateRefreshToken } from './auth.helpers.js';
+import { formatUserResponse } from '../../../shared/utils/formatUserResponse.js';
+import env from '../../../config/env.js';
+import logger from '../../../config/logger.js';
+import { cert, getApps, initializeApp } from 'firebase-admin/app';
+import { getAuth } from 'firebase-admin/auth';
+
+const GOOGLE_AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
+const GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token';
+const GOOGLE_USERINFO_URL = 'https://www.googleapis.com/oauth2/v2/userinfo';
+
+export const createOAuthState = () =>
+  jwt.sign({ purpose: 'GOOGLE_OAUTH_STATE' }, env.JWT_SECRET, {
+    expiresIn: '10m',
+  });
+
+export const verifyOAuthState = (state) => {
+  try {
+    const payload = jwt.verify(state, env.JWT_SECRET, { algorithms: ['HS256'] });
+    return payload.purpose === 'GOOGLE_OAUTH_STATE';
+  } catch {
+    return false;
+  }
+};
+
+const getFirebaseAuth = () => {
+  if (
+    !env.FIREBASE_PROJECT_ID ||
+    !env.FIREBASE_CLIENT_EMAIL ||
+    !env.FIREBASE_PRIVATE_KEY
+  ) {
+    throw ApiError.serviceUnavailable(
+      'Firebase Authentication no está configurado en el servidor',
+      null,
+      'FIREBASE_NOT_CONFIGURED'
+    );
+  }
+
+  const app =
+    getApps()[0] ||
+    initializeApp({
+      credential: cert({
+        projectId: env.FIREBASE_PROJECT_ID,
+        clientEmail: env.FIREBASE_CLIENT_EMAIL,
+        privateKey: env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+      }),
+    });
+
+  return getAuth(app);
+};
+
+const durationToMs = (duration) => {
+  const str = String(duration ?? '').trim();
+  if (!str) return 7 * 24 * 60 * 60 * 1000;
+  const match = str.match(/^(\d+)\s*(ms|s|m|h|d)?$/i);
+  if (!match) return 7 * 24 * 60 * 60 * 1000;
+  const value = parseInt(match[1], 10);
+  const unit = (match[2] || 's').toLowerCase();
+  const units = { ms: 1, s: 1000, m: 60 * 1000, h: 60 * 60 * 1000, d: 24 * 60 * 60 * 1000 };
+  return value * units[unit];
+};
+
+/**
+ * Verifica que la autenticación con Google esté configurada.
+ */
+const assertGoogleConfigured = () => {
+  if (!env.GOOGLE_CLIENT_ID || !env.GOOGLE_CLIENT_SECRET || !env.GOOGLE_CALLBACK_URL) {
+    throw ApiError.serviceUnavailable(
+      'Google OAuth no está configurado en el servidor',
+      null,
+      'GOOGLE_NOT_CONFIGURED'
+    );
+  }
+};
+
+/**
+ * Build la URL de autorización para redirigir al navegador.
+ * @param {string} state - token anti-CSRF
+ */
+export const getAuthUrl = (state) => {
+  assertGoogleConfigured();
+  const params = new URLSearchParams({
+    client_id: env.GOOGLE_CLIENT_ID,
+    redirect_uri: env.GOOGLE_CALLBACK_URL,
+    response_type: 'code',
+    scope: 'openid email profile',
+    access_type: 'online',
+    state: state || '',
+  });
+  return `${GOOGLE_AUTH_URL}?${params.toString()}`;
+};
+
+/**
+ * Intercambia el código de autorización por un perfil de Google.
+ * @param {string} code
+ */
+export const getGoogleProfile = async (code) => {
+  assertGoogleConfigured();
+
+  const tokenResponse = await fetch(GOOGLE_TOKEN_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      code,
+      client_id: env.GOOGLE_CLIENT_ID,
+      client_secret: env.GOOGLE_CLIENT_SECRET,
+      redirect_uri: env.GOOGLE_CALLBACK_URL,
+      grant_type: 'authorization_code',
+    }),
+  });
+
+  if (!tokenResponse.ok) {
+    logger.error('Google token exchange failed', {
+      status: tokenResponse.status,
+    });
+    throw ApiError.unauthorized('No se pudo intercambiar el código de Google');
+  }
+
+  const tokens = await tokenResponse.json();
+
+  const userResponse = await fetch(GOOGLE_USERINFO_URL, {
+    headers: { Authorization: `Bearer ${tokens.access_token}` },
+  });
+
+  if (!userResponse.ok) {
+    throw ApiError.unauthorized('No se pudo obtener el perfil de Google');
+  }
+
+  return userResponse.json();
+};
+
+/**
+ * Emite la sesión (access + refresh) para un usuario ya existente.
+ */
+const issueSession = async (user) => {
+  const token = generateJwt(user);
+
+  const { rawToken: refreshToken, tokenHash } = generateRefreshToken();
+  const expiresAt = new Date(Date.now() + durationToMs(env.JWT_REFRESH_EXPIRES_IN));
+
+  await authRepository.createRefreshToken({
+    userId: user.id,
+    tokenHash,
+    expiresAt,
+  });
+
+  await authRepository.updateLastLogin(user.id);
+
+  return {
+    token,
+    refreshToken,
+    user: formatUserResponse(user),
+  };
+};
+
+/**
+ * Resuelve un usuario por su correo (que debe existir en la base de datos).
+ * Si el usuario existe pero no tiene googleId, lo vincula (si el correo coincide).
+ * @param {Object} profile - perfil de Google { id, email, name, ... }
+ */
+const resolveUser = async (profile) => {
+  if (!profile?.email) {
+    throw ApiError.unauthorized('Google no devolvió un correo válido');
+  }
+
+  const cleanEmail = profile.email.toLowerCase().trim();
+
+  // Buscar por googleId o por email.
+  let user = await authRepository.findByGoogleId(String(profile.id));
+  if (!user) {
+    user = await authRepository.findByEmail(cleanEmail);
+  }
+
+  if (!user) {
+    throw ApiError.forbidden(
+      'No existe una cuenta con este correo. Pídele a tu administrador que te registre.'
+    );
+  }
+
+  // Vincular el googleId al usuario si aún no estaba vinculado.
+  const needsGoogleId =
+    (!user.googleId || user.googleId !== String(profile.id)) &&
+    user.authProvider === 'LOCAL';
+
+  if (needsGoogleId) {
+    user = await authRepository.linkGoogleIdentity(user.id, String(profile.id));
+  }
+
+  if (user.status !== 'ACTIVE') {
+    throw ApiError.forbidden('La cuenta no está activa');
+  }
+
+  return user;
+};
+
+/**
+ * Procesa el callback de Google: intercambia el código y devuelve la sesión.
+ * @param {string} code
+ */
+export const authenticateWithGoogle = async (code) => {
+  const profile = await getGoogleProfile(code);
+  const user = await resolveUser(profile);
+  return issueSession(user);
+};
+
+/**
+ * Verifica un ID token de Firebase y autentica una cuenta ya registrada.
+ * Firebase identifica al usuario; CampusVote conserva la autorización, padrón
+ * y emisión de sus propios access/refresh tokens.
+ */
+export const authenticateWithFirebase = async (idToken) => {
+  let decodedToken;
+
+  try {
+    decodedToken = await getFirebaseAuth().verifyIdToken(idToken);
+  } catch (error) {
+    logger.warn('Verificación de ID token Firebase fallida', {
+      code: error.code,
+    });
+    throw ApiError.unauthorized('El ID token de Firebase es inválido');
+  }
+
+  const email = decodedToken.email?.toLowerCase().trim();
+  if (
+    !email ||
+    decodedToken.email_verified !== true ||
+    decodedToken.firebase?.sign_in_provider !== 'google.com'
+  ) {
+    throw ApiError.forbidden(
+      'Debes iniciar sesión con una cuenta Google verificada'
+    );
+  }
+
+  let user = await authRepository.findByFirebaseUid(decodedToken.uid);
+  if (!user) {
+    user = await authRepository.findByEmail(email);
+  }
+
+  if (!user) {
+    throw ApiError.forbidden(
+      'No existe una cuenta institucional con este correo. Solicita tu registro al administrador.'
+    );
+  }
+
+  if (user.status !== 'ACTIVE' || !user.isVerified) {
+    throw ApiError.forbidden('La cuenta no está activa o verificada');
+  }
+
+  if (!user.googleId || user.googleId !== decodedToken.uid) {
+    user = await authRepository.linkGoogleIdentity(user.id, decodedToken.uid);
+  }
+
+  if (user.twoFactorEnabled) {
+    const tempToken = jwt.sign(
+      { userId: user.id, email: user.email, purpose: 'TOTP_PENDING' },
+      env.JWT_SECRET,
+      { expiresIn: '5m' }
+    );
+
+    return {
+      requiresTotp: true,
+      tempToken,
+      mustChangePassword: user.mustChangePassword,
+    };
+  }
+
+  return issueSession(user);
+};
+
+export default {
+  createOAuthState,
+  verifyOAuthState,
+  getAuthUrl,
+  authenticateWithGoogle,
+  authenticateWithFirebase,
+  getGoogleProfile,
+};

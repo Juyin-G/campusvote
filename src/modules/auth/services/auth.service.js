@@ -10,8 +10,12 @@ import { generateJwt, formatUserResponse, generateRefreshToken, hashToken } from
 import MESSAGES from '../../../constants/messages.js';
 import env from '../../../config/env.js';
 import logger from '../../../config/logger.js';
+import auditService from '../../audit/audit.service.js';
+import { extractDomain } from '../../../shared/utils/emailDomain.js';
+import { matchCareerFromCode, extractCycleFromCode } from '../../../shared/utils/careerParse.js';
 
 export { setupTotp, verifyTotp, verifyLoginTotp } from './auth.totp.service.js';
+export { authenticateWithFirebase } from './google-auth.service.js';
 
 const SALT_ROUNDS = 12;
 // Hash dummy precalculado para mitigar ataques de timing en login
@@ -39,6 +43,9 @@ export const login = async ({ email, password, ipAddress = null, userAgent = nul
     await bcrypt.compare(password, DUMMY_HASH);
     throw ApiError.unauthorized(MESSAGES.AUTH.LOGIN_FAILED);
   }
+  if (user.role === 'ADMIN' && !user.organizationId) {
+    throw ApiError.forbidden('La cuenta ADMIN no está vinculada a una organización');
+  }
 
   const isAllowed = await authRepository.loginIsAllowed(user.email);
   if (!isAllowed) {
@@ -53,6 +60,24 @@ export const login = async ({ email, password, ipAddress = null, userAgent = nul
 
   if (!user.isVerified) {
     throw ApiError.forbidden(MESSAGES.AUTH.LOGIN_EMAIL_NOT_VERIFIED);
+  }
+
+  // Onboarding (Opción 2): cuenta con credenciales temporales que aún debe
+  // enrolar 2FA. NO se emite JWT final ni se pide TOTP aún; se entrega un
+  // token de propósito ONBOARDING que solo permite las rutas /onboarding.
+  if (user.mustSetup2fa) {
+    const tempToken = jwt.sign(
+      { userId: user.id, email: user.email, purpose: 'ONBOARDING' },
+      env.JWT_SECRET,
+      { expiresIn: '15m' }
+    );
+
+    return {
+      requiresOnboarding: true,
+      tempToken,
+      email: user.email,
+      mustChangePassword: user.mustChangePassword,
+    };
   }
 
   if (user.twoFactorEnabled) {
@@ -74,6 +99,18 @@ export const login = async ({ email, password, ipAddress = null, userAgent = nul
 
   const token = generateJwt(user);
 
+  try {
+    await auditService.logAction({
+      actorId: user.id,
+      electionId: null,
+      action: 'LOGIN',
+      ipAddress,
+      metadata: { method: 'password', must_change_password: user.mustChangePassword },
+    });
+  } catch (error) {
+    logger.warn('No se pudo registrar el login en auditoría', { error: error.message });
+  }
+
   // Persistir el refresh token para la sesión actual (flujo completo)
   const { rawToken: refreshToken, tokenHash } = generateRefreshToken();
   const expiresAt = new Date(Date.now() + durationToMs(env.JWT_REFRESH_EXPIRES_IN));
@@ -94,6 +131,97 @@ export const login = async ({ email, password, ipAddress = null, userAgent = nul
   };
 };
 
+/**
+ * Opción 1 — Activa la cuenta del admin mediante el token de la invitación y
+ * define su contraseña. Pasa de PENDING_ACTIVATION a una sesión de onboarding
+ * (token ONBOARDING) para configurar 2FA; recién al verificar el TOTP y
+ * finalizar se emite el JWT de acceso completo.
+ */
+export const activateAccount = async (token, newPassword) => {
+  const hashedPassword = await bcrypt.hash(newPassword, SALT_ROUNDS);
+  const userId = await authRepository.activateAccountWithToken(token, hashedPassword);
+
+  if (!userId) {
+    throw ApiError.invalidToken(MESSAGES.AUTH.ACTIVATION_INVALID_TOKEN);
+  }
+
+  const user = await authRepository.findById(userId);
+  if (!user) {
+    throw ApiError.notFound(MESSAGES.USER.NOT_FOUND);
+  }
+
+  const tempToken = jwt.sign(
+    { userId: user.id, email: user.email, purpose: 'ONBOARDING' },
+    env.JWT_SECRET,
+    { expiresIn: '15m' }
+  );
+
+  return {
+    requiresOnboarding: true,
+    tempToken,
+    user: formatUserResponse(user),
+  };
+};
+
+/**
+ * Finaliza el onboarding (Opción 1 y Opción 2): exige 2FA enrólado y
+ * contraseña definida, limpia los flags de onboarding y emite el JWT final.
+ */
+export const finalizeOnboarding = async (userId, { ipAddress = null, userAgent = null } = {}) => {
+  const user = await authRepository.findById(userId);
+  if (!user) {
+    throw ApiError.notFound(MESSAGES.USER.NOT_FOUND);
+  }
+
+  if (user.status !== 'PENDING_ACTIVATION' && user.status !== 'ACTIVE') {
+    throw ApiError.forbidden(MESSAGES.AUTH.LOGIN_ACCOUNT_INACTIVE);
+  }
+
+  if (!user.twoFactorEnabled) {
+    throw ApiError.badRequest(MESSAGES.AUTH.ONBOARDING_COMPLETE_2FA_FIRST);
+  }
+
+  if (user.mustChangePassword) {
+    throw ApiError.badRequest(MESSAGES.AUTH.LOGIN_MUST_CHANGE_PASSWORD);
+  }
+
+  await authRepository.finalizeOnboarding(user.id);
+  await authRepository.registerSuccessfulLogin(user.email, ipAddress, userAgent);
+
+  const refreshed = await authRepository.findByEmail(user.email);
+
+  const token = generateJwt(refreshed);
+  const { rawToken: refreshToken, tokenHash } = generateRefreshToken();
+  const expiresAt = new Date(Date.now() + durationToMs(env.JWT_REFRESH_EXPIRES_IN));
+  await authRepository.createRefreshToken({
+    userId: user.id,
+    tokenHash,
+    expiresAt,
+    ipAddress,
+    userAgent,
+  });
+
+  try {
+    await auditService.logAction({
+      actorId: user.id,
+      electionId: null,
+      action: 'LOGIN',
+      ipAddress,
+      metadata: { method: 'onboarding' },
+    });
+  } catch (error) {
+    logger.warn('No se pudo registrar el login en auditoría', { error: error.message });
+  }
+
+  return {
+    requiresOnboarding: false,
+    token,
+    refreshToken,
+    mustChangePassword: false,
+    user: formatUserResponse(refreshed),
+  };
+};
+
 export const register = async (userData) => {
   const {
     email,
@@ -105,6 +233,7 @@ export const register = async (userData) => {
     organizationId,
     facultyId,
     programId,
+    careerId,
     currentCycle,
     admissionPeriodId,
     specialty,
@@ -131,6 +260,39 @@ export const register = async (userData) => {
 
   const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
 
+  // Resolución automática de la organización por dominio del correo.
+  // Si el cliente no envía organization_id, se busca la organización cuyo
+  // allowed_email_domains contenga el dominio del correo. Si hay una única
+  // coincidencia, se asigna automáticamente (el usuario no necesita el UUID).
+  let resolvedOrgId = organizationId || null;
+  if (!resolvedOrgId) {
+    const domain = extractDomain(cleanEmail);
+    if (domain) {
+      const matches = await authRepository.findOrganizationsByEmailDomain(domain);
+      if (matches.length === 1) {
+        resolvedOrgId = matches[0].id;
+      }
+    }
+  }
+
+  // Derivación automática de carrera (y ciclo) a partir del código institucional.
+  // Si el cliente no provee carrera/ciclo, se busca la carrera cuya `code` sea
+  // prefijo del código institucional en la organización resuelta.
+  let derivedCareerId = careerId ?? null;
+  let derivedCycle = currentCycle ?? null;
+  if (resolvedOrgId && !derivedCareerId) {
+    const careers = await authRepository.findCareersByOrganization(resolvedOrgId);
+    if (careers.length > 0) {
+      const matched = matchCareerFromCode(institutionalId, careers);
+      if (matched) {
+        derivedCareerId = matched.id;
+        if (derivedCycle === null || derivedCycle === undefined) {
+          derivedCycle = extractCycleFromCode(institutionalId, matched);
+        }
+      }
+    }
+  }
+
   // Pasa todos los datos académicos requeridos por los check constraints de PostgreSQL
   const newUser = await authRepository.createUser({
     username: cleanUsername,
@@ -142,10 +304,11 @@ export const register = async (userData) => {
     role,
     authProvider: 'LOCAL',
     mustChangePassword: false,
-    organizationId,
+    organizationId: resolvedOrgId,
     facultyId,
     programId,
-    currentCycle,
+    careerId: derivedCareerId,
+    currentCycle: derivedCycle,
     admissionPeriodId,
     specialty,
     department,
@@ -230,7 +393,6 @@ export const getProfile = async (userId) => {
   if (!user) {
     throw ApiError.notFound(MESSAGES.USER.NOT_FOUND);
   }
-
   return formatUserResponse(user);
 };
 

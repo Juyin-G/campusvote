@@ -22,13 +22,12 @@ import {
   verifyEmailSchema,
   resendVerificationSchema,
   refreshSchema,
+  firebaseVerifySchema,
 } from '../schemas/auth.schema.js';
 
 const router = Router();
 
-// ═══════════════════════════════════════════
 // RUTAS PÚBLICAS
-// ═══════════════════════════════════════════
 
 // Registro y Login
 router.post(
@@ -43,6 +42,13 @@ router.post(
   loginLimiter,
   validate(loginSchema),
   authController.login
+);
+
+router.post(
+  '/firebase/verify',
+  authLimiter,
+  validate(firebaseVerifySchema),
+  authController.verifyFirebase
 );
 
 // Paso 2 del Login: Verificación TOTP (o Código de Respaldo)
@@ -71,8 +77,7 @@ router.post(
 );
 
 // Verificación de Email
-// Es el único endpoint público de auth que consume un token, así que lleva
-// el mismo limitador que el resto para no dejarlo abierto a fuerza bruta.
+
 router.post(
   '/verify-email',
   authLimiter,
@@ -81,7 +86,6 @@ router.post(
 );
 
 // Salida para quien se registró y no recibió el correo (SMTP caído, spam...).
-// Responde siempre igual para no revelar qué correos están registrados.
 router.post(
   '/verify-email/resend',
   authLimiter,
@@ -97,9 +101,7 @@ router.post(
   authController.refreshTokens
 );
 
-// ═══════════════════════════════════════════
 // RUTAS PROTEGIDAS
-// ═══════════════════════════════════════════
 
 router.post('/logout', authenticate, authController.logout);
 router.get('/me', authenticate, authController.getProfile);
@@ -126,6 +128,13 @@ router.post(
   authLimiter,
   validate(disableTotpSchema),
   authController.disableTotp
+);
+
+// Estado del 2FA (spec §5.1: GET /auth/2fa/status/)
+router.get(
+  '/2fa/status',
+  authenticate,
+  authController.getTwoFactorStatus
 );
 
 export default router;

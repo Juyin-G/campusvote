@@ -5,10 +5,15 @@
 
 import dotenv from 'dotenv';
 
-if (process.env.NODE_ENV === 'test') {
-  dotenv.config({ path: '.env.test' });
-} else {
-  dotenv.config();
+// Permite aislar la validación de variables de entorno en tests de seguridad:
+// si CAMPUSVOTE_SKIP_DOTENV=1, no se carga ningún archivo .env, de modo que la
+// configuración depende exclusivamente de process.env del proceso.
+if (!process.env.CAMPUSVOTE_SKIP_DOTENV) {
+  if (process.env.NODE_ENV === 'test') {
+    dotenv.config({ path: '.env.test' });
+  } else {
+    dotenv.config();
+  }
 }
 
 const INSECURE_DEFAULT_SECRETS = [
@@ -34,8 +39,12 @@ const validateSecret = (secret, secretName) => {
 
   // Normalización para evitar evadir la lista con mayúsculas o espacios
   const normalizedSecret = secret.trim().toLowerCase();
-  const isBlacklisted = INSECURE_DEFAULT_SECRETS.some((insecure) =>
-    normalizedSecret.includes(insecure.toLowerCase())
+  // Blacklist de claves por defecto/ejemplo completas. Se compara por
+  // igualdad normalizada (no por substring) para no rechazar secretos
+  // legítimos que simplemente contengan palabras como "secret" embebidas
+  // (p. ej. "my-app-jwt-secret-key-abc123-...").
+  const isBlacklisted = INSECURE_DEFAULT_SECRETS.some(
+    (insecure) => normalizedSecret === insecure.toLowerCase()
   );
 
   if (isBlacklisted) {
@@ -51,9 +60,23 @@ const validateEnv = () => {
   if (process.env.JWT_REFRESH_SECRET) {
     validateSecret(process.env.JWT_REFRESH_SECRET, 'JWT_REFRESH_SECRET');
   }
+
+  // AUDIT_SECRET_KEY: si está definida se valida su robustez (firma HMAC de
+  // la cadena de auditoría). Es opcional al arrancar: cuando está ausente, el
+  // encadenado se registra sin firma criptográfica hasta que se provea la clave.
+  if (process.env.AUDIT_SECRET_KEY) {
+    validateSecret(process.env.AUDIT_SECRET_KEY, 'AUDIT_SECRET_KEY');
+  }
 };
 
 validateEnv();
+
+const parseSwaggerEnabled = () => {
+  const raw = process.env.SWAGGER_ENABLED;
+  if (raw === 'true') return true;
+  if (raw === 'false') return false;
+  return undefined;
+};
 
 export default {
   // Server
@@ -62,11 +85,12 @@ export default {
   APP_NAME: process.env.APP_NAME || 'CampusVote',
   APP_VERSION: process.env.APP_VERSION || '1.0.0',
 
-  // URLs publicas que anuncia la documentacion de Swagger. Si no se definen,
-  // swagger usa una URL relativa, que ya resuelve bien en cualquier entorno.
+  // URLs públicas / Swagger
   APP_URL: process.env.APP_URL,
   STAGE_API_URL: process.env.STAGE_API_URL,
   PROD_API_URL: process.env.PROD_API_URL,
+  SWAGGER_ENABLED: parseSwaggerEnabled(),
+  RATE_LIMIT_MAX_REQUESTS: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS, 10) || undefined,
 
   // Database
   DATABASE_URL: process.env.DATABASE_URL,
@@ -82,9 +106,16 @@ export default {
 
   // Security
   BCRYPT_ROUNDS: parseInt(process.env.BCRYPT_ROUNDS, 10) || 12,
-  BCRYPT_SALT_ROUNDS: parseInt(process.env.BCRYPT_ROUNDS, 10) || 12,
   MAX_LOGIN_ATTEMPTS: parseInt(process.env.MAX_LOGIN_ATTEMPTS, 10) || 5,
   LOCK_TIME_MINUTES: parseInt(process.env.LOCK_TIME_MINUTES, 10) || 15,
+
+  // Upload (límites configurables)
+  UPLOAD_MAX_FILE_SIZE_MB: parseInt(process.env.UPLOAD_MAX_FILE_SIZE_MB, 10) || 5,
+  UPLOAD_MAX_FILES: parseInt(process.env.UPLOAD_MAX_FILES, 10) || 3,
+
+  // Auditoría (clave HMAC del encadenado) y worker de notificaciones
+  AUDIT_SECRET_KEY: process.env.AUDIT_SECRET_KEY,
+  NOTIFICATION_WORKER_ENABLED: process.env.NOTIFICATION_WORKER_ENABLED || 'false',
 
   // Email
   SMTP_HOST: process.env.SMTP_HOST,
@@ -93,10 +124,22 @@ export default {
   SMTP_PASS: process.env.SMTP_PASS,
   SMTP_FROM: process.env.SMTP_FROM || 'noreply@campusvote.com',
 
+  // Email API (proveedor alternativo a SMTP: Resend)
+  RESEND_API_KEY: process.env.RESEND_API_KEY,
+  RESEND_FROM: process.env.RESEND_FROM || 'CampusVote <onboarding@resend.dev>',
+
   // Google OAuth
   GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID,
   GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET,
   GOOGLE_CALLBACK_URL: process.env.GOOGLE_CALLBACK_URL,
+
+  // Firebase Authentication (opcional; login Google desde Flutter/Web)
+  FIREBASE_PROJECT_ID: process.env.FIREBASE_PROJECT_ID,
+  FIREBASE_CLIENT_EMAIL: process.env.FIREBASE_CLIENT_EMAIL,
+  FIREBASE_PRIVATE_KEY: process.env.FIREBASE_PRIVATE_KEY,
+  FIREBASE_STORAGE_BUCKET: process.env.FIREBASE_STORAGE_BUCKET,
+  UPLOAD_STORAGE_DRIVER:
+    process.env.UPLOAD_STORAGE_DRIVER || (process.env.NODE_ENV === 'production' ? 'firebase' : 'local'),
 
   // Frontend URL
   FRONTEND_URL: process.env.FRONTEND_URL || 'http://localhost:5173',

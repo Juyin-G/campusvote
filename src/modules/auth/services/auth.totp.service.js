@@ -3,6 +3,21 @@ import * as otpRepository from '../repositories/otp.repository.js';
 import * as otpUtil from '../../../shared/utils/otp.util.js';
 import OTP_CONSTANTS from '../../../constants/otp.constants.js';
 import { ApiError } from '../../../shared/errors/ApiError.js';
+import auditService from '../../audit/audit.service.js';
+import logger from '../../../config/logger.js';
+
+const log2FASuccess = async (userId, method) => {
+  try {
+    await auditService.logAction({
+      actorId: userId,
+      electionId: null,
+      action: 'VERIFY_2FA',
+      metadata: { method },
+    });
+  } catch (error) {
+    logger.warn('No se pudo registrar VERIFY_2FA en auditoría', { error: error.message });
+  }
+};
 
 /**
  * Inicia el proceso de configuración de 2FA
@@ -27,7 +42,7 @@ export const setupTotp = async (userId) => {
   return {
     secret,
     uri,
-    backupCodes: otpUtil.generateBackupCodes(),
+    qrCode: await otpUtil.generateQrCode(uri),
   };
 };
 
@@ -53,7 +68,11 @@ export const verifyAndEnableTotp = async (userId, totpCode) => {
     otpUtil.hashBackupCode(code)
   );
 
-  await otpRepository.enableTwoFactor(userId, hashedBackupCodes);
+  await otpRepository.completeOnboardingTwoFactor(
+    userId,
+    hashedBackupCodes,
+    user.status === 'PENDING_ACTIVATION'
+  );
 
   return {
     message: OTP_CONSTANTS.MESSAGES.OTP_ENABLED,
@@ -88,6 +107,8 @@ export const verifyBackupCodeLogin = async (userId, backupCode) => {
   updatedCodes.splice(index, 1);
   await otpRepository.updateBackupCodes(userId, updatedCodes);
 
+  await log2FASuccess(userId, 'backup_code');
+
   return { 
     valid: true, 
     remainingCodes: updatedCodes.length 
@@ -120,6 +141,8 @@ export const verifyLoginTotp = async (userId, payload) => {
     throw ApiError.badRequest(OTP_CONSTANTS.MESSAGES.OTP_CODE_INVALID);
   }
 
+  await log2FASuccess(userId, 'totp');
+
   return { valid: true };
 };
 
@@ -147,6 +170,28 @@ export const disableTotp = async (userId, password) => {
   return { message: OTP_CONSTANTS.MESSAGES.OTP_DISABLED };
 };
 
+/**
+ * Estado del 2FA del usuario autenticado.
+ * Devuelve `two_factor_enabled` y el número de códigos de respaldo restantes
+ * (nunca expone los códigos en sí, solo el conteo — spec §4.3).
+ */
+export const getTwoFactorStatus = async (userId) => {
+  const user = await otpRepository.getUserWithTwoFactor(userId);
+
+  if (!user) {
+    throw ApiError.notFound('Usuario no encontrado');
+  }
+
+  const backupCodes = Array.isArray(user.twoFactorBackupCodes)
+    ? user.twoFactorBackupCodes
+    : [];
+
+  return {
+    twoFactorEnabled: user.twoFactorEnabled,
+    backupCodesRemaining: user.twoFactorEnabled ? backupCodes.length : 0,
+  };
+};
+
 export default {
   setupTotp,
   verifyAndEnableTotp,
@@ -154,4 +199,5 @@ export default {
   verifyLoginTotp,
   verifyBackupCodeLogin,
   disableTotp,
+  getTwoFactorStatus,
 };

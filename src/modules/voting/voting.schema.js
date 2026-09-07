@@ -1,15 +1,17 @@
 // src/modules/voting/voting.schema.js
-// Schemas Zod para validación del módulo de VOTACIÓN.
 
 import { z } from 'zod';
 
 const uuid = (label = 'ID') => z.string().uuid(`${label} inválido`);
 
-/** Params: /voting/elections/:electionId/sessions */
-export const startSessionParamsSchema = z.object({
+/** Params y Body: /voting/elections/:electionId/sessions */
+export const startSessionSchema = z.object({
   params: z.object({
     electionId: uuid('ID de elección'),
   }),
+  body: z.object({
+    votingToken: z.string().optional(), // Token de 1 solo uso para cabina/doble factor
+  }).optional(),
 });
 
 /** Params: /voting/sessions/:sessionId/cast */
@@ -46,9 +48,20 @@ export const getSessionParamsSchema = z.object({
   }),
 });
 
+/** Params: /public/verify-receipt/:receiptCode */
+export const receiptParamsSchema = z.object({
+  params: z.object({
+    receiptCode: z
+      .string({ required_error: 'El código de comprobante es requerido' })
+      .min(1, 'El código de comprobante es requerido')
+      .regex(/^[a-fA-F0-9]{8,128}$/, 'El código de comprobante tiene un formato inválido'),
+  }),
+});
+
 export default {
-  startSessionParamsSchema,
+  startSessionSchema,
   castVoteParamsSchema,
   castVoteBodySchema,
   getSessionParamsSchema,
+  receiptParamsSchema,
 };

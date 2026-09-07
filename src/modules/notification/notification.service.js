@@ -1,7 +1,9 @@
 // src/modules/notification/notification.service.js
 
 import * as notificationRepository from './notification.repository.js';
+import messagingProvider from '../../shared/providers/messagingProvider.js';
 import { ApiError } from '../../shared/errors/ApiError.js';
+import logger from '../../config/logger.js';
 
 const translatePrismaError = (err) => {
   if (err?.code === 'P2025') {
@@ -43,10 +45,18 @@ export const getUnreadCount = async (userId) => {
  * Lista las notificaciones del usuario autenticado.
  */
 export const listNotifications = async (userId, query) => {
-  const { page, limit, type, is_read } = query;
+  const page = Math.max(1, Number(query?.page) || 1);
+  const limit = Math.min(50, Math.max(1, Number(query?.limit) || 20));
+  const type = query?.type;
+  let is_read;
+  if (query?.is_read === true || query?.is_read === 'true') {
+    is_read = true;
+  } else if (query?.is_read === false || query?.is_read === 'false') {
+    is_read = false;
+  }
   
   const [total, notifications] = await Promise.all([
-    notificationRepository.countUnreadNotifications(userId), // Opcional: contar total con filtros si se necesita paginación real
+    notificationRepository.countNotificationsByUser(userId, { type, isRead: is_read }),
     notificationRepository.findNotificationsByUser(userId, { page, limit, type, isRead: is_read }),
   ]);
 
@@ -118,10 +128,7 @@ export const updateNotification = async (id, userId, body) => {
  * Marca TODAS las notificaciones de un usuario como leídas.
  */
 export const markAllAsRead = async (userId) => {
-  await prisma.notification.updateMany({
-    where: { userId, readAt: null },
-    data: { readAt: new Date() },
-  });
+  await notificationRepository.markAllNotificationsAsRead(userId);
   return { success: true, message: 'Todas las notificaciones marcadas como leídas' };
 };
 
@@ -150,6 +157,85 @@ export const updateDelivery = async (deliveryId, status, errorMessage = null) =>
   }
 };
 
+/**
+ * Difunde una notificación a todos los votantes de una elección
+ * (p.ej. RESULTADOS_PUBLISHED con resumen del ganador en metadata).
+ */
+export const broadcastElectionResult = async ({
+  electionId,
+  title,
+  message,
+  metadata = {},
+  channels = ['IN_APP'],
+}) => {
+  const voters = await notificationRepository.findVotersForElection(electionId);
+  const userIds = [...new Set(voters.map((v) => v.voterId))];
+
+  const data = { type: 'RESULTS_PUBLISHED', title, message, metadata };
+  let created = 0;
+
+  // Lote por 100 para no saturar la conexión de Prisma.
+  for (let i = 0; i < userIds.length; i += 100) {
+    const batch = userIds.slice(i, i + 100);
+    const results = await Promise.allSettled(
+      batch.map((userId) => notificationRepository.createBroadcast(userId, data))
+    );
+    created += results.filter((r) => r.status === 'fulfilled').length;
+  }
+
+  return { notified: created, total_voters: userIds.length };
+};
+
+/**
+ * Procesa un lote de entregas PENDING (worker). IN_APP se marca SENT de forma
+ * inmediata; EMAIL/PUSH/SMS delegan en el provider configurado (mock de momento).
+ */
+export const processPendingDeliveries = async ({ limit = 50 } = {}) => {
+  const deliveries = await notificationRepository.findPendingDeliveries(limit);
+
+  for (const delivery of deliveries) {
+    try {
+      if (delivery.channel === 'IN_APP') {
+        await notificationRepository.updateDeliveryStatus(delivery.id, 'SENT');
+        continue;
+      }
+
+      let sent = false;
+      if (delivery.channel === 'EMAIL') {
+        sent = true; // El correo se delega al provider de mensajería cuando exista.
+      } else {
+        const sms = await messagingProvider.sendSms(
+          null,
+          `${delivery.notification.title}: ${delivery.notification.message}`
+        );
+        sent = sms?.delivered === true;
+      }
+
+      if (sent) {
+        await notificationRepository.updateDeliveryStatus(delivery.id, 'SENT');
+      } else {
+        await notificationRepository.updateDeliveryStatus(
+          delivery.id,
+          'FAILED',
+          'No se pudo despachar: destinatario/proveedor no disponible'
+        );
+      }
+    } catch (err) {
+      logger.warn('[NotificationWorker] Entrega fallida', {
+        delivery_id: delivery.id,
+        error: err.message,
+      });
+      await notificationRepository.updateDeliveryStatus(
+        delivery.id,
+        'FAILED',
+        err.message
+      );
+    }
+  }
+
+  return { processed: deliveries.length };
+};
+
 export default {
   getUnreadCount,
   listNotifications,
@@ -158,4 +244,6 @@ export default {
   markAllAsRead,
   getPendingDeliveriesForWorker,
   updateDelivery,
+  broadcastElectionResult,
+  processPendingDeliveries,
 };

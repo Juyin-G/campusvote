@@ -4,6 +4,7 @@
 import { Router } from 'express';
 import asyncHandler from '../../../shared/utils/asyncHandler.js';
 import { authenticate } from '../../../middlewares/auth.middleware.js';
+import { requireElectionInScope } from '../../../middlewares/scope.middleware.js';
 import { validate } from '../../../middlewares/validate.middleware.js';
 import { electionIdParamSchema } from '../results.schema.js';
 import resultsService from '../results.service.js';
@@ -25,6 +26,7 @@ router.get(
   '/elections/:id/export.csv',
   authenticate,
   validate(electionIdParamSchema),
+  asyncHandler(requireElectionInScope),
   asyncHandler(async (req, res) => {
     const data = await resultsService.getFinalResults(req.params.id);
     const buffer = generateResultsCsv(data);
@@ -39,6 +41,7 @@ router.get(
   '/elections/:id/export.xlsx',
   authenticate,
   validate(electionIdParamSchema),
+  asyncHandler(requireElectionInScope),
   asyncHandler(async (req, res) => {
     const data = await resultsService.getFinalResults(req.params.id);
     const buffer = await generateResultsXlsx(data);

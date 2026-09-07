@@ -42,8 +42,22 @@ model Organization {
 
   defaultLocale         String           @default("es-PE") @map("default_locale") @db.VarChar(10)
 
+  // Dominios de correo permitidos para jurados/usuarios corporativos.
+  // Ejemplo: ["universidad.edu.pe", "gmail.com", "empresa.com"].
+  allowedEmailDomains   Json             @default("[]") @map("allowed_email_domains")
+
+  // Catálogo de categorías extendido de la org (extiende el catálogo OCDE/CONCYTEC
+  // del sistema). Arreglo de strings; la validación del campo category de los
+  // proyectos (candidate_lists) usa: catálogo org ∪ catálogo sistema.
+  categoryCatalog       Json             @default("[]") @map("category_catalog")
+
+  // Capacidad máxima de miembros de la organización (incluye ADMIN, JURY y
+  // perfiles operativos; excluye SUPERADMIN porque es global).
+  memberLimit           Int              @default(100) @map("member_limit")
+
   // Relaciones
   users                 User[]
+  careers               Career[]
 
   @@map("organizations")
 }

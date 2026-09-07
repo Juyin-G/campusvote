@@ -9,6 +9,10 @@ CREATE TABLE IF NOT EXISTS candidate_lists (
     acronym VARCHAR(20) NULL,
     motto VARCHAR(255) NULL,
     logo VARCHAR(500) NULL,
+    description TEXT NULL,
+    image_url VARCHAR(1000) NULL,
+    category VARCHAR(80) NULL,
+    tags JSONB NOT NULL DEFAULT '[]'::jsonb,
 
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -19,10 +23,14 @@ CREATE TABLE IF NOT EXISTS candidate_lists (
     CONSTRAINT chk_candidate_lists_name_not_empty CHECK (length(trim(name)) > 0),
     CONSTRAINT chk_candidate_lists_acronym_not_empty CHECK (acronym IS NULL OR length(trim(acronym)) > 0),
     CONSTRAINT chk_candidate_lists_motto_not_empty CHECK (motto IS NULL OR length(trim(motto)) > 0),
-    CONSTRAINT chk_candidate_lists_logo_not_empty CHECK (logo IS NULL OR length(trim(logo)) > 0)
+    CONSTRAINT chk_candidate_lists_logo_not_empty CHECK (logo IS NULL OR length(trim(logo)) > 0),
+    CONSTRAINT chk_candidate_lists_description_not_empty CHECK (description IS NULL OR length(trim(description)) > 0),
+    CONSTRAINT chk_candidate_lists_image_url_not_empty CHECK (image_url IS NULL OR length(trim(image_url)) > 0),
+    CONSTRAINT chk_candidate_lists_category_not_empty CHECK (category IS NULL OR length(trim(category)) > 0)
 );
 
 CREATE INDEX IF NOT EXISTS idx_candidate_lists_election_id ON candidate_lists (election_id);
+CREATE INDEX IF NOT EXISTS idx_candidate_lists_category ON candidate_lists (category);
 
 DROP TRIGGER IF EXISTS trg_candidate_lists_updated_at ON candidate_lists;
 CREATE TRIGGER trg_candidate_lists_updated_at

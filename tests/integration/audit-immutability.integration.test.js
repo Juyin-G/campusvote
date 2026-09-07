@@ -38,9 +38,7 @@ const insertSampleAuditLog = async () => {
       '{}'::jsonb,
       '',
       '',
-      -- chk_audit_signature_if_hash exige firma cuando hay hash, y un trigger
-      -- calcula current_hash al insertar: la firma no puede ir vacía.
-      'firma-de-prueba'
+      '${'0'.repeat(64)}'
     )
   `);
   // $executeRawUnsafe devuelve el conteo de filas afectadas.

@@ -64,4 +64,20 @@ BEGIN
     END IF;
 END $$;
 
+-- Users -> Careers
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pg_constraint
+        WHERE conname = 'fk_users_career'
+    ) THEN
+        ALTER TABLE users
+            ADD CONSTRAINT fk_users_career
+            FOREIGN KEY (career_id)
+            REFERENCES careers(id)
+            ON DELETE SET NULL;
+    END IF;
+END $$;
+
 COMMIT;

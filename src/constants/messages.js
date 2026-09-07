@@ -11,6 +11,13 @@ export const MESSAGES = {
     LOGIN_MUST_CHANGE_PASSWORD: 'Debe cambiar su contraseña temporal para continuar.',
     LOGOUT_SUCCESS: 'Sesión cerrada correctamente.',
 
+    // Onboarding (primera activación de administradores)
+    ONBOARDING_REQUIRED: 'Debe completar la configuración de su cuenta para continuar.',
+    ONBOARDING_COMPLETE_2FA_FIRST: 'Debe completar la configuración de 2FA antes de finalizar el acceso.',
+    ACTIVATION_INVALID_TOKEN: 'El enlace de activación es inválido o ha expirado.',
+    ACTIVATION_EMAIL_SENT: 'Invitación de activación enviada correctamente.',
+    ACTIVATION_EMAIL_FAILED: 'El administrador fue creado, pero no se pudo enviar la invitación.',
+
     // 2FA
     TWO_FACTOR_REQUIRED: 'Se requiere autenticación de dos factores (2FA) para continuar.',
     TWO_FACTOR_INVALID_CODE: 'El código 2FA proporcionado es inválido o ha expirado.',

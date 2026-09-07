@@ -7,6 +7,8 @@ export const USER_PUBLIC_SELECT = {
   firstName: true,
   lastName: true,
   institutionalId: true,
+  documentType: true,
+  documentNumber: true,
   role: true,
   status: true,
   isVerified: true,
@@ -19,9 +21,10 @@ export const USER_PUBLIC_SELECT = {
   dateJoined: true,
 };
 
-const buildWhere = ({ organizationId, role, search, isActive } = {}) => {
+const buildWhere = ({ organizationId, role, search, isActive, includeSuperAdmin = false } = {}) => {
   const where = {};
   if (organizationId) where.organizationId = organizationId;
+  if (!includeSuperAdmin) where.role = { not: 'SUPERADMIN' };
   if (role) where.role = role;
   if (isActive !== undefined) {
     const active = isActive === 'true' || isActive === true;
@@ -90,24 +93,7 @@ export const update = (id, data) =>
     select: USER_PUBLIC_SELECT,
   });
 
-/**
- * Cambia el rol y limpia los datos que dejan de aplicar.
- * La BD lo exige: chk_users_student_data obliga a que current_cycle y
- * admission_period_id sean NULL en quien no es estudiante, y
- * chk_users_teacher_data hace lo mismo con specialty y department.
- */
-export const updateRole = (id, role) =>
-  prisma.user.update({
-    where: { id },
-    data: {
-      role,
-      ...(role === 'STUDENT'
-        ? {}
-        : { currentCycle: null, admissionPeriodId: null }),
-      ...(role === 'TEACHER' ? {} : { specialty: null, department: null }),
-    },
-    select: USER_PUBLIC_SELECT,
-  });
+export const updateRole = (id, data) => update(id, data);
 
 export const setActive = (id, isActive) =>
   prisma.user.update({

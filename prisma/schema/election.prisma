@@ -5,6 +5,8 @@ enum ElectionProcessType {
   FAIR
   FEEDBACK
   FORM
+  EVENT_POLL
+  AWARD
 
   @@map("election_process_type")
 }
@@ -34,6 +36,15 @@ enum ElectionStatusType {
   PUBLISHED
 
   @@map("election_status_type")
+}
+
+// Consecuencia cuando un estamento no alcanza su quórum mínimo diferenciado.
+enum QuorumFailPolicy {
+  VOID_ELECTION // nulidad global del proceso
+  VOID_STAKE    // el estamento corto no define ganador
+  SECOND_ROUND  // se agenda segunda vuelta
+
+  @@map("quorum_fail_policy")
 }
 
 enum CandidacyDocumentType {
@@ -74,6 +85,9 @@ model Election {
   candidateLists     CandidateList[]
   candidacies        Candidacy[]
   electionRule       ElectionRule?
+  criteria           FeriaCriterion[]    // rúbricas multicriterio (ferias)
+  juryAssignments    JuryAssignment[]
+  objections         CandidacyObjection[]
 
   // Relaciones con otros módulos (audit, voting, ballots)
   ballots            Ballot[]
@@ -83,6 +97,7 @@ model Election {
   votingSessions     VotingSession[]
   votes              Vote[]
   electionResults    ElectionResult[]
+  ratings            Rating[]
 
   @@index([status], map: "idx_elections_status")
   @@index([periodId], map: "idx_elections_period")
@@ -121,17 +136,26 @@ model CandidateList {
   acronym     String?  @db.VarChar(20)
   motto       String?  @db.VarChar(255)
   logo        String?  @db.VarChar(500)
+
+  // Perfil descriptivo para proyectos en ferias/concursos (processType FAIR/AWARD)
+  description String?  @db.Text
+  imageUrl    String?  @map("image_url") @db.VarChar(1000)
+  category    String?  @db.VarChar(80)
+  tags        Json?    @default("[]")
+
   createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
   // Relaciones
   election    Election    @relation(fields: [electionId], references: [id], onDelete: Cascade)
   candidacies Candidacy[]
+  objections  CandidacyObjection[] @relation("ObjectionTargetList")
 
   @@unique([electionId, name], map: "uq_candidate_lists_election_name")
   @@unique([electionId, acronym], map: "uq_candidate_lists_election_acronym")
   @@unique([id, electionId], map: "uq_candidate_lists_id_election")
   @@index([electionId], map: "idx_candidate_lists_election_id")
+  @@index([category], map: "idx_candidate_lists_category")
   @@map("candidate_lists")
 }
 
@@ -144,6 +168,10 @@ model Candidacy {
   status          CandidacyStatusType @default(PENDING) @map("status")
   orderIndex      Int                 @default(1) @map("order_index") @db.SmallInt
   isPrincipal     Boolean             @default(true) @map("is_principal")
+
+  // Docente asesor del proyecto (ferias): clave para detectar conflictos de interés
+  // (un jurado no puede evaluar un proyecto que él asesora).
+  advisorId       String?             @map("advisor_id") @db.Uuid
   createdAt       DateTime            @default(now()) @map("created_at") @db.Timestamptz
   updatedAt       DateTime            @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
@@ -152,13 +180,19 @@ model Candidacy {
   candidateList CandidateList       @relation(fields: [candidateListId, electionId], references: [id, electionId], onDelete: Cascade)
   position      Position?           @relation(fields: [positionId, electionId], references: [id, electionId], onDelete: Cascade)
   user          User                @relation(fields: [userId], references: [id], onDelete: Restrict)
+  advisor       User?               @relation("AdvisorCandidacies", fields: [advisorId], references: [id], onDelete: SetNull)
   documents     CandidacyDocument[]
+  ratings       Rating[]
+  juryAssignments JuryAssignment[]
+  objections    CandidacyObjection[] @relation("ObjectionTargetCandidacy")
 
   @@unique([electionId, userId], map: "uq_candidacies_election_user")
   @@unique([candidateListId, positionId, orderIndex], map: "uq_candidacies_list_position_order")
+  @@unique([id, electionId], map: "uq_candidacies_id_election")
   @@index([userId], map: "idx_candidacies_user_id")
   @@index([candidateListId], map: "idx_candidacies_candidate_list_id")
   @@index([positionId], map: "idx_candidacies_position_id")
+  @@index([advisorId], map: "idx_candidacies_advisor_id")
   @@map("candidacies")
 }
 
@@ -170,11 +204,30 @@ model ElectionRule {
   allowNullVote        Boolean  @default(true) @map("allow_null_vote")
   maxVotesPerPosition  Int      @default(1) @map("max_votes_per_position") @db.SmallInt
   requires2fa          Boolean  @default(true) @map("requires_2fa")
+
+  // VOTO PONDERADO POR ESTAMENTO (Ley Universitaria peruana)
+  isWeighted           Boolean  @default(false) @map("is_weighted")
+  teacherWeight        Decimal  @default(0.67) @map("teacher_weight") @db.Decimal(5, 2)
+  studentWeight        Decimal  @default(0.33) @map("student_weight") @db.Decimal(5, 2)
+
+  // QUÓRUM DIFERENCIADO POR ESTAMENTO
+  minTeacherTurnout    Decimal  @default(0) @map("min_teacher_turnout") @db.Decimal(5, 2)
+  minStudentTurnout    Decimal  @default(0) @map("min_student_turnout") @db.Decimal(5, 2)
+  quorumFailPolicy     QuorumFailPolicy @default(VOID_ELECTION) @map("quorum_fail_policy")
+
+  // FERIAS: VOTO POPULAR vs TÉCNICO DEL JURADO (juryWeight + publicWeight = 1.00)
+  juryWeight           Decimal  @default(0.80) @map("jury_weight") @db.Decimal(5, 2)
+  publicWeight         Decimal  @default(0.20) @map("public_weight") @db.Decimal(5, 2)
+
+  // DESEMPATE: criterio de rúbrica prioritario
+  tieBreakerCriterionId String?  @unique @map("tie_breaker_criterion_id") @db.Uuid
+
   createdAt            DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt            DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
   // Relaciones
-  election Election @relation(fields: [electionId], references: [id], onDelete: Cascade)
+  election             Election        @relation(fields: [electionId], references: [id], onDelete: Cascade)
+  tieBreakerCriterion  FeriaCriterion? @relation("TieBreaker", fields: [tieBreakerCriterionId], references: [id], onDelete: SetNull)
 
   @@map("election_rules")
 }

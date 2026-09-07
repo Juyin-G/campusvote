@@ -4,6 +4,7 @@ import swaggerUi from 'swagger-ui-express';
 import env from '../env.js';
 import schemas from './schemas/index.js';
 import { responses } from './responses.js';
+import voterRegistryDocs from '../../modules/academic/voter-registry/voter-registry.docs.js';
 
 // Metadata principal de la API
 const apiInfo = {
@@ -15,7 +16,7 @@ const apiInfo = {
 #### Autenticación
 Esta API utiliza esquemas de autenticación basados en **JWT (JSON Web Tokens)**.
 
-1. Autentícate en \`POST /api/v1/auth/login\`.
+1. Autentícate en \`POST /api/auth/login\`.
 2. Copia el token de acceso devuelto en la respuesta.
 3. Haz clic en el botón **Authorize** ubicado arriba a la derecha e ingresa tu token.
 
@@ -68,7 +69,7 @@ const tags = [
   { name: 'Auth', description: 'Gestión de autenticación, sesión y recuperación' },
   { name: 'Users', description: 'Administración de usuarios y perfiles' },
   { name: 'Organizations', description: 'Gestión multitenant de instituciones y organizaciones' },
-  { name: 'Elections', description: 'Ciclo de vida y parámetros de procesos electorales' },
+  { name: 'Elecciones', description: 'Ciclo de vida y parámetros de procesos electorales' },
   { name: 'Voter Registry', description: 'Gestión del padrón electoral y reclamos de inscripción' },
   { name: 'Voting', description: 'Registro y validación de votos criptográficos' },
   { name: 'Ballots', description: 'Gestión de cédulas y configuraciones de votación' },
@@ -88,6 +89,7 @@ const options = {
       schemas,
       responses,
     },
+    paths: voterRegistryDocs,
     tags,
     security: [
       {
@@ -104,9 +106,17 @@ const options = {
 };
 
 /**
- * Especificación OpenAPI compilada
+ * Especificación OpenAPI compilada.
+ * Se genera bajo demanda (lazy) para no cargar el parser de Swagger
+ * (módulo ESM) cuando la documentación no se necesita, p. ej. en tests.
  */
-export const swaggerSpec = swaggerJsdoc(options);
+let _swaggerSpec = null;
+export const getSwaggerSpec = () => {
+  if (!_swaggerSpec) {
+    _swaggerSpec = swaggerJsdoc(options);
+  }
+  return _swaggerSpec;
+};
 
 /**
  * Registra la interfaz gráfica Swagger UI y el endpoint JSON en la aplicación Express.
@@ -136,11 +146,13 @@ export const swaggerSetup = (app) => {
     },
   };
 
-  app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, swaggerUiOptions));
+  const spec = getSwaggerSpec();
+
+  app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(spec, swaggerUiOptions));
 
   app.get('/api-docs.json', (req, res) => {
     res.setHeader('Content-Type', 'application/json');
     res.setHeader('Cache-Control', 'public, max-age=3600');
-    res.send(swaggerSpec);
+    res.send(getSwaggerSpec());
   });
 };

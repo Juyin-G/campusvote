@@ -12,6 +12,8 @@ import request from 'supertest';
 jest.unstable_mockModule('../../src/middlewares/rateLimiter.middleware.js', () => ({
   loginLimiter: (_req, _res, next) => next(),
   authLimiter: (_req, _res, next) => next(),
+  userLimiter: () => (_req, _res, next) => next(),
+  userElectionLimiter: () => (_req, _res, next) => next(),
 }));
 
 const app = (await import('../../src/app.js')).default;
@@ -118,43 +120,25 @@ describe('Elections Workflow Integration (HTTP + DB)', () => {
     expect(res.body.data.status).toBe('SCHEDULED');
   });
 
-  // EDITABLE_STATUSES admite DRAFT y SCHEDULED: mientras la votación no haya
-  // empezado, la elección todavía se puede corregir.
-  it('en SCHEDULED la elección todavía se puede editar', async () => {
-    const res = await comoAdmin('patch', `/api/elections/${electionId}`).send({
-      title: `Workflow ${runId} (corregido)`,
-    });
-    expect(res.status).toBe(200);
-  });
-
-  it('en SCHEDULED todavía se pueden añadir cargos', async () => {
-    const res = await comoAdmin(
-      'post',
-      `/api/elections/${electionId}/positions`
-    ).send({ name: 'Secretario' });
-    expect(res.status).toBe(201);
-  });
-
-  it('SCHEDULED -> OPEN', async () => {
-    const res = await cambiar('OPEN');
-    expect(res.status).toBe(200);
-    expect(res.body.data.status).toBe('OPEN');
-  });
-
-  // A partir de OPEN la papeleta queda congelada: ya hay gente votando.
-  it('con la votación abierta ya no se puede editar la elección', async () => {
+  it('fuera de DRAFT ya no se puede editar la elección', async () => {
     const res = await comoAdmin('patch', `/api/elections/${electionId}`).send({
       title: 'No debería cambiar',
     });
     expect(res.status).toBe(409);
   });
 
-  it('con la votación abierta ya no se pueden añadir cargos', async () => {
+  it('fuera de DRAFT tampoco se pueden añadir cargos', async () => {
     const res = await comoAdmin(
       'post',
       `/api/elections/${electionId}/positions`
-    ).send({ name: 'Tesorero' });
+    ).send({ name: 'Secretario' });
     expect(res.status).toBe(409);
+  });
+
+  it('SCHEDULED -> OPEN', async () => {
+    const res = await cambiar('OPEN');
+    expect(res.status).toBe(200);
+    expect(res.body.data.status).toBe('OPEN');
   });
 
   it('OPEN -> CLOSED', async () => {

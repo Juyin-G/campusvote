@@ -1,18 +1,11 @@
 // src/modules/voting/voting.service.js
-// Capa de negocio del módulo de VOTACIÓN.
-//
-// Responsabilidades:
-//   - Coordinar el caso de uso "iniciar sesión de votación".
-//   - Coordinar el caso de uso "emitir voto".
-//   - Traducir los RAISE EXCEPTION del motor SQL (Prisma P2010)
-//     a ApiError con el código HTTP correcto.
-//
-// NO accede a Prisma directamente (delega en voting.repository.js).
-// NO conoce HTTP.
 
 import * as votingRepository from './voting.repository.js';
+import * as notificationService from '../notification/notification.service.js';
+import auditService from '../audit/audit.service.js';
 import { ApiError } from '../../shared/errors/ApiError.js';
 import MESSAGES from '../../constants/messages.js';
+import logger from '../../config/logger.js';
 
 /**
  * Extrae el mensaje legible de un error Prisma P2010 provocado por
@@ -20,8 +13,6 @@ import MESSAGES from '../../constants/messages.js';
  */
 const extractSqlMessage = (error) => {
   const raw = String(error?.meta?.message ?? error?.message ?? '');
-  // Prisma suele envolver el mensaje con prefijos como "Raw query failed".
-  // Nos quedamos con lo que haya tras los dos puntos del mensaje real.
   const colonIdx = raw.indexOf(':');
   return (colonIdx >= 0 ? raw.slice(colonIdx + 1) : raw).trim();
 };
@@ -69,20 +60,37 @@ const translateVotingError = (error) => {
       throw ApiError.notFound('Sesión de votación no encontrada');
     }
 
-    // Fallback genérico: el error provino del motor SQL validando reglas.
-    throw ApiError.badRequest(extractSqlMessage(error));
+    // Prevención de fuga de información (S2.5): Sanitización de fallback
+    const sqlDetail = extractSqlMessage(error);
+    console.error('[VotingService] Unhandled SQL Exception:', sqlDetail, error);
+
+    const safeMessage = process.env.NODE_ENV === 'production'
+      ? 'No se pudo procesar la solicitud de votación.'
+      : sqlDetail;
+
+    throw ApiError.badRequest(safeMessage);
   }
 
-  // Cualquier otro error (conexión, etc.) se propaga como 500.
   throw error;
 };
 
 /**
  * POST /voting/elections/:electionId/sessions
- * Inicia una sesión de votación para el elector autenticado.
+ * Inicia una sesión de votación y consume el token de un solo uso si es provisto.
  */
-export const startVotingSession = async ({ electionId, actorId, ip, userAgent }) => {
+export const startVotingSession = async ({ electionId, actorId, ip, userAgent, votingToken }) => {
   if (!actorId) throw ApiError.unauthorized('No se identificó al votante');
+
+  // Integración S2.4: Consumo y validación estricta del token de un solo uso
+  if (votingToken) {
+    try {
+      await auditService.consumeOneTimeToken(votingToken, electionId);
+    } catch (err) {
+      if (err.message.includes('expirado')) throw ApiError.gone('El token de votación ha expirado');
+      if (err.message.includes('utilizado')) throw ApiError.conflict('El token de votación ya fue utilizado');
+      throw ApiError.badRequest('Token de votación inválido o no correspondiente a esta elección');
+    }
+  }
 
   try {
     const [row] = await votingRepository.startSession(
@@ -127,6 +135,35 @@ export const castSecureVote = async ({
     );
     const receiptCode = row?.receipt_code;
 
+    // CAST_VOTE debe auditarse al EMITIR el voto (no solo al consumir el token).
+    try {
+      await auditService.logAction({
+        actorId: null, // Anonimato forzado (la BD además lo garantiza)
+        electionId: null,
+        action: 'CAST_VOTE',
+        metadata: { receipt: receiptCode, session_id: sessionId },
+      });
+    } catch (err) {
+      logger.warn('No se pudo registrar el voto en auditoría', { error: err.message });
+    }
+
+    // Confirmación ANÓNIMA al elector: no incluye selecciones ni payload.
+    try {
+      const session = await votingRepository.getSession(sessionId);
+      if (session?.electionId) {
+        await notificationService.createNotification({
+          user_id: session.voterId ?? actorId,
+          type: 'VOTE_CONFIRMATION',
+          title: 'Voto registrado',
+          message: 'Tu voto fue registrado correctamente. Tu comprobante quedó en tus manos.',
+          metadata: { election_id: session.electionId, receipt: receiptCode },
+          channels: ['IN_APP'],
+        });
+      }
+    } catch (err) {
+      logger.warn('No se pudo notificar la confirmación de voto', { error: err.message });
+    }
+
     return {
       receiptCode,
       status: 'CAST',
@@ -142,7 +179,6 @@ export const getVotingSession = async (sessionId, actorId) => {
   const session = await votingRepository.getSession(sessionId);
   if (!session) throw ApiError.notFound('Sesión de votación no encontrada');
 
-  // Solo el dueño de la sesión puede consultarla.
   if (session.voterId !== actorId) {
     throw ApiError.forbidden('No tiene permisos para consultar esta sesión');
   }
@@ -150,8 +186,41 @@ export const getVotingSession = async (sessionId, actorId) => {
   return session;
 };
 
+/**
+ * GET /public/verify-receipt/:receiptCode
+ * Verificación pública de comprobante de voto. No requiere autenticación
+ * y NO expone datos del votante (integridad / anti-fuga de información S2.5).
+ * Devuelve 200 con valid:false cuando el código no corresponde a un voto,
+ * en lugar de un 404, para no permitir enumerar comprobantes por la respuesta.
+ */
+export const verifyReceipt = async (receiptCode) => {
+  if (!receiptCode) {
+    throw ApiError.badRequest('El código de comprobante es requerido');
+  }
+
+  const vote = await votingRepository.findVoteByReceipt(receiptCode);
+
+  if (!vote) {
+    return {
+      valid: false,
+      message: 'El comprobante no corresponde a un voto registrado.',
+    };
+  }
+
+  return {
+    valid: true,
+    electionId: vote.electionId,
+    electionTitle: vote.election?.title ?? null,
+    electionStatus: vote.election?.status ?? null,
+    castAt: vote.castAt,
+    payloadHash: vote.payloadHash,
+    message: 'Comprobante de voto válido.',
+  };
+};
+
 export default {
   startVotingSession,
   castSecureVote,
   getVotingSession,
+  verifyReceipt,
 };

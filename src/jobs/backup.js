@@ -1,62 +1,119 @@
-// const { exec } = require('child_process');
-// const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
-// const path = require('path');
-// const fs = require('fs');
-// const logger = require('../config/logger');
+// src/jobs/backup.js
+// Backups por pg_dump a un directorio local (con retención), activados
+// SOLO cuando BACKUP_ENABLED=true. Si pg_dump no está disponible, el job
+// se omite con un log (nunca rompe el arranque ni el ciclo de la app).
 
-// const s3 = new S3Client({
-//   region: process.env.AWS_REGION,
-//   credentials: {
-//     accessKeyId: process.env.AWS_ACCESS_KEY,
-//     secretAccessKey: process.env.AWS_SECRET_KEY,
-//   },
-// });
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import { URL } from 'node:url';
+import logger from '../config/logger.js';
 
-// async function createBackup() {
-//   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-//   const filename = `backup_${timestamp}.sql`;
-//   const filepath = path.join('/tmp', filename);
+/* eslint-disable security/detect-non-literal-fs-filename -- la ruta de backup se configura por BACKUP_DIR en el entorno */
+const execFileAsync = promisify(execFile);
 
-//   const command = `pg_dump -h ${process.env.DB_HOST} -U ${process.env.DB_USER} -d ${process.env.DB_NAME} -F c -b -v -f ${filepath}`;
+/**
+ * Descompone DATABASE_URL (postgres://user:pass@host:port/db) en parámetros
+ * compatibles con pg_dump. Retorna null si la URL es inválida.
+ */
+export const parseDatabaseUrl = (databaseUrl) => {
+  if (!databaseUrl) return null;
+  try {
+    const url = new URL(databaseUrl);
+    return {
+      host: url.hostname,
+      port: url.port || '5432',
+      user: decodeURIComponent(url.username),
+      password: decodeURIComponent(url.password),
+      database: url.pathname.replace(/^\//, ''),
+    };
+  } catch {
+    return null;
+  }
+};
 
-//   return new Promise((resolve, reject) => {
-//     exec(command, { env: { ...process.env, PGPASSWORD: process.env.DB_PASSWORD } }, (error, stdout, stderr) => {
-//       if (error) {
-//         logger.error('Error en backup:', error);
-//         return reject(error);
-//       }
-//       logger.info(`Backup creado: ${filename}`);
-//       resolve(filepath);
-//     });
-//   });
-// }
+/**
+ * Encuentra el binario pg_dump (variable PG_DUMP_PATH o el propio PATH).
+ */
+const findPgDump = async () => {
+  const candidates = process.env.PG_DUMP_PATH
+    ? [process.env.PG_DUMP_PATH]
+    : ['pg_dump'];
+  for (const candidate of candidates) {
+    try {
+      await execFileAsync(candidate, ['--version']);
+      return candidate;
+    } catch {
+      // Continuar con el siguiente candidato
+    }
+  }
+  return null;
+};
 
-// async function uploadToS3(filepath) {
-//   const filename = path.basename(filepath);
-//   const fileStream = fs.createReadStream(filepath);
+/**
+ * Ejecuta un backup lógico con pg_dump (formato custom `-Fc`) en BACKUP_DIR.
+ * Retorna la ruta del archivo, o null (más un log) si no se pudo ejecutar.
+ */
+export const runBackupJob = async () => {
+  if ((process.env.BACKUP_ENABLED || '').toLowerCase() !== 'true') {
+    return { skipped: true, reason: 'BACKUP_ENABLED no está activo' };
+  }
 
-//   const command = new PutObjectCommand({
-//     Bucket: process.env.AWS_BACKUP_BUCKET,
-//     Key: `backups/${filename}`,
-//     Body: fileStream,
-//     ServerSideEncryption: 'AES256',
-//   });
+  const pgDump = await findPgDump();
+  if (!pgDump) {
+    logger.warn('[Backup] pg_dump no está disponible. Omitiendo backup (use PG_DUMP_PATH o instale el cliente Postgres).');
+    return { skipped: true, reason: 'pg_dump no disponible' };
+  }
 
-//   await s3.send(command);
-//   logger.info(`Backup subido a S3: ${filename}`);
-  
-//   // Limpiar archivo local
-//   fs.unlinkSync(filepath);
-// }
+  const parsed = parseDatabaseUrl(process.env.DATABASE_URL);
+  if (!parsed) {
+    logger.error('[Backup] DATABASE_URL inválida. No se puede ejecutar el backup.');
+    return { skipped: true, reason: 'DATABASE_URL inválida' };
+  }
 
-// async function runBackupJob() {
-//   try {
-//     const filepath = await createBackup();
-//     await uploadToS3(filepath);
-//     logger.info('Backup completado exitosamente');
-//   } catch (error) {
-//     logger.error('Error en el backup job:', error);
-//   }
-// }
+  const dir = process.env.BACKUP_DIR || path.join(os.tmpdir(), 'campusvote-backups');
+  await fs.mkdir(dir, { recursive: true });
 
-// module.exports = { runBackupJob };
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const dumpPath = path.join(dir, `backup_${timestamp}.dump`);
+
+  const args = [
+    '-h', parsed.host,
+    '-p', parsed.port,
+    '-U', parsed.user,
+    '-d', parsed.database,
+    '-Fc',
+    '-b',
+    '-f', dumpPath,
+  ];
+
+  const env = { ...process.env, PGPASSWORD: parsed.password };
+
+  try {
+    await execFileAsync(pgDump, args, { env, maxBuffer: 1024 * 1024 * 1024 });
+    logger.info(`[Backup] Backup creado: ${dumpPath}`);
+
+    // Retención: conservar solo las últimas BACKUP_KEEP copias.
+    const keep = parseInt(process.env.BACKUP_KEEP, 10) || 7;
+    const files = (await fs.readdir(dir))
+      .filter((f) => f.startsWith('backup_') && f.endsWith('.dump'))
+      .sort();
+    while (files.length > keep) {
+      const oldest = files.shift();
+      await fs.unlink(path.join(dir, oldest)).catch(() => {});
+      logger.info(`[Backup] Backup antiguo eliminado: ${oldest}`);
+    }
+
+    return { file: dumpPath };
+  } catch (error) {
+    logger.error('[Backup] Error ejecutando pg_dump:', {
+      message: error.message,
+      stderr: error.stderr ? String(error.stderr) : undefined,
+    });
+    return { skipped: true, reason: 'Error ejecutando pg_dump' };
+  }
+};
+
+export default { runBackupJob, parseDatabaseUrl };

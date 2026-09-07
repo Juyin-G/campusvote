@@ -37,6 +37,7 @@ CREATE TABLE IF NOT EXISTS users (
     organization_id UUID NULL,
     faculty_id UUID NULL,
     program_id UUID NULL,
+    career_id UUID NULL,
 
     -- PERFILES ESPECÍFICOS 
 
@@ -80,23 +81,26 @@ CREATE TABLE IF NOT EXISTS users (
     CONSTRAINT chk_users_superuser_requires_staff CHECK (is_superuser = FALSE OR is_staff = TRUE),
     CONSTRAINT chk_users_failed_login_attempts_non_negative CHECK (failed_login_attempts >= 0),
     CONSTRAINT chk_users_institutional_email CHECK (
-        role IN ('ADMIN', 'OBSERVER', 'ELECTORAL_COMMISSION') 
+        role IN ('ADMIN', 'SUPERADMIN', 'OBSERVER', 'ELECTORAL_COMMISSION', 'JURY') 
         OR email ~* '^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.(edu\.pe|edu)$'
     ),
+    -- El vínculo académico (carrera/programa y facultad) se asigna por el ADMIN
+    -- o se deriva del código institucional al registrarse; por eso no se exige
+    -- al momento de la creación del usuario.
     CONSTRAINT chk_users_academic_linkage CHECK (
         CASE 
-            WHEN role = 'STUDENT' THEN program_id IS NOT NULL
             WHEN role = 'TEACHER' THEN faculty_id IS NOT NULL
             ELSE TRUE
         END
     ),
 
-    -- Reglas estrictas para el perfil Estudiante
+    -- Reglas para el perfil Estudiante: ciclo y periodo son opcionales al crear,
+    -- el ADMIN los configura (o se parsean del código institucional).
     CONSTRAINT chk_users_student_data 
         CHECK (
-            (role = 'STUDENT' AND current_cycle IS NOT NULL)
-            OR 
-            (role != 'STUDENT' AND current_cycle IS NULL AND admission_period_id IS NULL)
+            role != 'STUDENT' 
+            OR current_cycle IS NULL
+            OR (current_cycle BETWEEN 1 AND 20)
         ),
 
     -- Reglas estrictas para el perfil Docente

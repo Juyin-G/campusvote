@@ -9,7 +9,7 @@ import rateLimit from 'express-rate-limit'; // OPCIONAL: npm i express-rate-limi
 
 import cors from './config/cors.js';
 import logger from './config/logger.js';
-import { swaggerSetup } from './config/swagger/index.js';
+import env from './config/env.js';
 import routes from './routes/index.js';
 
 import { notFoundHandler } from './middlewares/notFoundHandler.js';
@@ -26,7 +26,7 @@ app.set('trust proxy', 1);
 // Limitador de peticiones para evitar abuso de la API
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutos
-  max: 100, // Límite de 100 peticiones por IP por ventana
+  max: env.RATE_LIMIT_MAX_REQUESTS ?? 100, // Configurable; subir en producción (p. ej. 1000)
   standardHeaders: true,
   legacyHeaders: false,
   message: { status: 429, message: 'Demasiadas solicitudes, intenta más tarde.' },
@@ -39,7 +39,7 @@ app.use(
       directives: {
         defaultSrc: ["'self'"],
         scriptSrc: ["'self'"],
-        styleSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
         imgSrc: ["'self'", "data:"],
         connectSrc: ["'self'"],
         fontSrc: ["'self'"],
@@ -89,18 +89,30 @@ app.get('/health', (req, res) => {
   });
 });
 
-// Documentación Swagger
-swaggerSetup(app);
+// Documentación Swagger (carga bajo demanda: en entornos de test no se
+// arrastra la cadena ESM de swagger-jsdoc/json-schema-ref-parser)
+if (env.SWAGGER_ENABLED !== false && env.NODE_ENV !== 'test') {
+  const { swaggerSetup } = await import('./config/swagger/index.js');
+  swaggerSetup(app);
+}
 
-// Archivos estáticos
-app.use(express.static(path.join(__dirname, '../public')));
+// El frontend se despliega como servicio independiente. El backend no debe
+// asumir que existe una carpeta `public` en Render.
+const publicDirectory = path.join(__dirname, '../public');
+app.use(express.static(publicDirectory));
 
 // Rutas de la API
 app.use('/api', routes);
 
-// Vista demo en la raíz
+// Información del servicio en la raíz. La interfaz web vive en el servicio
+// frontend y consume esta API mediante /api.
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, '../public/index.html'));
+  res.status(200).json({
+    name: 'CampusVote API',
+    status: 'UP',
+    health: '/health',
+    documentation: env.SWAGGER_ENABLED !== false ? '/api-docs' : null,
+  });
 });
 
 // Manejo de rutas no encontradas (404)

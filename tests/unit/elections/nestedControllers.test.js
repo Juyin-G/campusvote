@@ -161,7 +161,7 @@ describe('CandidateList Controller', () => {
 
     await candidateListController.listCandidateLists(req, res, next);
 
-    expect(listSvc.listCandidateLists).toHaveBeenCalledWith(ELECCION);
+    expect(listSvc.listCandidateLists).toHaveBeenCalledWith(ELECCION, {});
     expect(cuerpo().meta.total).toBe(1);
   });
 
