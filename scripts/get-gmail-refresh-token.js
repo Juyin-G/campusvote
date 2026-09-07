@@ -26,10 +26,6 @@ import 'dotenv/config';
 import http from 'node:http';
 import { URL } from 'node:url';
 import { google } from 'googleapis';
-import readline from 'node:readline';
-
-const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-const ask = (q) => new Promise((res) => rl.question(q, res));
 
 const REQUIRED = ['GMAIL_CLIENT_ID', 'GMAIL_CLIENT_SECRET', 'GMAIL_REDIRECT_URI'];
 const missing = REQUIRED.filter((k) => !process.env[k]);
@@ -143,7 +139,3 @@ setTimeout(() => {
   console.error('\nTiempo agotado (5 min). Vuelve a ejecutar el script cuando estés listo.');
   cleanup(1);
 }, 5 * 60 * 1000).unref();
-
-// Nota: `ask` queda disponible si más adelante queremos permitir pegar el code manualmente
-// en lugar de levantar el server. Por ahora no lo usamos (se deja declarado).
-void ask;

@@ -27,6 +27,8 @@ export const hasValidSignature = async (filePath, mimeType) => {
   const signatures = MAGIC[mimeType];
   if (!signatures) return false;
 
+  // The path is created by Multer in the configured upload directory.
+  // eslint-disable-next-line security/detect-non-literal-fs-filename
   const handle = await fs.open(filePath, 'r');
   try {
     // Leemos los primeros 16 bytes (suficiente para JPEG/PNG/PDF/webp).

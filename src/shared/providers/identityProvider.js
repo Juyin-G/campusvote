@@ -16,7 +16,7 @@ const DNI_PATTERN = /^\d{8}$/;
 const CE_PATTERN = /^[0-9A-Za-z]{9,12}$/;
 
 // IMPORTANTE: la verificación real del DNI la hace RENIEC contra su base de
-// datos (número + nombres). El checksum mod-11 rechaza DNIs reales (sobre todo
+// datos (número + nombres). El checksum mod-11 rechaza DNIs reales (incluso
 // antiguos), por eso aquí NO se usa: el mock solo valida el formato.
 
 export class MockIdentityProvider extends IdentityProvider {

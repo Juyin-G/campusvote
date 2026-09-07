@@ -52,7 +52,7 @@
  *           type: integer
  *           minimum: 1
  *           maximum: 200
- *         description: Paginación (opcional, sin limit se devuelve todo)
+ *         description: Paginación (opcional, sin limit se devuelve la lista completa)
  *       - in: query
  *         name: offset
  *         schema:

@@ -5,6 +5,7 @@
  */
 
 import { google } from 'googleapis';
+import crypto from 'node:crypto';
 import env from '../../config/env.js';
 import logger from '../../config/logger.js';
 import { ApiError } from '../errors/ApiError.js';
@@ -87,7 +88,7 @@ const encodeSubject = (subject) => {
  * gmail.users.messages.send en el campo raw.
  */
 const buildRawMessage = ({ from, to, subject, html, text }) => {
-  const boundary = `cv_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+  const boundary = `cv_${Date.now()}_${crypto.randomUUID()}`;
   const safeText = text || '';
   const safeHtml = html || '';
 
@@ -119,7 +120,7 @@ const buildRawMessage = ({ from, to, subject, html, text }) => {
     .toString('base64')
     .replace(/\+/g, '-')
     .replace(/\//g, '_')
-    .replace(/=+$/, '');
+    .replaceAll('=', '');
 };
 
 /**

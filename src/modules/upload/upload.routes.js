@@ -48,6 +48,8 @@ router.post(
       try {
         const valid = await hasValidSignature(file.path, file.mimetype);
         if (!valid) {
+          // Multer supplies this path from the configured upload directory.
+          // eslint-disable-next-line security/detect-non-literal-fs-filename
           await fs.unlink(file.path).catch(() => {});
           return res.status(400).json({
             success: false,
