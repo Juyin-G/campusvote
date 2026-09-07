@@ -82,14 +82,14 @@ router.patch(
   authorize('SUPERADMIN'),
   validate(requestParamsSchema),
   asyncHandler(async (req, res) => {
-    const newOrganization = await approvalService.approveRequest(
+    const approval = await approvalService.approveRequest(
       req.params.id,
       getUserId(req)
     );
     return sendSuccess(
       res,
-      newOrganization,
-      MESSAGES.ORGANIZATION_REQUEST?.APPROVED_SUCCESS || 'Solicitud aprobada y organización creada',
+      approval,
+      'Solicitud aprobada. Se envió el enlace para activar la cuenta y crear la organización.',
       { requestId: req.requestId },
       HTTP_STATUS.OK
     );

@@ -140,6 +140,8 @@ export default async function setupTestDB() {
     await executeFile('ballots/006_functions.sql');
 
     await executeFile('organizations/004_approval_functions.sql');
+    await executeFile('organizations/007_admin_invite.sql');
+    await executeFile('organizations/008_deferred_admin_activation.sql');
 
     await executeFile('reports/001_election_report_history.sql');
     await executeFile('claims/001_voter_registry_claims.sql');

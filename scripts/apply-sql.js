@@ -83,6 +83,7 @@ const MIGRATION_FILES = [
   'organizations/005_organization_member_limit.sql',
   'organizations/006_admin_requires_organization.sql',
   'organizations/007_admin_invite.sql',
+  'organizations/008_deferred_admin_activation.sql',
   'reports/001_election_report_history.sql',
   'claims/001_voter_registry_claims.sql',
   'objections/001_candidacy_objections.sql',

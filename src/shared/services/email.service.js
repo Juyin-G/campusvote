@@ -136,12 +136,10 @@ export const sendRequestReceived = async ({ email, institutionName }) => {
 
 /**
  * Email de activación accionable: enviado cuando el SUPERADMIN aprueba una
- * solicitud de organización y la Opción B ya creó el User admin con su
- * activation_token. El link lleva a /activate-account?token=... y permite
- * al visitante definir contraseña + completar el onboarding (TOTP).
+ * solicitud de organización. El link lleva a /activate-account?token=... y
+ * permite al visitante definir contraseña + completar el onboarding (TOTP).
  *
- * A diferencia de `sendRequestApproved` (Opción A, solo informativo), este
- * helper SÍ permite que el admin complete el ciclo por su cuenta.
+ * La organización y el usuario ADMIN se crean al consumir el token.
  */
 export const sendAdminActivation = async ({
   email,
@@ -172,11 +170,7 @@ export const sendAdminActivation = async ({
 };
 
 /**
- * Email informativo cuando el SUPERADMIN aprueba una solicitud. NO incluye
- * link de activación porque la función SQL actual no crea User ni token:
- * es un aviso de cortesía. Si en el futuro se implementa Opción B
- * (creación automática de User + invitation_token), este helper debería
- * moverse o reemplazarse por uno que envíe el link a /activate-account.
+ * Email informativo legacy para flujos que no requieren activación.
  */
 export const sendRequestApproved = async ({
   email,

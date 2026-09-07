@@ -139,7 +139,9 @@ export const login = async ({ email, password, ipAddress = null, userAgent = nul
  */
 export const activateAccount = async (token, newPassword) => {
   const hashedPassword = await bcrypt.hash(newPassword, SALT_ROUNDS);
-  const userId = await authRepository.activateAccountWithToken(token, hashedPassword);
+  const userId =
+    await authRepository.activateAccountWithToken(token, hashedPassword)
+    || await authRepository.activateOrganizationRequestWithToken(token, hashedPassword);
 
   if (!userId) {
     throw ApiError.invalidToken(MESSAGES.AUTH.ACTIVATION_INVALID_TOKEN);

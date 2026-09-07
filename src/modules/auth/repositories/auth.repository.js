@@ -224,6 +224,13 @@ export const activateAccountWithToken = async (token, newPasswordHash) => {
   return result[0]?.user_id;
 };
 
+export const activateOrganizationRequestWithToken = async (token, newPasswordHash) => {
+  const result = await prisma.$queryRaw`
+    SELECT activate_organization_request(${token}::text, ${newPasswordHash}::text) AS user_id
+  `;
+  return result[0]?.user_id;
+};
+
 export const finalizeOnboarding = async (userId) => {
   return prisma.user.update({
     where: { id: userId },

@@ -70,25 +70,11 @@ const resolveApproverName = async (reviewerId) => {
 export const approveRequest = async (requestId, reviewerId) => {
   assertUuid(requestId);
   const request = await assertPending(requestId);
+  let activationEmailSent = true;
+  let activationEmailError;
 
-  const { organization, userId, activationToken } =
+  const { activationToken } =
     await orgRepository.approveAndInviteAdmin(requestId, reviewerId);
-
-  if (!organization) {
-    throw ApiError.conflict('La aprobación no devolvió una organización');
-  }
-
-  // La capacidad solicitada se convierte en la cuota inicial.
-  const currentMembers = await orgRepository.countOrganizationMembers(organization.id);
-  if (request.estimatedMembers < currentMembers) {
-    throw ApiError.conflict(
-      'La capacidad solicitada es menor que los miembros existentes de la organización'
-    );
-  }
-
-  const updated = await orgRepository.updateOrg(organization.id, {
-    memberLimit: request.estimatedMembers,
-  });
 
   /**
    * Email accionable al visitante con el link a /activate-account.
@@ -102,21 +88,27 @@ export const approveRequest = async (requestId, reviewerId) => {
       token: activationToken,
     });
 
-    logger.info('Solicitud aprobada, admin invitado creado y correo enviado', {
+    logger.info('Solicitud aprobada y correo de activación enviado', {
       requestId,
-      organizationId: organization.id,
-      userId,
     });
   } catch (emailErr) {
+    activationEmailSent = false;
+    activationEmailError = emailErr.message;
     logger.warn('Aprobación OK pero falló el email de activación', {
       requestId,
-      userId,
       email: request.contactEmail,
       error: emailErr.message,
     });
   }
 
-  return updated;
+  return {
+    id: request.id,
+    status: 'APPROVED',
+    institutionName: request.institutionName,
+    contactEmail: request.contactEmail,
+    activation_email_sent: activationEmailSent,
+    ...(activationEmailError ? { activation_email_error: activationEmailError } : {}),
+  };
 };
 
 /**
