@@ -51,6 +51,8 @@ const authUrl = oauth2.generateAuthUrl({
   ...(SEND_AS ? { login_hint: SEND_AS } : {}),
 });
 
+let isCleaningUp = false;
+
 console.log('\n=== Generador de refresh_token para Gmail API ===\n');
 console.log('1) Abre esta URL en tu navegador y autoriza con tu Gmail:\n');
 console.log(`   ${authUrl}\n`);
@@ -108,13 +110,21 @@ const server = http.createServer(async (req, res) => {
     cleanup(0);
   } catch (err) {
     console.error('\nError procesando el callback:', err.message);
-    res.writeHead(500, { 'Content-Type': 'text/plain' }).end('Error');
+    if (!res.headersSent) {
+      res.writeHead(500, { 'Content-Type': 'text/plain' });
+      res.end('Error procesando la autorización. Revisa la terminal.');
+    }
     cleanup(1);
   }
 });
 
 const cleanup = (code = 0) => {
-  rl.close();
+  if (isCleaningUp) return;
+  isCleaningUp = true;
+  if (!server.listening) {
+    process.exit(code);
+    return;
+  }
   server.close(() => process.exit(code));
 };
 
