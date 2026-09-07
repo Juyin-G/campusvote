@@ -22,6 +22,7 @@ import {
   sendVerification,
   sendReset,
   sendActivation,
+  sendRequestReceived,
 } from '../src/shared/services/email.service.js';
 
 const TEST_EMAIL = process.env.TEST_EMAIL || 'tu-correo@ejemplo.com';
@@ -37,7 +38,7 @@ const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const run = async () => {
   const mode = getMode();
-  const allowed = ['verification', 'reset', 'activation', 'all'];
+  const allowed = ['verification', 'reset', 'activation', 'request', 'all'];
 
   if (!allowed.includes(mode)) {
     throw new Error(`Modo inválido. Use: ${allowed.join(', ')}`);
@@ -79,6 +80,19 @@ const run = async () => {
       firstName: 'Administrador',
     });
     console.log('OK: sendActivation');
+  }
+
+  if (mode === 'all') {
+    console.log('Esperando 5s entre envíos...');
+    await wait(5000);
+  }
+
+  if (mode === 'request' || mode === 'all') {
+    await sendRequestReceived({
+      email: TEST_EMAIL,
+      institutionName: 'Universidad de Prueba CampusVote',
+    });
+    console.log('OK: sendRequestReceived');
   }
 
   console.log('Listo. Revisa la bandeja de TEST_EMAIL (incluyendo Spam).');

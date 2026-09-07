@@ -7,6 +7,8 @@
 
 import env from '../../config/env.js';
 import { sendRaw } from './gmail.client.js';
+import MESSAGES from '../../constants/messages.js';
+import { formatMessage } from '../../constants/index.js';
 
 /**
  * Indica si el canal Gmail está completamente configurado. El onboarding
@@ -98,6 +100,36 @@ export const sendActivation = async ({
       'Activa tu cuenta de administrador en CampusVote:',
       link,
       'Este enlace expira en 24 horas.',
+    ].join('\n'),
+  });
+};
+
+/**
+ * Email automático cuando un visitante envía una solicitud de organización
+ * desde /solicitar-acceso. El link apunta al propio FRONTEND_URL en Render.
+ * No interrumpe el flujo: si falla el envío, el caller hace try/catch y sigue.
+ */
+export const sendRequestReceived = async ({ email, institutionName }) => {
+  const link = env.FRONTEND_URL;
+
+  const body = formatMessage(MESSAGES.REQUEST.RECEIVED_BODY, {
+    institution: institutionName,
+  });
+
+  await sendRaw({
+    to: email,
+    subject: MESSAGES.REQUEST.RECEIVED_SUBJECT,
+    html: `
+      <p>${MESSAGES.REQUEST.RECEIVED_HEADING}</p>
+      <p>${body}</p>
+      <p><a href="${link}">${MESSAGES.REQUEST.RECEIVED_CTA}</a></p>
+      <p><small>${MESSAGES.REQUEST.RECEIVED_FOOTER}</small></p>
+    `,
+    text: [
+      MESSAGES.REQUEST.RECEIVED_HEADING,
+      body,
+      `${MESSAGES.REQUEST.RECEIVED_CTA}: ${link}`,
+      MESSAGES.REQUEST.RECEIVED_FOOTER,
     ].join('\n'),
   });
 };

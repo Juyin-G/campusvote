@@ -95,6 +95,17 @@ export const MESSAGES = {
     REQUEST_REJECTED_SUCCESS: 'Solicitud rechazada. Se ha enviado un correo al solicitante.',
   },
 
+  // SOLICITUDES / LEAD — emails automáticos al visitante
+  REQUEST: {
+    RECEIVED_SUBJECT: 'Recibimos tu solicitud — CampusVote',
+    RECEIVED_HEADING: 'Gracias por tu interes en CampusVote',
+    RECEIVED_BODY:
+      'Recibimos la solicitud de tu organizacion "{institution}". Nuestro equipo la revisara y se pondra en contacto contigo para coordinar el siguiente paso.',
+    RECEIVED_CTA: 'Visitar CampusVote',
+    RECEIVED_FOOTER:
+      'Si no solicitaste este registro, puedes ignorar este mensaje.',
+  },
+
   // ELECCIONES (ELECTIONS)
   ELECTION: {
     CREATED_SUCCESS: 'Elección creada correctamente.',

@@ -8,6 +8,8 @@ import {
 } from '../../../shared/utils/pagination.js';
 import MESSAGES from '../../../constants/messages.js';
 import { createOrganizationRequestSchema } from './organization.schema.js';
+import { sendRequestReceived } from '../../../shared/services/email.service.js';
+import logger from '../../../config/logger.js';
 
 /**
  * Registrar una nueva solicitud de organización.
@@ -30,7 +32,27 @@ export const createRequest = async (data = {}) => {
   };
 
   try {
-    return await organizationRepository.createRequest(prismaData);
+    const created = await organizationRepository.createRequest(prismaData);
+
+    /**
+     * Email automático al visitante. Es secundario a la persistencia: si Gmail
+     * falla (rate-limit, credencial revocada, etc.), la solicitud queda
+     * registrada y el backend responde 201 igual. Solo se loguea como warning.
+     */
+    try {
+      await sendRequestReceived({
+        email: created.contactEmail,
+        institutionName: created.institutionName,
+      });
+    } catch (emailErr) {
+      logger.warn('No se pudo enviar email de solicitud recibida', {
+        requestId: created.id,
+        email: created.contactEmail,
+        error: emailErr.message,
+      });
+    }
+
+    return created;
   } catch (err) {
     if (err?.code === 'P2002') {
       throw ApiError.conflict('Ya existe una solicitud con ese correo electrónico');
