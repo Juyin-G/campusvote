@@ -29,6 +29,26 @@ CREATE TABLE IF NOT EXISTS candidate_lists (
     CONSTRAINT chk_candidate_lists_category_not_empty CHECK (category IS NULL OR length(trim(category)) > 0)
 );
 
+ALTER TABLE candidate_lists
+    ADD COLUMN IF NOT EXISTS description TEXT NULL,
+    ADD COLUMN IF NOT EXISTS image_url VARCHAR(1000) NULL,
+    ADD COLUMN IF NOT EXISTS category VARCHAR(80) NULL,
+    ADD COLUMN IF NOT EXISTS tags JSONB NOT NULL DEFAULT '[]'::jsonb;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pg_constraint
+        WHERE conname = 'chk_candidate_lists_category_not_empty'
+          AND conrelid = 'candidate_lists'::regclass
+    ) THEN
+        ALTER TABLE candidate_lists
+            ADD CONSTRAINT chk_candidate_lists_category_not_empty
+            CHECK (category IS NULL OR length(trim(category)) > 0);
+    END IF;
+END $$;
+
 CREATE INDEX IF NOT EXISTS idx_candidate_lists_election_id ON candidate_lists (election_id);
 CREATE INDEX IF NOT EXISTS idx_candidate_lists_category ON candidate_lists (category);
 

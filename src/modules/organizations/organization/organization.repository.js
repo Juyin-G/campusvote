@@ -159,6 +159,68 @@ export const rejectOrganizationRequest = async (requestId, reviewerUserId, reaso
   });
 };
 
+/**
+ * Aprueba una solicitud y, en la misma transacción, crea el User admin
+ * invitado (PENDING_ACTIVATION) con su activation_token.
+ *
+ * Devuelve `{ organization, userId, activationToken }`. El `activationToken`
+ * es el texto plano que se envía al visitante; nunca se vuelve a recuperar.
+ *
+ * Si la aprobación falla o `admin_invite_for_request` falla, la transacción
+ * hace rollback completo (no queda ni la Organization ni el User).
+ *
+ * El caller debe enviar el `activationToken` al `contact_email` justo después
+ * y manejar el fallo de email de forma defensiva (no relanzar, para no perder
+ * el trabajo de la aprobación).
+ */
+export const approveAndInviteAdmin = async (requestId, reviewerId) => {
+  return prisma.$transaction(async (tx) => {
+    const approveRows = await tx.$queryRaw`
+      SELECT approve_organization_request(
+        ${requestId}::uuid,
+        ${reviewerId}::uuid
+      ) AS new_org_id
+    `;
+
+    const newOrgId = approveRows[0]?.new_org_id ?? null;
+    if (!newOrgId) {
+      throw new Error('approve_organization_request no devolvio una organizacion');
+    }
+
+    const inviteRows = await tx.$queryRaw`
+      SELECT * FROM admin_invite_for_request(
+        ${requestId}::uuid,
+        ${newOrgId}::uuid
+      )
+    `;
+
+    const inviteRow = inviteRows[0];
+    if (!inviteRow) {
+      throw new Error('admin_invite_for_request no devolvio token');
+    }
+
+    const organization = await tx.organization.findUnique({
+      where: { id: newOrgId },
+      select: {
+        id: true,
+        name: true,
+        code: true,
+        orgType: true,
+        isActive: true,
+        memberLimit: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
+    return {
+      organization,
+      userId: inviteRow.out_user_id,
+      activationToken: inviteRow.out_raw_token,
+    };
+  });
+};
+
 export default {
   findOrgById,
   findOrgByCode,
@@ -178,4 +240,5 @@ export default {
   deleteRequestById,
   approveOrganizationRequest,
   rejectOrganizationRequest,
+  approveAndInviteAdmin,
 };

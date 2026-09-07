@@ -23,6 +23,8 @@ import {
   sendReset,
   sendActivation,
   sendRequestReceived,
+  sendRequestApproved,
+  sendAdminActivation,
 } from '../src/shared/services/email.service.js';
 
 const TEST_EMAIL = process.env.TEST_EMAIL || 'tu-correo@ejemplo.com';
@@ -38,7 +40,7 @@ const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const run = async () => {
   const mode = getMode();
-  const allowed = ['verification', 'reset', 'activation', 'request', 'all'];
+  const allowed = ['verification', 'reset', 'activation', 'request', 'request-approved', 'admin-activation', 'all'];
 
   if (!allowed.includes(mode)) {
     throw new Error(`Modo inválido. Use: ${allowed.join(', ')}`);
@@ -93,6 +95,34 @@ const run = async () => {
       institutionName: 'Universidad de Prueba CampusVote',
     });
     console.log('OK: sendRequestReceived');
+  }
+
+  if (mode === 'all') {
+    console.log('Esperando 5s entre envíos...');
+    await wait(5000);
+  }
+
+  if (mode === 'request-approved' || mode === 'all') {
+    await sendRequestApproved({
+      email: TEST_EMAIL,
+      institutionName: 'Universidad de Prueba CampusVote',
+      approverName: 'Juyin SUPERADMIN',
+    });
+    console.log('OK: sendRequestApproved');
+  }
+
+  if (mode === 'all') {
+    console.log('Esperando 5s entre envíos...');
+    await wait(5000);
+  }
+
+  if (mode === 'admin-activation' || mode === 'all') {
+    await sendAdminActivation({
+      email: TEST_EMAIL,
+      institutionName: 'Universidad de Prueba CampusVote',
+      token: 'token-prueba-admin-activation-' + Date.now(),
+    });
+    console.log('OK: sendAdminActivation');
   }
 
   console.log('Listo. Revisa la bandeja de TEST_EMAIL (incluyendo Spam).');
