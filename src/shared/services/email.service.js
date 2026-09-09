@@ -10,7 +10,7 @@ import { sendRaw } from './gmail.client.js';
 
 const sendMail = async ({ to, subject, html, text }) => {
   try {
-    if (!env.GMAIL_CLIENT_ID || !env.GMAIL_CLIENT_SECRET || !env.GMAIL_REFRESH_TOKEN || !env.GMAIL_FROM) {
+    if (!hasEmailConfigured()) {
       throw ApiError.serviceUnavailable(
         'Gmail no está configurado para enviar correos',
         null,
@@ -42,6 +42,20 @@ const sendMail = async ({ to, subject, html, text }) => {
       'EMAIL_SEND_FAILED',
     );
   }
+};
+
+/**
+ * Indica si el canal Gmail está completamente configurado. El onboarding
+ * usa esto para decidir entre "invitar por email" (verificación) o
+ * "credenciales temporales" cuando el email no está disponible.
+ */
+export const hasEmailConfigured = () => {
+  return Boolean(
+    env.GMAIL_CLIENT_ID
+      && env.GMAIL_CLIENT_SECRET
+      && env.GMAIL_REFRESH_TOKEN
+      && env.GMAIL_FROM,
+  );
 };
 
 export const sendVerification = async ({
