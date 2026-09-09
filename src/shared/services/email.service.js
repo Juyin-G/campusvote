@@ -87,3 +87,46 @@ export const sendReset = async ({ email, token }) => {
     ),
   });
 };
+
+export const sendRequestReceived = async ({
+  email,
+  institutionName,
+}) => {
+  await sendMail({
+    to: email,
+    subject: 'Solicitud recibida por CampusVote',
+    html: `
+      <p>Hemos recibido la solicitud de acceso para <strong>${institutionName}</strong>.</p>
+      <p>El equipo de CampusVote revisará la información y te notificará el resultado.</p>
+    `,
+    text: [
+      `Solicitud recibida para ${institutionName}.`,
+      'El equipo de CampusVote revisará la información y te notificará el resultado.',
+    ].join('\n'),
+  });
+};
+
+export const sendAdminActivation = async ({
+  email,
+  institutionName,
+  token,
+}) => {
+  const link = `${env.FRONTEND_URL}/activate-account?token=${encodeURIComponent(token)}`;
+
+  await sendMail({
+    to: email,
+    subject: `Solicitud aprobada para ${institutionName}`,
+    html: `
+      <p>Tu solicitud para <strong>${institutionName}</strong> fue aprobada.</p>
+      <p>Activa tu cuenta de administrador desde este enlace:</p>
+      <p><a href="${link}">${link}</a></p>
+      <p>El enlace expira en 24 horas.</p>
+    `,
+    text: [
+      `Tu solicitud para ${institutionName} fue aprobada.`,
+      'Activa tu cuenta de administrador:',
+      link,
+      'El enlace expira en 24 horas.',
+    ].join('\n'),
+  });
+};
