@@ -1,86 +1,178 @@
-import { ApiError } from '../errors/ApiError.js';
+/**
+ * Cliente Gmail API OAuth2.
+ *
+ * El refresh token es persistente; googleapis obtiene access tokens
+ * temporales sin que el backend tenga que almacenarlos.
+ */
+import { google } from 'googleapis';
+import crypto from 'node:crypto';
 import env from '../../config/env.js';
+import logger from '../../config/logger.js';
+import { ApiError } from '../errors/ApiError.js';
 
-const required = ['GMAIL_CLIENT_ID', 'GMAIL_CLIENT_SECRET', 'GMAIL_REFRESH_TOKEN', 'GMAIL_FROM'];
+let oauth2Client;
+let gmail;
 
-const assertConfig = () => {
+const required = [
+  'GMAIL_CLIENT_ID',
+  'GMAIL_CLIENT_SECRET',
+  'GMAIL_REFRESH_TOKEN',
+  'GMAIL_FROM',
+];
+
+const assertGmailConfig = () => {
   const missing = required.filter((key) => !env[key]);
   if (missing.length > 0) {
-    throw ApiError.internal(`Configuración Gmail incompleta: ${missing.join(', ')}`);
+    throw ApiError.serviceUnavailable(
+      'Configuración Gmail API incompleta',
+      env.NODE_ENV === 'development' ? { missing } : null,
+      'EMAIL_AUTH_FAILED',
+    );
   }
 };
 
-const encodeBase64Url = (value) =>
-  (() => {
-    let encoded = Buffer.from(value).toString('base64')
-      .replaceAll('+', '-')
-      .replaceAll('/', '_');
-    while (encoded.endsWith('=')) encoded = encoded.slice(0, -1);
-    return encoded;
-  })();
-
-const getAccessToken = async () => {
-  assertConfig();
-
-  const response = await fetch('https://oauth2.googleapis.com/token', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({
-      client_id: env.GMAIL_CLIENT_ID,
-      client_secret: env.GMAIL_CLIENT_SECRET,
+const getOAuthClient = () => {
+  if (!oauth2Client) {
+    assertGmailConfig();
+    oauth2Client = new google.auth.OAuth2(
+      env.GMAIL_CLIENT_ID,
+      env.GMAIL_CLIENT_SECRET,
+      env.GMAIL_REDIRECT_URI || undefined,
+    );
+    oauth2Client.setCredentials({
       refresh_token: env.GMAIL_REFRESH_TOKEN,
-      grant_type: 'refresh_token',
-    }),
-  });
-
-  const payload = await response.json();
-  if (!response.ok || !payload.access_token) {
-    const reason = payload.error === 'invalid_grant'
-      ? 'El refresh token de Gmail fue revocado o es inválido'
-      : 'No se pudo obtener el access token de Gmail';
-    throw ApiError.serviceUnavailable(reason, null, 'GMAIL_AUTH_FAILED');
+    });
   }
-
-  return payload.access_token;
+  return oauth2Client;
 };
 
-export const sendGmail = async ({ to, subject, html, text }) => {
-  const accessToken = await getAccessToken();
-  const message = [
-    `From: ${env.GMAIL_FROM}`,
+const getGmail = () => {
+  if (!gmail) {
+    gmail = google.gmail({
+      version: 'v1',
+      auth: getOAuthClient(),
+    });
+  }
+  return gmail;
+};
+
+const encodeSubject = (subject) =>
+  `=?UTF-8?B?${Buffer.from(subject, 'utf8').toString('base64')}?=`;
+
+const encodeBase64Url = (value) => {
+  let encoded = Buffer.from(value, 'utf8').toString('base64');
+  encoded = encoded.replaceAll('+', '-').replaceAll('/', '_');
+  while (encoded.endsWith('=')) {
+    encoded = encoded.slice(0, -1);
+  }
+  return encoded;
+};
+
+const buildRawMessage = ({ from, to, subject, html, text }) => {
+  const boundary = `cv_${Date.now()}_${crypto.randomUUID()}`;
+  const mime = [
+    `From: ${from}`,
     `To: ${to}`,
-    `Subject: ${subject}`,
+    `Subject: ${encodeSubject(subject)}`,
     'MIME-Version: 1.0',
-    'Content-Type: multipart/alternative; boundary="campusvote-boundary"',
+    `Content-Type: multipart/alternative; boundary="${boundary}"`,
     '',
-    '--campusvote-boundary',
-    'Content-Type: text/plain; charset="UTF-8"',
+    `--${boundary}`,
+    'Content-Type: text/plain; charset=UTF-8',
+    'Content-Transfer-Encoding: 8bit',
     '',
-    text,
-    '--campusvote-boundary',
-    'Content-Type: text/html; charset="UTF-8"',
+    text || '',
     '',
-    html,
-    '--campusvote-boundary--',
+    `--${boundary}`,
+    'Content-Type: text/html; charset=UTF-8',
+    'Content-Transfer-Encoding: 8bit',
+    '',
+    html || '',
+    '',
+    `--${boundary}--`,
   ].join('\r\n');
 
-  const response = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ raw: encodeBase64Url(message) }),
-  });
+  return encodeBase64Url(mime);
+};
 
-  const payload = await response.json();
-  if (!response.ok) {
-    throw ApiError.serviceUnavailable(
-      'Gmail no pudo enviar el correo',
-      env.NODE_ENV === 'development' ? { reason: payload.error?.message } : null,
-      'GMAIL_SEND_FAILED'
+export const sendRaw = async ({ to, subject, html, text }) => {
+  assertGmailConfig();
+  const client = getOAuthClient();
+
+  try {
+    const tokenResponse = await client.getAccessToken();
+    if (!tokenResponse?.token) {
+      throw new Error('Google no devolvió access_token');
+    }
+  } catch (error) {
+    logger.error('Error al obtener access token de Gmail', {
+      code: error?.code,
+      status: error?.response?.status,
+      googleError: error?.response?.data?.error,
+      googleErrorDescription: error?.response?.data?.error_description,
+      message: error?.message,
+    });
+    throw ApiError.emailAuthFailed(
+      'No se pudo obtener el access token de Gmail',
     );
   }
 
-  return { messageId: payload.id, provider: 'gmail-api' };
+  try {
+    const response = await getGmail().users.messages.send({
+      userId: 'me',
+      requestBody: {
+        raw: buildRawMessage({
+          from: env.GMAIL_FROM,
+          to,
+          subject,
+          html,
+          text,
+        }),
+      },
+    });
+
+    logger.info('Correo enviado (Gmail API)', {
+      to,
+      subject,
+      messageId: response.data.id,
+    });
+    return {
+      messageId: response.data.id,
+      provider: 'gmail-api',
+    };
+  } catch (error) {
+    const googleError = error?.response?.data?.error;
+    const status = error?.response?.status ?? error?.code;
+
+    logger.error('Error al enviar correo (Gmail API)', {
+      to,
+      subject,
+      status,
+      googleError,
+      googleErrorDescription: error?.response?.data?.error_description,
+      message: error?.message,
+    });
+
+    if (status === 401) {
+      throw ApiError.emailAuthFailed('Gmail rechazó las credenciales OAuth');
+    }
+    if (
+      status === 429 ||
+      googleError === 'rateLimitExceeded' ||
+      googleError === 'quotaExceeded' ||
+      googleError === 'userRateLimitExceeded'
+    ) {
+      throw ApiError.emailRateLimited(
+        'Gmail API: cuota excedida. Reintenta más tarde.',
+      );
+    }
+
+    throw ApiError.serviceUnavailable(
+      'No se pudo enviar el correo electrónico',
+      env.NODE_ENV === 'development' ? { reason: error.message } : null,
+      'EMAIL_SEND_FAILED',
+    );
+  }
 };
+
+export const sendGmail = sendRaw;

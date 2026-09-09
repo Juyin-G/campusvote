@@ -6,7 +6,7 @@
 import env from '../../config/env.js';
 import logger from '../../config/logger.js';
 import { ApiError } from '../errors/ApiError.js';
-import { sendGmail } from './gmail.client.js';
+import { sendRaw } from './gmail.client.js';
 
 const sendMail = async ({ to, subject, html, text }) => {
   try {
@@ -18,7 +18,7 @@ const sendMail = async ({ to, subject, html, text }) => {
       );
     }
 
-    const info = await sendGmail({ to, subject, html, text });
+    const info = await sendRaw({ to, subject, html, text });
     logger.info('Correo enviado por Gmail API', {
       to,
       subject,
