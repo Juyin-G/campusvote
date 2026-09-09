@@ -139,5 +139,8 @@ export default {
     process.env.UPLOAD_STORAGE_DRIVER || (process.env.NODE_ENV === 'production' ? 'firebase' : 'local'),
 
   // Frontend URL
-  FRONTEND_URL: process.env.FRONTEND_URL || 'http://localhost:5173',
+  // Debe ser una sola URL pública del frontend; se usa para enlaces de email.
+  FRONTEND_URL: (process.env.FRONTEND_URL || 'http://localhost:5173')
+    .trim()
+    .replace(/\/+$/, ''),
 };
