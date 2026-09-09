@@ -39,8 +39,7 @@ const MIGRATION_FILES = [
   'user/009_cleanup_tokens.sql',
   'user/010_media_files.sql',
   'user/011_document_identity.sql',
-  'user/012_activation_enum.sql',
-  'user/013_activation.sql',
+  'user/014_remove_external_auth.sql',
   'organizations/003_organization_requests.sql',
   'academic/000_prerequisites.sql',
   'academic/001_faculties.sql',
@@ -49,10 +48,11 @@ const MIGRATION_FILES = [
   'academic/003_academic_periods.sql',
   'academic/004_voter_registries.sql',
   'academic/010_voter_stake.sql',
+  'academic/011_teaching_evaluations.sql',
   'elections/002_elections.sql',
+  'elections/003_organization_scope.sql',
   'elections/003_positions.sql',
   'elections/004_candidate_lists.sql',
-  'organizations/005_category_catalog.sql',
   'elections/005_candidacies.sql',
   'elections/006_election_rules.sql',
   'elections/007_candidacy_documents.sql',
@@ -80,10 +80,6 @@ const MIGRATION_FILES = [
   'ballots/005_views.sql',
   'ballots/006_functions.sql',
   'organizations/004_approval_functions.sql',
-  'organizations/005_organization_member_limit.sql',
-  'organizations/006_admin_requires_organization.sql',
-  'organizations/007_admin_invite.sql',
-  'organizations/008_deferred_admin_activation.sql',
   'reports/001_election_report_history.sql',
   'claims/001_voter_registry_claims.sql',
   'objections/001_candidacy_objections.sql',
@@ -122,14 +118,32 @@ async function main() {
   try {
     console.log('Conectando a la base de datos...');
     await client.connect();
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS campusvote_schema_migrations (
+        filename TEXT PRIMARY KEY,
+        applied_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
 
     console.log('Aplicando migraciones SQL:');
     for (const relativePath of MIGRATION_FILES) {
+      const applied = await client.query(
+        'SELECT 1 FROM campusvote_schema_migrations WHERE filename = $1',
+        [relativePath]
+      );
+      if (applied.rowCount > 0) {
+        process.stdout.write(`   → ${relativePath} omitida (ya aplicada)\n`);
+        continue;
+      }
       const filePath = path.join(sqlRoot, relativePath);
       const sql = await fs.readFile(filePath, 'utf8');
       process.stdout.write(`   → ${relativePath} `);
       try {
         await client.query(sql);
+        await client.query(
+          'INSERT INTO campusvote_schema_migrations (filename) VALUES ($1)',
+          [relativePath]
+        );
         process.stdout.write('OK\n');
       } catch (err) {
         // Si el script falló a mitad de un bloque BEGIN...COMMIT, la conexión

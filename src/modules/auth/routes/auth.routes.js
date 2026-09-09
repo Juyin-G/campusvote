@@ -13,7 +13,6 @@ import { validate } from '../../../middlewares/validate.middleware.js';
 import { authLimiter, loginLimiter } from '../../../middlewares/rateLimiter.middleware.js';
 import {
   loginSchema,
-  registerSchema,
   verifyTotpSchema,
   verifyLoginTotpSchema,
   disableTotpSchema,
@@ -30,13 +29,6 @@ const router = Router();
 // RUTAS PÚBLICAS
 
 // Registro y Login
-router.post(
-  '/register',
-  authLimiter,
-  validate(registerSchema),
-  authController.register
-);
-
 router.post(
   '/login',
   loginLimiter,

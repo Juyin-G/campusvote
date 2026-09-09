@@ -1,46 +1,5 @@
 /**
  * @openapi
- * /auth/register:
- *   post:
- *     tags:
- *       - Auth
- *     summary: Registrar usuario
- *     description: Registra una nueva cuenta de usuario en la plataforma.
- *     security: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required: [username, email, password, firstName, lastName, institutionalId]
- *             properties:
- *               username:
- *                 type: string
- *                 example: "johndoe"
- *               email:
- *                 type: string
- *                 example: "johndoe@universidad.edu"
- *               password:
- *                 type: string
- *                 example: "Password123!"
- *               firstName:
- *                 type: string
- *                 example: "John"
- *               lastName:
- *                 type: string
- *                 example: "Doe"
- *               institutionalId:
- *                 type: string
- *                 example: "20241001"
- *     responses:
- *       201:
- *         description: Usuario registrado exitosamente.
- *       400:
- *         description: Datos de registro inválidos o el usuario/email ya existe.
- *       429:
- *         description: Demasiadas solicitudes de registro. Intente más tarde.
- *
  * /auth/login:
  *   post:
  *     tags:

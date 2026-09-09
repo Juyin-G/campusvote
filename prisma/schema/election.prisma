@@ -65,6 +65,7 @@ model Election {
   processType        ElectionProcessType @default(VOTE) @map("process_type")
   scopeType          ElectionScopeType   @map("scope_type")
   periodId           String              @map("period_id") @db.Uuid
+  organizationId     String              @map("organization_id") @db.Uuid
   facultyId          String?             @map("faculty_id") @db.Uuid
   programId          String?             @map("program_id") @db.Uuid
   startAt            DateTime            @map("start_at") @db.Timestamptz
@@ -78,6 +79,7 @@ model Election {
 
   // Relaciones internas
   period             AcademicPeriod      @relation(fields: [periodId], references: [id], onDelete: Restrict)
+  organization       Organization        @relation(fields: [organizationId], references: [id], onDelete: Restrict)
   faculty            Faculty?            @relation(fields: [facultyId], references: [id], onDelete: Restrict)
   program            Program?            @relation(fields: [programId], references: [id], onDelete: Restrict)
   creator            User                @relation("CreatedElections", fields: [createdBy], references: [id], onDelete: Restrict)
@@ -101,6 +103,7 @@ model Election {
 
   @@index([status], map: "idx_elections_status")
   @@index([periodId], map: "idx_elections_period")
+  @@index([organizationId], map: "idx_elections_organization")
   @@index([facultyId], map: "idx_elections_faculty")
   @@index([programId], map: "idx_elections_program")
   @@index([createdBy], map: "idx_elections_created_by")

@@ -57,7 +57,11 @@ model Organization {
 
   // Relaciones
   users                 User[]
+  elections       Election[]
   careers               Career[]
+  courses               Course[]
+  teachingAssignments   TeachingAssignment[]
+  teacherEvaluations    TeacherEvaluation[]
 
   @@map("organizations")
 }

@@ -37,7 +37,7 @@ const translateCertifyError = (err) => {
   return err;
 };
 
-export const listElections = async (query = {}) => {
+export const listElections = async (query = {}, actor = {}) => {
   const { page, limit } = parsePagination(query);
   const { skip, take } = prismaPagination({ page, limit });
 
@@ -48,6 +48,10 @@ export const listElections = async (query = {}) => {
     facultyId: query.faculty_id,
     programId: query.program_id,
     search: asText(query.search) || undefined,
+    organizationId:
+      actor.role === 'SUPERADMIN' || actor.isSuperuser
+        ? query.organization_id
+        : actor.organizationId,
   };
 
   const [total, elections] = await Promise.all([
@@ -67,8 +71,9 @@ export const getElectionById = async (id) => {
   return election;
 };
 
-export const createElection = async (body = {}, createdBy) => {
+export const createElection = async (body = {}, createdBy, organizationId) => {
   if (!createdBy) throw ApiError.unauthorized('No se pudo identificar al creador de la elección');
+  if (!organizationId) throw ApiError.forbidden('El creador debe pertenecer a una organización');
 
   const data = {
     title: asText(body.title),
@@ -76,6 +81,7 @@ export const createElection = async (body = {}, createdBy) => {
     processType: body.process_type || 'VOTE',
     scopeType: body.scope_type, 
     periodId: body.period_id,
+    organizationId,
     facultyId: body.faculty_id ?? null,
     programId: body.program_id ?? null,
     startAt: toDate(body.start_at),

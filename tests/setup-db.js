@@ -75,8 +75,7 @@ export default async function setupTestDB() {
     await executeFile('user/009_cleanup_tokens.sql');
     await executeFile('user/010_media_files.sql');
     await executeFile('user/011_document_identity.sql');
-    await executeFile('user/012_activation_enum.sql');
-    await executeFile('user/013_activation.sql');
+    await executeFile('user/014_remove_external_auth.sql');
 
     console.log('7. Creando solicitudes de organizaciones...');
 
@@ -90,10 +89,12 @@ export default async function setupTestDB() {
     await executeFile('academic/003_academic_periods.sql');
     await executeFile('academic/004_voter_registries.sql');
     await executeFile('academic/010_voter_stake.sql');
+    await executeFile('academic/011_teaching_evaluations.sql');
 
     console.log('9. Creando elecciones...');
 
     await executeFile('elections/002_elections.sql');
+    await executeFile('elections/003_organization_scope.sql');
     await executeFile('elections/003_positions.sql');
     await executeFile('elections/004_candidate_lists.sql');
     await executeFile('elections/005_candidacies.sql');
@@ -140,8 +141,6 @@ export default async function setupTestDB() {
     await executeFile('ballots/006_functions.sql');
 
     await executeFile('organizations/004_approval_functions.sql');
-    await executeFile('organizations/007_admin_invite.sql');
-    await executeFile('organizations/008_deferred_admin_activation.sql');
 
     await executeFile('reports/001_election_report_history.sql');
     await executeFile('claims/001_voter_registry_claims.sql');

@@ -9,12 +9,10 @@ import { parsePagination } from '../../shared/utils/pagination.js';
 import { formatUserResponse } from '../../shared/utils/formatUserResponse.js';
 import MESSAGES from '../../constants/messages.js';
 import { prisma } from '../../database/prisma.js';
+import * as otpUtil from '../../shared/utils/otp.util.js';
+import * as otpRepository from '../auth/repositories/otp.repository.js';
 import { isDomainAllowed } from '../../shared/utils/emailDomain.js';
 import { identityProvider } from '../../shared/providers/index.js';
-import * as authRepository from '../auth/repositories/auth.repository.js';
-import { sendActivation, hasEmailConfigured } from '../../shared/services/email.service.js';
-import env from '../../config/env.js';
-import logger from '../../config/logger.js';
 
 // Roles que SIEMPRE deben registrar su DNI/CE (decisión F1):
 // jurados, comisión electoral, administradores y docentes.
@@ -23,6 +21,15 @@ const REQUIRED_IDENTITY_ROLES = [
   ROLES.ELECTORAL_COMMISSION,
   ROLES.JURY,
   ROLES.TEACHER,
+];
+
+const ORGANIZATION_ROLES = [
+  ROLES.ADMIN,
+  ROLES.ELECTORAL_COMMISSION,
+  ROLES.STUDENT,
+  ROLES.TEACHER,
+  ROLES.JURY,
+  ROLES.OBSERVER,
 ];
 
 /**
@@ -65,46 +72,15 @@ const notFoundIfMissing = (err) => {
   throw err;
 };
 
-const isGlobalAdmin = (actor = {}) =>
-  actor.role === ROLES.SUPERADMIN || actor.isSuperuser || actor.isSuperAdmin;
-
-const organizationScopeFor = (actor = {}, requestedOrganizationId) => {
-  if (isGlobalAdmin(actor)) return requestedOrganizationId;
-  if (!actor.organizationId) {
-    throw ApiError.forbidden('El usuario administrativo no tiene una organización asignada');
-  }
-  if (requestedOrganizationId && requestedOrganizationId !== actor.organizationId) {
-    throw ApiError.forbidden('No puedes acceder a usuarios de otra organización');
-  }
-  return actor.organizationId;
-};
-
-const assertOrganizationCapacity = async (organizationId, additionalSeats = 1) => {
-  if (!organizationId) return;
-  const organization = await prisma.organization.findUnique({
-    where: { id: organizationId },
-    select: { memberLimit: true },
-  });
-  if (!organization) throw ApiError.notFound('Organización no encontrada');
-
-  const currentMembers = await prisma.user.count({
-    where: {
-      organizationId,
-      role: { not: ROLES.SUPERADMIN },
-      status: { not: 'DELETED' },
-    },
-  });
-  if (currentMembers + additionalSeats > organization.memberLimit) {
-    throw ApiError.badRequest(
-      `La organización alcanzó su capacidad de ${organization.memberLimit} miembros. Solicita al SUPERADMIN una ampliación.`
-    );
-  }
-};
-
 export const listUsers = async (query = {}, actor = {}) => {
   const { page, limit } = parsePagination(query);
   const skip = (page - 1) * limit;
-  const organizationId = organizationScopeFor(actor, query.organizationId);
+  const isSuperUser = actor.role === ROLES.SUPERADMIN || actor.isSuperuser || actor.isSuperAdmin;
+  const organizationId = isSuperUser ? query.organizationId : actor.organizationId;
+
+  if (!isSuperUser && query.organizationId && query.organizationId !== actor.organizationId) {
+    throw ApiError.forbidden('Solo puedes consultar usuarios de tu organización');
+  }
 
   if (query.role && !isValidRole(query.role)) {
     throw ApiError.badRequest(MESSAGES.USER.INVALID_ROLE);
@@ -152,9 +128,6 @@ export const getUserById = async (id, actor) => {
   const isSelf = actorId === id;
   const isAdmin = ADMIN_ROLES.includes(actor?.role);
   if (!isSelf && !isAdmin) throw ApiError.forbidden(MESSAGES.COMMON.FORBIDDEN);
-  if (isAdmin && !isGlobalAdmin(actor) && user.organizationId !== actor.organizationId) {
-    throw ApiError.forbidden('No puedes acceder a usuarios de otra organización');
-  }
 
   return formatUserResponse(user);
 };
@@ -184,17 +157,27 @@ export const createUser = async (body = {}, actor = {}) => {
     throw ApiError.forbidden('Solo superusuarios pueden crear usuarios con roles privilegiados');
   }
 
-  const organizationId = organizationScopeFor(actor, organization_id);
-  if (role === ROLES.ADMIN && !organizationId) {
-    throw ApiError.badRequest('Todo ADMIN debe estar vinculado a una organización');
+  if (!role || !isValidRole(role)) {
+    throw ApiError.badRequest(MESSAGES.USER.INVALID_ROLE);
   }
-  await assertOrganizationCapacity(organizationId);
+
+  if (role === ROLES.SUPERADMIN) {
+    throw ApiError.forbidden('El rol SUPERADMIN solo puede provisionarse mediante bootstrap seguro');
+  }
+
+  if (ORGANIZATION_ROLES.includes(role) && !organization_id) {
+    throw ApiError.badRequest('Los usuarios institucionales deben pertenecer a una organización');
+  }
+
+  if (!isSuperUser && organization_id !== actor.organizationId) {
+    throw ApiError.forbidden('Solo puedes crear usuarios dentro de tu organización');
+  }
 
   // F1: Identidad nacional (DNI/CE) — verificación contra IdentityProvider.
   const identity = await normalizeDocumentIdentity({
     document_type,
     document_number,
-    role: role || ROLES.VOTER,
+    role,
   });
 
   const hashedPassword = await bcrypt.hash(password, 12);
@@ -206,8 +189,8 @@ export const createUser = async (body = {}, actor = {}) => {
     firstName: first_name,
     lastName: last_name,
     institutionalId: institutional_id,
-    role: role || ROLES.VOTER,
-    organizationId,
+    role,
+    organizationId: organization_id,
     programId: program_id,
     facultyId: faculty_id,
     currentCycle: current_cycle,
@@ -241,6 +224,7 @@ export const provisionAdmin = async (body = {}, actor = {}) => {
   }
 
   const {
+    username,
     email,
     password,
     first_name,
@@ -248,7 +232,7 @@ export const provisionAdmin = async (body = {}, actor = {}) => {
   } = admin;
 
   const cleanEmail = email.toLowerCase().trim();
-  const cleanUsername = (admin.username || cleanEmail.split('@')[0]).toLowerCase().trim();
+  const cleanUsername = username.toLowerCase().trim();
 
   const existingEmail = await userRepository.findByEmail(cleanEmail);
   if (existingEmail) {
@@ -290,222 +274,42 @@ export const provisionAdmin = async (body = {}, actor = {}) => {
     },
   });
 
-  // 2. Crear el ADMIN asociado a la organización recién creada usando el flujo
-  //    de onboarding (sin 2FA automático): invitación por email si hay canal de
-  //    email, o credenciales temporales (must_setup_2fa) si no lo hay.
-  if (hasEmailConfigured()) {
-    const newUser = await userRepository.create({
-      username: cleanUsername,
-      email: cleanEmail,
-      password: null,
-      firstName: first_name || '',
-      lastName: last_name || '',
-      institutionalId: cleanUsername,
-      role: ROLES.ADMIN,
-      organizationId: newOrg.id,
-      mustChangePassword: false,
-      status: 'PENDING_ACTIVATION',
-      isVerified: true,
-    });
-
-    let activationEmailSent = false;
-    let activationEmailError = null;
-    try {
-      const token = await authRepository.generateActivationToken(newUser.id);
-      if (token) {
-        await sendActivation({ email: cleanEmail, token, firstName: first_name ?? 'Administrador' });
-        activationEmailSent = true;
-      }
-    } catch (error) {
-      logger.warn('No se pudo enviar la invitación de activación', {
-        userId: newUser.id,
-        error: error.message,
-      });
-      activationEmailError = env.NODE_ENV === 'development' ? error.message : null;
-    }
-
-    return {
-      organization: newOrg,
-      user: formatUserResponse(newUser),
-      status: 'PENDING_ACTIVATION',
-      onboarding_mode: 'email',
-      activation_email_sent: activationEmailSent,
-      ...(activationEmailError ? { activation_email_error: activationEmailError } : {}),
-    };
-  }
-
-  if (!password) {
-    throw ApiError.badRequest(
-      'Debes proporcionar una contraseña temporal (no hay servicio de email configurado)'
-    );
-  }
-
+  // 2. Crear el ADMIN asociado a la organización recién creada.
   const hashedPassword = await bcrypt.hash(password, 12);
 
   const newUser = await userRepository.create({
     username: cleanUsername,
     email: cleanEmail,
     password: hashedPassword,
-    firstName: first_name || '',
-    lastName: last_name || '',
+    firstName: first_name,
+    lastName: last_name,
     institutionalId: cleanUsername,
     role: ROLES.ADMIN,
     organizationId: newOrg.id,
     mustChangePassword: true,
-    mustSetup2fa: true,
-    status: 'ACTIVE',
-    isVerified: true,
   });
+
+  // 3. Provisionar 2FA de primer acceso (OTP/QR).
+  const secret = otpUtil.generateTotpSecret();
+  const uri = otpUtil.generateTotpUri(secret, cleanEmail, newUser.username);
+  const plainBackupCodes = otpUtil.generateBackupCodes();
+  const hashedBackupCodes = plainBackupCodes.map((code) =>
+    otpUtil.hashBackupCode(code)
+  );
+
+  await otpRepository.saveTotpSecret(newUser.id, secret);
+  await otpRepository.enableTwoFactor(newUser.id, hashedBackupCodes);
+
+  const qrCode = await otpUtil.generateQrCode(uri);
 
   return {
     organization: newOrg,
     user: formatUserResponse(newUser),
-    status: 'ACTIVE',
-    onboarding_mode: 'temp',
-    must_change_password: true,
-    must_setup_2fa: true,
+    qrCode,
+    secret,
+    backupCodes: plainBackupCodes,
+    mustChangePassword: true,
   };
-};
-
-/**
- * SUPERADMIN: crea el ADMIN de una organización existente usando el flujo de
- * onboarding (sin 2FA forzado al momento de crear la cuenta — el admin lo
- * enróla él mismo en su primer acceso).
- *
- * - Con canal de email configurado (SMTP/Resend) → Opción 1: cuenta en
- *   PENDING_ACTIVATION sin contraseña; se envía invitación con token (24h).
- * - Sin email → Opción 2: cuenta ACTIVE con contraseña temporal, 2FA off y
- *   must_setup_2fa = TRUE (el login emite token de onboarding, no JWT).
- */
-export const provisionExistingAdmin = async (organizationId, body = {}, actor = {}) => {
-    const isSuperUser =
-      actor.isSuperuser || actor.isSuperAdmin || actor.role === ROLES.SUPERADMIN;
-    if (!isSuperUser) {
-      throw ApiError.forbidden('Solo el superadmin puede crear administradores');
-    }
-
-    const organization = await prisma.organization.findUnique({
-      where: { id: organizationId },
-      select: { id: true, name: true, code: true, isActive: true },
-    });
-    if (!organization) throw ApiError.notFound('La organización no existe');
-    if (!organization.isActive) throw ApiError.conflict('La organización está inactiva');
-
-    const existingAdmin = await prisma.user.findFirst({
-      where: { organizationId, role: ROLES.ADMIN, status: { not: 'DELETED' } },
-      select: { id: true },
-    });
-    if (existingAdmin) {
-      throw ApiError.conflict('La organización ya tiene un administrador');
-    }
-
-    const cleanEmail = body.email.toLowerCase().trim();
-    const cleanUsername = (body.username || cleanEmail.split('@')[0]).toLowerCase().trim();
-    if (await userRepository.findByEmail(cleanEmail)) {
-      throw ApiError.conflict(MESSAGES.USER.ALREADY_EXISTS);
-    }
-    if (await userRepository.findByUsername(cleanUsername)) {
-      throw ApiError.conflict(MESSAGES.USER.USERNAME_TAKEN);
-    }
-
-    // La identidad nacional es opcional durante el onboarding; si se envía se
-    // valida contra el IdentityProvider (DNI/CE).
-    const hasDocument =
-      body.document_type !== undefined && body.document_number !== undefined;
-    const identity = hasDocument
-      ? await normalizeDocumentIdentity({
-          document_type: body.document_type,
-          document_number: body.document_number,
-          role: ROLES.ADMIN,
-        })
-      : null;
-
-    const commonData = {
-      username: cleanUsername,
-      email: cleanEmail,
-      firstName: body.first_name ?? '',
-      lastName: body.last_name ?? '',
-      institutionalId: cleanUsername,
-      role: ROLES.ADMIN,
-      organizationId,
-      isVerified: true,
-      ...(identity || {}),
-    };
-
-    const createUser = async (data) => {
-      try {
-        return await userRepository.create(data);
-      } catch (error) {
-        if (error?.code === 'P2002') {
-          throw ApiError.conflict('El usuario o documento ya está registrado');
-        }
-        throw error;
-      }
-    };
-
-    // Opción 1 — Invitación por email
-    if (hasEmailConfigured()) {
-      const newUser = await createUser({
-        ...commonData,
-        password: null,
-        mustChangePassword: false,
-        status: 'PENDING_ACTIVATION',
-      });
-
-      let activationEmailSent = false;
-      let activationEmailError = null;
-      try {
-        const token = await authRepository.generateActivationToken(newUser.id);
-        if (token) {
-          await sendActivation({
-            email: cleanEmail,
-            token,
-            firstName: body.first_name ?? 'Administrador',
-          });
-          activationEmailSent = true;
-        }
-      } catch (error) {
-        logger.warn('No se pudo enviar la invitación de activación', {
-          userId: newUser.id,
-          error: error.message,
-        });
-        activationEmailError =
-          env.NODE_ENV === 'development' ? error.message : null;
-      }
-
-      return {
-        organization,
-        user: formatUserResponse(newUser),
-        status: 'PENDING_ACTIVATION',
-        onboarding_mode: 'email',
-        activation_email_sent: activationEmailSent,
-        ...(activationEmailError ? { activation_email_error: activationEmailError } : {}),
-      };
-    }
-
-    // Opción 2 — Credenciales temporales (sin email configurado)
-    if (!body.password) {
-      throw ApiError.badRequest(
-        'Debes proporcionar una contraseña temporal (no hay servicio de email configurado)'
-      );
-    }
-    const hashedPassword = await bcrypt.hash(body.password, 12);
-    const newUser = await createUser({
-      ...commonData,
-      password: hashedPassword,
-      mustChangePassword: true,
-      mustSetup2fa: true,
-      status: 'ACTIVE',
-    });
-
-    return {
-      organization,
-      user: formatUserResponse(newUser),
-      status: 'ACTIVE',
-      onboarding_mode: 'temp',
-      must_change_password: true,
-      must_setup_2fa: true,
-    };
 };
 
 /**
@@ -549,7 +353,6 @@ export const createUsersBulk = async (items = [], actor = {}) => {
   }
 
   const orgId = actor.organizationId || null;
-  await assertOrganizationCapacity(orgId, items.length);
 
   const created = [];
   const errors = [];
@@ -564,9 +367,6 @@ export const createUsersBulk = async (items = [], actor = {}) => {
       // Solo superusuarios pueden crear/usar roles privilegiados.
       const isSuperUser =
         actor.isSuperuser || actor.isSuperAdmin || actor.role === ROLES.SUPERADMIN;
-      if (role === ROLES.ADMIN && !orgId) {
-        throw ApiError.badRequest('Todo ADMIN debe estar vinculado a una organización');
-      }
       if (ADMIN_ROLES.includes(role) && !isSuperUser) {
         throw ApiError.forbidden(
           'Solo superusuarios pueden crear usuarios con roles privilegiados'
@@ -614,19 +414,11 @@ export const createUsersBulk = async (items = [], actor = {}) => {
 
   return { created, errors, totalOk: created.length, totalFailed: errors.length };
 };
-export const updateUser = async (id, body = {}, actor = {}) => {
-  const existingUser = await userRepository.findById(id);
-  if (!existingUser) throw ApiError.notFound(MESSAGES.USER.NOT_FOUND);
-  if (!isGlobalAdmin(actor) && existingUser.organizationId !== actor.organizationId) {
-    throw ApiError.forbidden('No puedes modificar usuarios de otra organización');
-  }
-
+export const updateUser = async (id, body = {}) => {
   const data = {};
   if (body.first_name !== undefined) data.firstName = body.first_name;
   if (body.last_name !== undefined) data.lastName = body.last_name;
-  if (body.organization_id !== undefined) {
-    data.organizationId = organizationScopeFor(actor, body.organization_id);
-  }
+  if (body.organization_id !== undefined) data.organizationId = body.organization_id;
   if (body.document_type !== undefined || body.document_number !== undefined) {
     const existing = await prisma.user.findUnique({
       where: { id },
@@ -660,11 +452,6 @@ export const setActiveStatus = async (id, isActive, actor) => {
   if (actorId === id && !isActive) {
     throw ApiError.badRequest('No puedes desactivar tu propia cuenta');
   }
-  const target = await userRepository.findById(id);
-  if (!target) throw ApiError.notFound(MESSAGES.USER.NOT_FOUND);
-  if (!isGlobalAdmin(actor) && target.organizationId !== actor.organizationId) {
-    throw ApiError.forbidden('No puedes modificar usuarios de otra organización');
-  }
 
   try {
     const updated = await userRepository.setActive(id, isActive);
@@ -674,12 +461,7 @@ export const setActiveStatus = async (id, isActive, actor) => {
   }
 };
 
-export const unlockUser = async (id, actor = {}) => {
-  const target = await userRepository.findById(id);
-  if (!target) throw ApiError.notFound(MESSAGES.USER.NOT_FOUND);
-  if (!isGlobalAdmin(actor) && target.organizationId !== actor.organizationId) {
-    throw ApiError.forbidden('No puedes modificar usuarios de otra organización');
-  }
+export const unlockUser = async (id) => {
   try {
     const updated = await userRepository.update(id, {
       failedLoginAttempts: 0,
@@ -719,18 +501,6 @@ export const updateUserRole = async (id, role, actor = {}) => {
     },
   });
   if (!existing) throw ApiError.notFound(MESSAGES.USER.NOT_FOUND);
-  if (!isGlobalAdmin(actor)) {
-    const targetOrganization = await prisma.user.findUnique({
-      where: { id },
-      select: { organizationId: true },
-    });
-    if (targetOrganization?.organizationId !== actor.organizationId) {
-      throw ApiError.forbidden('No puedes modificar usuarios de otra organización');
-    }
-    if (role === ROLES.ADMIN && !existing.organizationId) {
-      throw ApiError.badRequest('No se puede asignar ADMIN sin una organización');
-    }
-  }
 
   if (existing.isSuperuser && !ADMIN_ROLES.includes(role)) {
     const superuserCount = await prisma.user.count({
@@ -810,13 +580,10 @@ export const changeMyPassword = async (userId, body = {}) => {
 
   const dbUser = await prisma.user.findUnique({
     where: { id: userId },
-    select: { password: true, status: true, mustSetup2fa: true, twoFactorEnabled: true },
+    select: { password: true, status: true },
   });
   if (dbUser?.status !== 'ACTIVE' || !dbUser.password) {
     throw ApiError.notFound(MESSAGES.USER.NOT_FOUND);
-  }
-  if (dbUser.mustSetup2fa || !dbUser.twoFactorEnabled) {
-    throw ApiError.badRequest('Primero debes completar la configuración de 2FA');
   }
 
   const matches = await bcrypt.compare(currentPassword, dbUser.password);
@@ -848,7 +615,6 @@ export default {
   getUserById,
   createUser,
   provisionAdmin,
-  provisionExistingAdmin,
   createUsersBulk,
   updateUser,
   setActiveStatus,

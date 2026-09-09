@@ -72,7 +72,7 @@ router.get(
 router.post(
   '/',
   authenticate,
-  authorize(ROLES.ADMIN),
+  authorize(ROLES.ADMIN, ROLES.SUPERADMIN),
   validate(createUserSchema),
   (req, res, next) => {
     const isSuperUser = req.user?.isSuperuser || req.user?.isSuperAdmin || req.user?.role === ROLES.SUPERADMIN;
