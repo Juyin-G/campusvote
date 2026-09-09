@@ -3,61 +3,27 @@
  * @description Envío de correos transaccionales (verificación y reset)
  * @module shared/services/email
  */
-import nodemailer from 'nodemailer';
 import env from '../../config/env.js';
 import logger from '../../config/logger.js';
 import { ApiError } from '../errors/ApiError.js';
 import { sendGmail } from './gmail.client.js';
 
-let transport;
-
-const assertSmtpConfig = () => {
-  if (!env.SMTP_HOST || !env.SMTP_USER || !env.SMTP_PASS) {
-    throw ApiError.internal(
-      'Configuración SMTP incompleta. Revise SMTP_HOST, SMTP_USER y SMTP_PASS en .env',
-    );
-  }
-};
-
-const getTransport = () => {
-  assertSmtpConfig();
-
-  if (!transport) {
-    transport = nodemailer.createTransport({
-      host: env.SMTP_HOST,
-      port: env.SMTP_PORT,
-      secure: env.SMTP_PORT === 465,
-      auth: {
-        user: env.SMTP_USER,
-        pass: env.SMTP_PASS,
-      },
-      ...(env.NODE_ENV === 'development' && {
-        tls: { rejectUnauthorized: false },
-      }),
-    });
-  }
-
-  return transport;
-};
-
 const sendMail = async ({ to, subject, html, text }) => {
   try {
-    if (env.GMAIL_CLIENT_ID && env.GMAIL_CLIENT_SECRET && env.GMAIL_REFRESH_TOKEN && env.GMAIL_FROM) {
-      const info = await sendGmail({ to, subject, html, text });
-      logger.info('Correo enviado por Gmail API', { to, subject, messageId: info.messageId });
-      return info;
+    if (!env.GMAIL_CLIENT_ID || !env.GMAIL_CLIENT_SECRET || !env.GMAIL_REFRESH_TOKEN || !env.GMAIL_FROM) {
+      throw ApiError.serviceUnavailable(
+        'Gmail no está configurado para enviar correos',
+        null,
+        'EMAIL_NOT_CONFIGURED',
+      );
     }
 
-    const info = await getTransport().sendMail({
-      from: env.SMTP_FROM,
+    const info = await sendGmail({ to, subject, html, text });
+    logger.info('Correo enviado por Gmail API', {
       to,
       subject,
-      html,
-      text,
+      messageId: info.messageId,
     });
-
-    logger.info('Correo enviado', { to, subject, messageId: info.messageId });
-
     return info;
   } catch (error) {
     logger.error('Error al enviar correo', {
