@@ -163,6 +163,7 @@ export const createUser = async (body = {}, actor = {}) => {
     programId: program_id,
     facultyId: faculty_id,
     currentCycle: current_cycle,
+    isVerified: true,
     ...(identity || {}),
   });
 
@@ -256,6 +257,7 @@ export const provisionAdmin = async (body = {}, actor = {}) => {
     role: ROLES.ADMIN,
     organizationId: newOrg.id,
     mustChangePassword: true,
+    isVerified: true,
   });
 
   // 3. Provisionar 2FA de primer acceso (OTP/QR).
@@ -369,6 +371,7 @@ export const createUsersBulk = async (items = [], actor = {}) => {
         role,
         organizationId: orgId,
         mustChangePassword: item.must_change_password ?? true,
+        isVerified: true,
         ...(identity || {}),
       });
 
