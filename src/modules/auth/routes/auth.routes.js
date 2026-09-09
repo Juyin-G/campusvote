@@ -4,6 +4,7 @@
  */
 import { Router } from 'express';
 import * as authController from '../controllers/auth.controller.js';
+import onboardingRoutes from './onboarding.routes.js';
 import {
   authenticate,
   authenticateAllowPending,
@@ -25,6 +26,8 @@ import {
 } from '../schemas/auth.schema.js';
 
 const router = Router();
+
+router.use('/onboarding', onboardingRoutes);
 
 // RUTAS PÚBLICAS
 

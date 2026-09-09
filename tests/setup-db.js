@@ -75,11 +75,15 @@ export default async function setupTestDB() {
     await executeFile('user/009_cleanup_tokens.sql');
     await executeFile('user/010_media_files.sql');
     await executeFile('user/011_document_identity.sql');
+    await executeFile('user/012_activation_enum.sql');
+    await executeFile('user/013_activation.sql');
     await executeFile('user/014_remove_external_auth.sql');
+    await executeFile('user/015_activation_constraint.sql');
 
     console.log('7. Creando solicitudes de organizaciones...');
 
     await executeFile('organizations/003_organization_requests.sql');
+    await executeFile('organizations/008_deferred_admin_activation.sql');
 
     console.log('8. Creando tablas académicas...');
 

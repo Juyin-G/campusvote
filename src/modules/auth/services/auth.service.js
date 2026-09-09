@@ -11,6 +11,7 @@ import MESSAGES from '../../../constants/messages.js';
 import env from '../../../config/env.js';
 import logger from '../../../config/logger.js';
 import auditService from '../../audit/audit.service.js';
+import { prisma } from '../../../database/prisma.js';
 
 export { setupTotp, verifyTotp, verifyLoginTotp } from './auth.totp.service.js';
 
@@ -70,6 +71,22 @@ export const login = async ({ email, password, ipAddress = null, userAgent = nul
     };
   }
 
+  if (user.mustSetup2fa) {
+    const tempToken = jwt.sign(
+      { userId: user.id, email: user.email, purpose: 'ONBOARDING' },
+      env.JWT_SECRET,
+      { expiresIn: '30m' }
+    );
+
+    return {
+      requiresOnboarding: true,
+      requiresTotp: false,
+      tempToken,
+      email: user.email,
+      mustChangePassword: user.mustChangePassword,
+    };
+  }
+
   // Registrar login exitoso enviando metadata de auditoría a Postgres
   await authRepository.registerSuccessfulLogin(user.email, ipAddress, userAgent);
 
@@ -103,6 +120,75 @@ export const login = async ({ email, password, ipAddress = null, userAgent = nul
     token,
     refreshToken,
     mustChangePassword: user.mustChangePassword,
+    user: formatUserResponse(user),
+  };
+};
+
+export const activateAccount = async (rawToken, newPassword) => {
+  const passwordHash = await bcrypt.hash(newPassword, SALT_ROUNDS);
+  const rows = await prisma.$queryRaw`
+    SELECT activate_organization_request(
+      ${rawToken}::text,
+      ${passwordHash}::text
+    ) AS user_id
+  `;
+  const userId = rows[0]?.user_id;
+
+  if (!userId) {
+    throw ApiError.badRequest('El enlace de activación es inválido o expiró.');
+  }
+
+  const user = await authRepository.findById(userId);
+  if (!user) {
+    throw ApiError.notFound(MESSAGES.USER.NOT_FOUND);
+  }
+
+  const tempToken = jwt.sign(
+    { userId: user.id, email: user.email, purpose: 'ONBOARDING' },
+    env.JWT_SECRET,
+    { expiresIn: '30m' }
+  );
+
+  return {
+    requiresOnboarding: true,
+    tempToken,
+    user: formatUserResponse(user),
+  };
+};
+
+export const finalizeOnboarding = async (
+  userId,
+  { ipAddress = null, userAgent = null } = {}
+) => {
+  const user = await authRepository.findById(userId);
+
+  if (!user) {
+    throw ApiError.notFound(MESSAGES.USER.NOT_FOUND);
+  }
+
+  if (!user.twoFactorEnabled || user.status !== 'ACTIVE') {
+    throw ApiError.forbidden(
+      'Completa la configuración de autenticación antes de continuar.'
+    );
+  }
+
+  const token = generateJwt(user);
+  const { rawToken: refreshToken, tokenHash } = generateRefreshToken();
+  const expiresAt = new Date(Date.now() + durationToMs(env.JWT_REFRESH_EXPIRES_IN));
+
+  await authRepository.createRefreshToken({
+    userId: user.id,
+    tokenHash,
+    expiresAt,
+    ipAddress,
+    userAgent,
+  });
+
+  return {
+    requiresOnboarding: false,
+    token,
+    refreshToken,
+    mustChangePassword: false,
     user: formatUserResponse(user),
   };
 };

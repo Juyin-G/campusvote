@@ -26,6 +26,7 @@ ALTER TABLE users
     ADD CONSTRAINT chk_users_password_required_for_local
     CHECK (
       auth_provider <> 'LOCAL'::auth_provider_type
+      OR status = 'PENDING_ACTIVATION'::user_status
       OR (password IS NOT NULL AND length(password) > 0)
     );
 
