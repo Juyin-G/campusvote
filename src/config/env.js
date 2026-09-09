@@ -140,7 +140,12 @@ export default {
 
   // Frontend URL
   // Debe ser una sola URL pública del frontend; se usa para enlaces de email.
-  FRONTEND_URL: (process.env.FRONTEND_URL || 'http://localhost:5173')
-    .trim()
-    .replace(/\/+$/, ''),
+  FRONTEND_URL: (() => {
+    const configuredUrl = (process.env.FRONTEND_URL || 'http://localhost:5173').trim();
+    let normalizedUrl = configuredUrl;
+    while (normalizedUrl.endsWith('/')) {
+      normalizedUrl = normalizedUrl.slice(0, -1);
+    }
+    return normalizedUrl;
+  })(),
 };
