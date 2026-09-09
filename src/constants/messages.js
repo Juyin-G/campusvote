@@ -26,11 +26,6 @@ export const MESSAGES = {
     TWO_FACTOR_BACKUP_CODES_GENERATED: 'Códigos de respaldo generados. Guárdelos en un lugar seguro.',
     TWO_FACTOR_NOT_CONFIGURED: 'El usuario no tiene configurado 2FA.',
 
-    // Google OAuth
-    GOOGLE_LOGIN_SUCCESS: 'Inicio de sesión con Google exitoso.',
-    GOOGLE_AUTH_FAILED: 'No se pudo autenticar con Google. Intente nuevamente.',
-    GOOGLE_ACCOUNT_NOT_LINKED: 'No existe una cuenta asociada a este correo de Google.',
-
     // Tokens
     TOKEN_EXPIRED: 'El token ha expirado. Inicie sesión nuevamente.',
     TOKEN_INVALID: 'Token inválido o malformado.',

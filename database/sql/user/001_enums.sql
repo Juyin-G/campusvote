@@ -22,9 +22,7 @@ END $$;
 DO $$
 BEGIN
     CREATE TYPE auth_provider_type AS ENUM (
-        'LOCAL',
-        'GOOGLE',
-        'AWS'
+        'LOCAL'
     );
 EXCEPTION
     WHEN duplicate_object THEN NULL;

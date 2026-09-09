@@ -63,8 +63,5 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_users_institutional_id_active
     ON users (institutional_id) 
     WHERE status != 'DELETED';
 
-CREATE UNIQUE INDEX IF NOT EXISTS uq_users_google_id_active 
-    ON users (google_id) 
-    WHERE status != 'DELETED' AND google_id IS NOT NULL;
 
 COMMIT;
