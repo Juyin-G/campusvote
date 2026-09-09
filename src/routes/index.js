@@ -20,6 +20,7 @@ import votingPublicRoutes from '../modules/voting/voting.public.routes.js';
 import ratingRoutes from '../modules/ratings/rating.routes.js';
 import objectionRoutes from '../modules/objections/objection.routes.js';
 import uploadRoutes from '../modules/upload/upload.routes.js';
+import gmailTestRoutes from '../modules/admin/gmailTest.routes.js';
 
 const router = Router();
 
@@ -67,5 +68,6 @@ router.use(objectionRoutes);
 
 // Subida de archivos (imágenes/PDFs) para proyectos, avatares, etc.
 router.use('/upload', uploadRoutes);
+router.use(gmailTestRoutes);
 
 export default router;
