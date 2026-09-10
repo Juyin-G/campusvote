@@ -58,6 +58,38 @@ export const listAssignmentsForStudent = async (studentId, actor) => {
   });
 };
 
+export const listAssignmentsForAdmin = async (actor, filters = {}) => {
+  if (!isAdmin(actor)) throw ApiError.forbidden('Solo un administrador puede listar asignaciones');
+  const where = {
+    ...(actor.role !== ROLES.SUPERADMIN ? { organizationId: actor.organizationId } : {}),
+    ...(filters.teacherId ? { teacherId: filters.teacherId } : {}),
+    ...(filters.courseId ? { courseId: filters.courseId } : {}),
+    ...(filters.academicPeriodId ? { academicPeriodId: filters.academicPeriodId } : {}),
+    ...(filters.cycle ? { cycle: Number(filters.cycle) } : {}),
+    ...(filters.isActive === undefined ? {} : { isActive: filters.isActive }),
+  };
+  return prisma.teachingAssignment.findMany({
+    where,
+    include: {
+      course: { include: { career: true } },
+      teacher: { select: { id: true, firstName: true, lastName: true, email: true, status: true } },
+      academicPeriod: { select: { id: true, name: true } },
+    },
+    orderBy: [{ teacher: { lastName: 'asc' } }, { course: { name: 'asc' } }],
+  });
+};
+
+export const removeTeachingAssignment = async (id, actor) => {
+  if (!isAdmin(actor)) throw ApiError.forbidden('Solo un administrador puede quitar asignaciones');
+  const existing = await prisma.teachingAssignment.findUnique({ where: { id } });
+  if (!existing) throw ApiError.notFound('Asignación no encontrada');
+  if (actor.role !== ROLES.SUPERADMIN && existing.organizationId !== actor.organizationId) {
+    throw ApiError.forbidden('La asignación no pertenece a tu organización');
+  }
+  await prisma.teachingAssignment.delete({ where: { id } });
+  return { id, deleted: true };
+};
+
 export const evaluateTeacher = async (body, actor) => {
   const studentId = actor.id ?? actor.userId;
   if (actor.role !== ROLES.STUDENT) throw ApiError.forbidden('Solo los alumnos pueden evaluar docentes');
@@ -113,5 +145,39 @@ export const teacherSummary = async (teacherId, actor, periodId) => {
     _avg: { score: true },
     _count: { _all: true },
   });
-  return grouped;
+  if (grouped.length === 0) return [];
+
+  // Enriquece cada curso con su nombre, ciclo y carrera asociada.
+  const courseIds = grouped.map((g) => g.courseId);
+  const courses = await prisma.course.findMany({
+    where: { id: { in: courseIds } },
+    select: {
+      id: true,
+      code: true,
+      name: true,
+      cycle: true,
+      career: { select: { id: true, code: true, name: true } },
+    },
+  });
+  const courseMap = new Map(courses.map((c) => [c.id, c]));
+
+  return grouped.map((g) => {
+    const course = courseMap.get(g.courseId);
+    return {
+      courseId: g.courseId,
+      averageScore: g._avg?.score ?? null,
+      totalEvaluations: g._count?._all ?? 0,
+      course: course
+        ? {
+            id: course.id,
+            code: course.code,
+            name: course.name,
+            cycle: course.cycle,
+            career: course.career
+              ? { id: course.career.id, code: course.career.code, name: course.career.name }
+              : null,
+          }
+        : null,
+    };
+  });
 };
