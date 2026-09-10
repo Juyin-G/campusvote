@@ -61,7 +61,7 @@ export const login = async ({ email, password, ipAddress = null, userAgent = nul
     const tempToken = jwt.sign(
       { userId: user.id, email: user.email, purpose: 'TOTP_PENDING' },
       env.JWT_SECRET,
-      { expiresIn: '5m' }
+      { expiresIn: '15m' }
     );
 
     return {
