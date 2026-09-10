@@ -14,7 +14,7 @@ export const setupTotp = asyncHandler(async (req, res) => {
     {
       secret: result.secret,
       uri: result.uri,
-      backupCodes: result.backupCodes,
+      qrCode: result.qrCode,
     },
     'Escanea el código QR con tu app de autenticación',
     { requestId: req.requestId },
