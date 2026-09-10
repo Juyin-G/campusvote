@@ -4,6 +4,8 @@ import { ROLES } from '../../../constants/roles.js';
 
 const isAdmin = (actor) => [ROLES.ADMIN, ROLES.SUPERADMIN].includes(actor.role);
 
+export const isAdminActor = isAdmin;
+
 const assertOrganization = (actor, organizationId) => {
   if (actor.role !== ROLES.SUPERADMIN && actor.organizationId !== organizationId) {
     throw ApiError.forbidden('El recurso no pertenece a tu organización');
