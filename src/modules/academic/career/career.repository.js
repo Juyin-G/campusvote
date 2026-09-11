@@ -1,12 +1,15 @@
 import { prisma } from '../../../database/prisma.js';
 
-export const list = async ({ organizationId, skip = 0, take = 50 } = {}) => {
+export const list = async ({ organizationId, isActive, skip = 0, take = 50 } = {}) => {
   if (!organizationId) {
     throw new Error('organizationId requerido para listar carreras');
   }
   return prisma.career.findMany({
-    where: { organizationId, isActive: true },
-    orderBy: [{ code: 'asc' }],
+    where: {
+      organizationId,
+      ...(isActive === undefined ? {} : { isActive }),
+    },
+    orderBy: [{ isActive: 'desc' }, { code: 'asc' }],
     skip,
     take,
     select: {
@@ -19,9 +22,14 @@ export const list = async ({ organizationId, skip = 0, take = 50 } = {}) => {
   });
 };
 
-export const count = async ({ organizationId } = {}) => {
+export const count = async ({ organizationId, isActive } = {}) => {
   if (!organizationId) return 0;
-  return prisma.career.count({ where: { organizationId, isActive: true } });
+  return prisma.career.count({
+    where: {
+      organizationId,
+      ...(isActive === undefined ? {} : { isActive }),
+    },
+  });
 };
 
 export const findById = async (id, organizationId) =>

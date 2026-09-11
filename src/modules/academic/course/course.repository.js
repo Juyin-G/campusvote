@@ -1,28 +1,28 @@
 import { prisma } from '../../../database/prisma.js';
 
-export const list = async ({ organizationId, careerId, skip = 0, take = 50 } = {}) => {
+export const list = async ({ organizationId, careerId, isActive, skip = 0, take = 50 } = {}) => {
   if (!organizationId) {
     throw new Error('organizationId requerido para listar cursos');
   }
   return prisma.course.findMany({
     where: {
       organizationId,
-      isActive: true,
+      ...(isActive === undefined ? {} : { isActive }),
       ...(careerId ? { careerId } : {}),
     },
-    orderBy: [{ cycle: 'asc' }, { code: 'asc' }],
+    orderBy: [{ isActive: 'desc' }, { cycle: 'asc' }, { code: 'asc' }],
     skip,
     take,
     include: { career: { select: { code: true, name: true, cycle: true } } },
   });
 };
 
-export const count = async ({ organizationId, careerId } = {}) => {
+export const count = async ({ organizationId, careerId, isActive } = {}) => {
   if (!organizationId) return 0;
   return prisma.course.count({
     where: {
       organizationId,
-      isActive: true,
+      ...(isActive === undefined ? {} : { isActive }),
       ...(careerId ? { careerId } : {}),
     },
   });

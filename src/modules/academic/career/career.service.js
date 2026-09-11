@@ -18,9 +18,13 @@ export const listCareers = async (query = {}, actor = {}) => {
   if (actor.role !== 'SUPERADMIN' && !organizationId) {
     throw new ApiError(HTTP_STATUS.FORBIDDEN, 'Sin organización asociada');
   }
+  const isActive =
+    query.is_active === undefined
+      ? undefined
+      : query.is_active === 'true' || query.is_active === true
   const [data, total] = await Promise.all([
-    careerRepository.list({ organizationId, skip, take }),
-    careerRepository.count({ organizationId }),
+    careerRepository.list({ organizationId, isActive, skip, take }),
+    careerRepository.count({ organizationId, isActive }),
   ]);
   return { data, meta: { total, skip, take, hasMore: skip + data.length < total } };
 };

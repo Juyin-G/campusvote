@@ -19,9 +19,13 @@ export const listCourses = async (query = {}, actor = {}) => {
   if (actor.role !== 'SUPERADMIN' && !organizationId) {
     throw new ApiError(HTTP_STATUS.FORBIDDEN, 'Sin organización asociada');
   }
+  const isActive =
+    query.is_active === undefined
+      ? undefined
+      : query.is_active === 'true' || query.is_active === true
   const [data, total] = await Promise.all([
-    courseRepository.list({ organizationId, careerId: query.career_id, skip, take }),
-    courseRepository.count({ organizationId, careerId: query.career_id }),
+    courseRepository.list({ organizationId, careerId: query.career_id, isActive, skip, take }),
+    courseRepository.count({ organizationId, careerId: query.career_id, isActive }),
   ]);
   return { data, meta: { total, skip, take, hasMore: skip + data.length < total } };
 };
