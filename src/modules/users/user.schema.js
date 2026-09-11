@@ -63,9 +63,9 @@ export const createUserSchema = z.object({
     if (data.role === 'STUDENT') {
       if (!data.program_id) addIssue('program_id', 'Un estudiante requiere program_id');
       if (!data.current_cycle) addIssue('current_cycle', 'Un estudiante requiere current_cycle');
-    } else if (data.role === 'TEACHER' && !data.faculty_id) {
-      addIssue('faculty_id', 'Un docente requiere faculty_id');
     }
+    // faculty_id se mantiene como campo opcional: si la institucion lo usa,
+    // lo agrega; si no, el usuario se crea sin facultad asignada.
   }),
 });
 
