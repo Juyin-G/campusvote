@@ -53,7 +53,7 @@ export const createCourse = async (data, actor = {}) => {
     code: data.code,
     name: data.name,
     cycle: data.cycle,
-    careerId: data.careerId,
+    careerId: data.career_id,
   });
 };
 
@@ -62,16 +62,25 @@ export const updateCourse = async (id, data, actor = {}) => {
   const organizationId = actor.role === 'SUPERADMIN' ? undefined : actor.organizationId;
   await getCourseById(id, actor);
   if (data.code) {
-    const existing = await courseRepository.findByCode(data.code, organizationId, data.careerId);
+    const existing = await courseRepository.findByCode(data.code, organizationId, data.career_id);
     if (existing && existing.id !== id) {
       throw new ApiError(HTTP_STATUS.CONFLICT, `Otro curso ya usa el código ${data.code}`);
     }
   }
-  if (data.careerId) {
-    const career = await careerRepository.findById(data.careerId, organizationId);
+  if (data.career_id) {
+    const career = await careerRepository.findById(data.career_id, organizationId);
     if (!career) throw new ApiError(HTTP_STATUS.BAD_REQUEST, 'La carrera destino no pertenece a tu organización');
   }
-  return courseRepository.update(id, organizationId, data);
+  const updateData = { ...data }
+  if (updateData.is_active !== undefined) {
+    updateData.isActive = updateData.is_active
+    delete updateData.is_active
+  }
+  if (updateData.career_id !== undefined) {
+    updateData.careerId = updateData.career_id
+    delete updateData.career_id
+  }
+  return courseRepository.update(id, organizationId, updateData);
 };
 
 export const deleteCourse = async (id, actor = {}) => {

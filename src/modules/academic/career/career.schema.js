@@ -14,7 +14,7 @@ export const updateCareerSchema = z.object({
     code: z.string().min(1).max(20).optional(),
     name: z.string().min(1).max(150).optional(),
     total_cycles: z.coerce.number().int().min(1).max(20).optional(),
-    isActive: z.boolean().optional(),
+    is_active: z.boolean().optional(),
   }).refine((data) => Object.keys(data).length > 0, {
     message: 'Al menos un campo debe ser proporcionado',
   }),

@@ -64,8 +64,9 @@ export const updateCareer = async (id, data, actor = {}) => {
     }
   }
   const updateData = { ...data }
-  if (updateData.total_cycles !== undefined) {
-    updateData.total_cycles = updateData.total_cycles
+  if (updateData.is_active !== undefined) {
+    updateData.isActive = updateData.is_active
+    delete updateData.is_active
   }
   return careerRepository.update(id, organizationId, updateData);
 };

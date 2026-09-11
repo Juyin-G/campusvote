@@ -15,8 +15,8 @@ export const updateCourseSchema = z.object({
     code: z.string().min(1).max(30).optional(),
     name: z.string().min(1).max(150).optional(),
     cycle: z.number().int().min(1).max(20).optional(),
-    careerId: z.string().uuid('ID de carrera inválido').optional(),
-    isActive: z.boolean().optional(),
+    career_id: z.string().uuid('ID de carrera inválido').optional(),
+    is_active: z.boolean().optional(),
   }).refine((data) => Object.keys(data).length > 0, {
     message: 'Al menos un campo debe ser proporcionado',
   }),
