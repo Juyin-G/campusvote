@@ -1,10 +1,48 @@
 import bcrypt from 'bcryptjs';
 import * as otpRepository from '../repositories/otp.repository.js';
+import * as authRepository from '../repositories/auth.repository.js';
 import * as otpUtil from '../../../shared/utils/otp.util.js';
 import OTP_CONSTANTS from '../../../constants/otp.constants.js';
 import { ApiError } from '../../../shared/errors/ApiError.js';
 import auditService from '../../audit/audit.service.js';
 import logger from '../../../config/logger.js';
+import { generateJwt, generateRefreshToken, formatUserResponse } from './auth.helpers.js';
+import env from '../../../config/env.js';
+
+const REFRESH_DURATION_RE = /^(\d+)\s*(ms|s|m|h|d)?$/i;
+const durationToMs = (duration) => {
+  const str = String(duration ?? '').trim();
+  if (!str) return 7 * 24 * 60 * 60 * 1000;
+  const match = str.match(REFRESH_DURATION_RE);
+  if (!match) return 7 * 24 * 60 * 60 * 1000;
+  const value = parseInt(match[1], 10);
+  const unit = (match[2] || 's').toLowerCase();
+  const units = { ms: 1, s: 1000, m: 60 * 1000, h: 60 * 60 * 1000, d: 24 * 60 * 60 * 1000 };
+  return value * units[unit];
+};
+
+const issueSession = async (userId, { ipAddress = null, userAgent = null } = {}) => {
+  const user = await authRepository.findById(userId);
+  if (!user) throw ApiError.notFound('Usuario no encontrado');
+
+  const token = generateJwt(user);
+  const { rawToken: refreshToken, tokenHash } = generateRefreshToken();
+  const expiresAt = new Date(Date.now() + durationToMs(env.JWT_REFRESH_EXPIRES_IN));
+
+  await authRepository.createRefreshToken({
+    userId: user.id,
+    tokenHash,
+    expiresAt,
+    ipAddress,
+    userAgent,
+  });
+
+  return {
+    token,
+    refreshToken,
+    user: formatUserResponse(user),
+  };
+};
 
 const log2FASuccess = async (userId, method) => {
   try {
@@ -42,7 +80,7 @@ export const setupTotp = async (userId) => {
   return {
     secret,
     uri,
-    backupCodes: otpUtil.generateBackupCodes(),
+    qrCode: await otpUtil.generateQrCode(uri),
   };
 };
 
@@ -68,7 +106,11 @@ export const verifyAndEnableTotp = async (userId, totpCode) => {
     otpUtil.hashBackupCode(code)
   );
 
-  await otpRepository.enableTwoFactor(userId, hashedBackupCodes);
+  await otpRepository.completeOnboardingTwoFactor(
+    userId,
+    hashedBackupCodes,
+    user.status === 'PENDING_ACTIVATION'
+  );
 
   return {
     message: OTP_CONSTANTS.MESSAGES.OTP_ENABLED,
@@ -82,7 +124,7 @@ export const verifyTotp = verifyAndEnableTotp;
 /**
  * Verifica código de respaldo durante login
  */
-export const verifyBackupCodeLogin = async (userId, backupCode) => {
+export const verifyBackupCodeLogin = async (userId, backupCode, meta = {}) => {
   const user = await otpRepository.getUserWithTwoFactor(userId);
 
   if (!user?.twoFactorEnabled) {
@@ -105,20 +147,18 @@ export const verifyBackupCodeLogin = async (userId, backupCode) => {
 
   await log2FASuccess(userId, 'backup_code');
 
-  return { 
-    valid: true, 
-    remainingCodes: updatedCodes.length 
-  };
+  const session = await issueSession(userId, meta);
+  return { ...session, remainingCodes: updatedCodes.length };
 };
 
 /**
  * Manejador unificado de 2FA para Login (TOTP o Backup Code)
  */
-export const verifyLoginTotp = async (userId, payload) => {
+export const verifyLoginTotp = async (userId, payload, meta = {}) => {
   const { code, backupCode } = typeof payload === 'object' ? payload : { code: payload };
 
   if (backupCode) {
-    return verifyBackupCodeLogin(userId, backupCode);
+    return verifyBackupCodeLogin(userId, backupCode, meta);
   }
 
   if (!code) {
@@ -139,7 +179,7 @@ export const verifyLoginTotp = async (userId, payload) => {
 
   await log2FASuccess(userId, 'totp');
 
-  return { valid: true };
+  return issueSession(userId, meta);
 };
 
 /**

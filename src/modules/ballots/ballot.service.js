@@ -6,6 +6,31 @@ import {
   prismaPagination,
   parsePagination,
 } from '../../shared/utils/pagination.js';
+import * as electionRepository from '../elections/elections/election.repository.js';
+
+const assertBallotScope = async (ballot, actor) => {
+  if (!actor || actor.role === 'SUPERADMIN' || actor.isSuperuser) return;
+  const organizationId = await electionRepository.findElectionOwnerOrganization(ballot.electionId);
+  if (!actor.organizationId || organizationId !== actor.organizationId) {
+    throw ApiError.forbidden('La boleta no pertenece a tu organización');
+  }
+};
+
+const assertElectionScope = async (electionId, actor) => {
+  const organizationId =
+    await electionRepository.findElectionOwnerOrganization(electionId);
+  if (!organizationId) {
+    throw ApiError.notFound('Elección no encontrada');
+  }
+  if (
+    actor &&
+    actor.role !== 'SUPERADMIN' &&
+    !actor.isSuperuser &&
+    (!actor.organizationId || actor.organizationId !== organizationId)
+  ) {
+    throw ApiError.forbidden('La elección no pertenece a tu organización');
+  }
+};
 
 const translatePrismaError = (err) => {
   // Manejo explícito de excepciones lanzadas por funciones/triggers PL/pgSQL
@@ -33,7 +58,7 @@ const translatePrismaError = (err) => {
   return err;
 };
 
-export const listBallots = async (query = {}) => {
+export const listBallots = async (query = {}, actor) => {
   const { page, limit } = parsePagination(query);
   const { skip, take } = prismaPagination({ page, limit });
 
@@ -43,6 +68,7 @@ export const listBallots = async (query = {}) => {
   if (!electionId) {
     throw ApiError.badRequest('El ID de la elección es obligatorio');
   }
+  await assertElectionScope(electionId, actor);
 
   const [total, ballots] = await Promise.all([
     ballotRepository.countBallotsByElection(electionId),
@@ -60,22 +86,24 @@ export const listBallots = async (query = {}) => {
   };
 };
 
-export const getBallotById = async (id) => {
+export const getBallotById = async (id, actor) => {
   const ballot = await ballotRepository.findBallotById(id);
 
   if (!ballot) {
     throw ApiError.notFound('Boleta no encontrada');
   }
+  await assertBallotScope(ballot, actor);
 
   return ballot;
 };
 
-export const createBallot = async (body = {}) => {
+export const createBallot = async (body = {}, actor) => {
   const electionId = body.electionId || body.election_id;
 
   if (!electionId) {
     throw ApiError.badRequest('El ID de la elección es obligatorio');
   }
+  await assertElectionScope(electionId, actor);
 
   try {
     return await ballotRepository.createBallot({
@@ -88,12 +116,13 @@ export const createBallot = async (body = {}) => {
   }
 };
 
-export const updateBallot = async (id, body = {}) => {
+export const updateBallot = async (id, body = {}, actor) => {
   const current = await ballotRepository.findBallotById(id);
 
   if (!current) {
     throw ApiError.notFound('Boleta no encontrada');
   }
+  await assertBallotScope(current, actor);
 
   const data = {};
 
@@ -120,12 +149,13 @@ export const updateBallot = async (id, body = {}) => {
   }
 };
 
-export const deleteBallot = async (id) => {
+export const deleteBallot = async (id, actor) => {
   const ballot = await ballotRepository.findBallotById(id);
 
   if (!ballot) {
     throw ApiError.notFound('Boleta no encontrada');
   }
+  await assertBallotScope(ballot, actor);
 
   try {
     await ballotRepository.deleteBallotById(id);
@@ -138,10 +168,11 @@ export const deleteBallot = async (id) => {
   }
 };
 
-export const getActiveBallot = async (electionId) => {
+export const getActiveBallot = async (electionId, actor) => {
   if (!electionId) {
     throw ApiError.badRequest('El ID de la elección es obligatorio');
   }
+  await assertElectionScope(electionId, actor);
 
   const ballot = await ballotRepository.getActiveBallot(electionId);
 
@@ -154,10 +185,11 @@ export const getActiveBallot = async (electionId) => {
   return ballot;
 };
 
-export const createBallotVersion = async (electionId) => {
+export const createBallotVersion = async (electionId, actor) => {
   if (!electionId) {
     throw ApiError.badRequest('El ID de la elección es obligatorio');
   }
+  await assertElectionScope(electionId, actor);
 
   try {
     return await ballotRepository.createBallotVersion(electionId);
@@ -166,12 +198,13 @@ export const createBallotVersion = async (electionId) => {
   }
 };
 
-export const validateBallotCompleteness = async (ballotId) => {
+export const validateBallotCompleteness = async (ballotId, actor) => {
   const ballot = await ballotRepository.findBallotById(ballotId);
 
   if (!ballot) {
     throw ApiError.notFound('Boleta no encontrada');
   }
+  await assertBallotScope(ballot, actor);
 
   const isComplete = await ballotRepository.validateBallotCompleteness(
     ballotId

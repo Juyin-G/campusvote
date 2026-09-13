@@ -24,7 +24,13 @@ export const getFinalResults = asyncHandler(async (req, res) => {
   return sendSuccess(res, data, 'Resultados finales');
 });
 
+export const listPublishedElections = asyncHandler(async (req, res) => {
+  const elections = await resultsService.listPublishedElections();
+  return sendSuccess(res, elections, 'Elecciones publicadas');
+});
+
 export default {
   getLiveResults,
   getFinalResults,
+  listPublishedElections,
 };

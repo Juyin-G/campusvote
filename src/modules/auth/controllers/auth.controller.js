@@ -43,28 +43,6 @@ export const login = asyncHandler(async (req, res) => {
   );
 });
 
-export const register = asyncHandler(async (req, res) => {
-  const result = await authService.register(req.body);
-
-  logger.info(`Registro exitoso: ${safe(req.body?.email || 'N/A')}`, {
-    requestId: req.requestId,
-  });
-
-  // El alta se confirma aunque el correo no haya salido; en ese caso se indica
-  // al usuario que puede pedir el reenvío en lugar de dejarlo sin salida.
-  const message = result.verificationEmailSent
-    ? MESSAGES.USER.CREATED_SUCCESS
-    : MESSAGES.AUTH.REGISTER_EMAIL_FAILED;
-
-  return sendSuccess(
-    res,
-    result,
-    message,
-    { requestId: req.requestId },
-    HTTP_STATUS.CREATED
-  );
-});
-
 export const resendVerification = asyncHandler(async (req, res) => {
   const result = await authService.resendVerification(req.body.email);
 
@@ -219,6 +197,20 @@ export const verifyEmail = asyncHandler(async (req, res) => {
     res,
     result,
     MESSAGES.AUTH.EMAIL_VERIFIED_SUCCESS,
+    { requestId: req.requestId },
+    HTTP_STATUS.OK
+  );
+});
+
+export const verifyFirebase = asyncHandler(async (req, res) => {
+  const result = await authService.authenticateWithFirebase(req.body.idToken);
+
+  return sendSuccess(
+    res,
+    result,
+    result.requiresTotp
+      ? MESSAGES.AUTH.TWO_FACTOR_REQUIRED
+      : MESSAGES.AUTH.LOGIN_SUCCESS,
     { requestId: req.requestId },
     HTTP_STATUS.OK
   );

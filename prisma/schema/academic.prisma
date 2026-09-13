@@ -54,10 +54,72 @@ model Career {
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   users        User[]
+  courses      Course[]
+  teachingAssignments TeachingAssignment[]
 
   @@unique([organizationId, code], name: "uq_careers_org_code")
   @@index([organizationId, isActive], name: "idx_careers_org_active")
   @@map("careers")
+}
+
+model Course {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  careerId       String   @map("career_id") @db.Uuid
+  code           String   @db.VarChar(30)
+  name           String   @db.VarChar(150)
+  cycle          Int      @db.SmallInt
+  isActive       Boolean  @default(true) @map("is_active")
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  career         Career @relation(fields: [careerId], references: [id], onDelete: Cascade)
+  teachingAssignments TeachingAssignment[]
+  teacherEvaluations TeacherEvaluation[]
+  @@unique([organizationId, code], map: "uq_courses_org_code")
+  @@index([careerId, cycle], map: "idx_courses_career_cycle")
+  @@map("courses")
+}
+
+model TeachingAssignment {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId   String   @map("organization_id") @db.Uuid
+  academicPeriodId String   @map("academic_period_id") @db.Uuid
+  careerId         String   @map("career_id") @db.Uuid
+  courseId         String   @map("course_id") @db.Uuid
+  teacherId        String   @map("teacher_id") @db.Uuid
+  cycle            Int      @db.SmallInt
+  isActive         Boolean  @default(true) @map("is_active")
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  academicPeriod   AcademicPeriod @relation(fields: [academicPeriodId], references: [id], onDelete: Restrict)
+  career           Career @relation(fields: [careerId], references: [id], onDelete: Restrict)
+  course           Course @relation(fields: [courseId], references: [id], onDelete: Restrict)
+  teacher          User @relation("TeachingAssignments", fields: [teacherId], references: [id], onDelete: Restrict)
+  evaluations      TeacherEvaluation[]
+  @@unique([academicPeriodId, courseId, teacherId], map: "uq_teaching_assignment_period_course_teacher")
+  @@index([organizationId, careerId, cycle], map: "idx_teaching_assignments_scope")
+  @@map("teaching_assignments")
+}
+
+model TeacherEvaluation {
+  id                   String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId       String   @map("organization_id") @db.Uuid
+  academicPeriodId     String   @map("academic_period_id") @db.Uuid
+  teachingAssignmentId  String   @map("teaching_assignment_id") @db.Uuid
+  courseId             String   @map("course_id") @db.Uuid
+  studentId            String   @map("student_id") @db.Uuid
+  teacherId            String   @map("teacher_id") @db.Uuid
+  score                Int      @db.SmallInt
+  comment              String?  @db.Text
+  isAnonymous          Boolean  @default(true) @map("is_anonymous")
+  createdAt            DateTime @default(now()) @map("created_at") @db.Timestamptz
+  organization         Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  academicPeriod       AcademicPeriod @relation(fields: [academicPeriodId], references: [id], onDelete: Restrict)
+  teachingAssignment   TeachingAssignment @relation(fields: [teachingAssignmentId], references: [id], onDelete: Restrict)
+  course               Course @relation(fields: [courseId], references: [id], onDelete: Restrict)
+  student              User @relation("TeacherEvaluationsByStudent", fields: [studentId], references: [id], onDelete: Restrict)
+  teacher              User @relation("TeacherEvaluationsForTeacher", fields: [teacherId], references: [id], onDelete: Restrict)
+  @@unique([teachingAssignmentId, studentId], map: "uq_teacher_evaluation_assignment_student")
+  @@index([organizationId, teacherId, academicPeriodId], map: "idx_teacher_evaluations_reporting")
+  @@map("teacher_evaluations")
 }
 
 // 3. PERÍODOS ACADÉMICOS
@@ -76,6 +138,8 @@ model AcademicPeriod {
   voterRegistryClaims VoterRegistryClaim[]
   elections          Election[]
   users              User[]  // FK admission_period_id en User
+  teachingAssignments TeachingAssignment[]
+  teacherEvaluations  TeacherEvaluation[]
 
   @@map("academic_periods")
 }

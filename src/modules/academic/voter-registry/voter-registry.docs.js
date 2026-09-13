@@ -1,7 +1,7 @@
 /**
  * @openapi
  * tags:
- *   name: VoterRegistry
+ *   name: Voter Registry
  *   description: Gestión del padrón electoral y sincronización con el sistema SIS
  */
 
@@ -93,9 +93,9 @@
  */
 
 const voterRegistryDocs = {
-  '/academic/voter-registry/sync-sis': {
+  '/api/academic/voter-registries/sync-sis': {
     post: {
-      tags: ['VoterRegistry'],
+      tags: ['Voter Registry'],
       summary: 'Sincronización masiva de estudiantes desde el SIS',
       description: 'Ejecuta el procedimiento almacenado SQL `sync_sis_voters` para actualizar el padrón electoral.',
       security: [{ bearerAuth: [] }],
@@ -130,9 +130,9 @@ const voterRegistryDocs = {
     },
   },
 
-  '/academic/voter-registry': {
+  '/api/academic/voter-registries': {
     get: {
-      tags: ['VoterRegistry'],
+      tags: ['Voter Registry'],
       summary: 'Obtener padrón electoral paginado y filtrado',
       security: [{ bearerAuth: [] }],
       parameters: [
@@ -149,7 +149,7 @@ const voterRegistryDocs = {
       },
     },
     post: {
-      tags: ['VoterRegistry'],
+      tags: ['Voter Registry'],
       summary: 'Registrar manualmente un votante en el padrón',
       security: [{ bearerAuth: [] }],
       requestBody: {
@@ -178,9 +178,9 @@ const voterRegistryDocs = {
     },
   },
 
-  '/academic/voter-registry/{id}': {
+  '/api/academic/voter-registries/{id}': {
     get: {
-      tags: ['VoterRegistry'],
+      tags: ['Voter Registry'],
       summary: 'Obtener detalle de un votante del padrón',
       security: [{ bearerAuth: [] }],
       parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
@@ -190,7 +190,7 @@ const voterRegistryDocs = {
       },
     },
     patch: {
-      tags: ['VoterRegistry'],
+      tags: ['Voter Registry'],
       summary: 'Actualizar habilitación o datos de un votante',
       security: [{ bearerAuth: [] }],
       parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
@@ -216,7 +216,7 @@ const voterRegistryDocs = {
       },
     },
     delete: {
-      tags: ['VoterRegistry'],
+      tags: ['Voter Registry'],
       summary: 'Eliminar un registro del padrón electoral',
       security: [{ bearerAuth: [] }],
       parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
@@ -229,4 +229,4 @@ const voterRegistryDocs = {
   },
 };
 
-module.exports = voterRegistryDocs;
+export default voterRegistryDocs;

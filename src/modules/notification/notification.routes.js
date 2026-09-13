@@ -6,7 +6,6 @@ import { authenticate, authorize } from '../../middlewares/auth.middleware.js';
 import { validate } from '../../middlewares/validate.middleware.js';
 import { ROLES } from '../../constants/roles.js';
 import {
-  listNotificationsSchema,
   createNotificationSchema,
   updateNotificationSchema,
 } from './notification.schema.js';
@@ -28,7 +27,6 @@ router.get(
 router.get(
   '/',
   authenticate,
-  validate(listNotificationsSchema),
   notificationController.listNotifications
 );
 

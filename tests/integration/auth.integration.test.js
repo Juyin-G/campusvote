@@ -7,8 +7,12 @@ import request from 'supertest';
 import { createAcademicFixture } from './academic.fixture.js';
 
 jest.unstable_mockModule('../../src/shared/services/email.service.js', () => ({
+  hasEmailConfigured: jest.fn().mockReturnValue(false),
   sendVerification: jest.fn().mockResolvedValue(true),
   sendReset: jest.fn().mockResolvedValue(true),
+  sendActivation: jest.fn().mockResolvedValue(true),
+  sendAdminActivation: jest.fn().mockResolvedValue(true),
+  sendRequestReceived: jest.fn().mockResolvedValue(true),
 }));
 
 jest.unstable_mockModule('../../src/middlewares/rateLimiter.middleware.js', () => ({

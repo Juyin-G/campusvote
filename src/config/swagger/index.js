@@ -4,6 +4,7 @@ import swaggerUi from 'swagger-ui-express';
 import env from '../env.js';
 import schemas from './schemas/index.js';
 import { responses } from './responses.js';
+import voterRegistryDocs from '../../modules/academic/voter-registry/voter-registry.docs.js';
 
 // Metadata principal de la API
 const apiInfo = {
@@ -64,7 +65,7 @@ const tags = [
   { name: 'Auth', description: 'Gestión de autenticación, sesión y recuperación' },
   { name: 'Users', description: 'Administración de usuarios y perfiles' },
   { name: 'Organizations', description: 'Gestión multitenant de instituciones y organizaciones' },
-  { name: 'Elections', description: 'Ciclo de vida y parámetros de procesos electorales' },
+  { name: 'Elecciones', description: 'Ciclo de vida y parámetros de procesos electorales' },
   { name: 'Voter Registry', description: 'Gestión del padrón electoral y reclamos de inscripción' },
   { name: 'Voting', description: 'Registro y validación de votos criptográficos' },
   { name: 'Ballots', description: 'Gestión de cédulas y configuraciones de votación' },
@@ -84,6 +85,7 @@ const options = {
       schemas,
       responses,
     },
+    paths: voterRegistryDocs,
     tags,
     security: [
       {

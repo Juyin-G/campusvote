@@ -12,8 +12,7 @@ const UPLOAD_DIR = path.join(process.cwd(), 'public', 'uploads');
 const MAX_FILE_SIZE = env.UPLOAD_MAX_FILE_SIZE_MB * 1024 * 1024;
 const MAX_FILES = env.UPLOAD_MAX_FILES;
 
-// Configuración del almacenamiento en disco local
-const storage = multer.diskStorage({
+const localStorage = multer.diskStorage({
   destination: (req, file, cb) => {
     cb(null, UPLOAD_DIR);
   },
@@ -27,6 +26,11 @@ const storage = multer.diskStorage({
 
 // Filtro estricto de seguridad (MIME types permitidos).
 // El contenido real se verifica por magic bytes en la ruta (upload.routes.js).
+const storage = process.env.UPLOAD_STORAGE_DRIVER === 'firebase'
+  ? multer.memoryStorage()
+  : localStorage;
+
+// Filtro estricto de seguridad (MIME types permitidos)
 const fileFilter = (req, file, cb) => {
   if (isAllowedMimeType(file.mimetype)) {
     cb(null, true);
@@ -49,5 +53,4 @@ export const uploadMiddleware = multer({
     files: MAX_FILES, // Máximo número de archivos por petición (env.UPLOAD_MAX_FILES)
   },
 });
-
 export default uploadMiddleware;

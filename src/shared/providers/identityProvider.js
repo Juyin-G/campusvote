@@ -15,14 +15,9 @@ export class IdentityProvider {
 const DNI_PATTERN = /^\d{8}$/;
 const CE_PATTERN = /^[0-9A-Za-z]{9,12}$/;
 
-// Checksum del DNI peruano (módulo 11, algoritmo de Reniec).
-const isValidDniChecksum = (dni) => {
-  const weights = [3, 2, 7, 6, 5, 4, 3, 2];
-  const sum = dni.split('').reduce((acc, digit, i) => acc + parseInt(digit, 10) * weights[i], 0);
-  const check = 11 - (sum % 11);
-  if (check === 10 || check === 11) return dni[7] === '0';
-  return parseInt(dni[7], 10) === check;
-};
+// IMPORTANTE: la verificación real del DNI la hace RENIEC contra su base de
+// datos (número + nombres). El checksum mod-11 rechaza DNIs reales (incluso
+// antiguos), por eso aquí NO se usa: el mock solo valida el formato.
 
 export class MockIdentityProvider extends IdentityProvider {
   // El mock valida formato y checksum y "verifica" cualquier documento
@@ -33,9 +28,6 @@ export class MockIdentityProvider extends IdentityProvider {
     if (documentType === 'DNI') {
       if (!DNI_PATTERN.test(normalized)) {
         return { verified: false, names: null, reason: 'El DNI debe tener 8 dígitos' };
-      }
-      if (!isValidDniChecksum(normalized)) {
-        return { verified: false, names: null, reason: 'El DNI no pasa el dígito verificador' };
       }
       return { verified: true, names: 'CIUDADANO PERUANO', reason: null };
     }

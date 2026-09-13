@@ -35,6 +35,15 @@ $migrationOrder = @(
     @{ Path = "database/sql/organizations/003_organization_requests.sql"; Label = "Org - Requests" },
     @{ Path = "database/sql/organizations/004_approval_functions.sql"; Label = "Org - Funciones" },
 
+    # 4b. Organizations - Columnas extendidas (member_limit, category_catalog, admin constraint)
+    @{ Path = "database/sql/organizations/005_organization_member_limit.sql"; Label = "Org - Member Limit" },
+    @{ Path = "database/sql/organizations/005_category_catalog.sql"; Label = "Org - Category Catalog" },
+    @{ Path = "database/sql/organizations/006_admin_requires_organization.sql"; Label = "Org - Admin Constraint" },
+    @{ Path = "database/sql/organizations/007_admin_invite.sql"; Label = "Org - Admin Invite" },
+
+    # 4c. Deferred admin activation (usa las columnas anteriores)
+    @{ Path = "database/sql/organizations/008_deferred_admin_activation.sql"; Label = "Org - Deferred Activation" },
+
     # 5. Academic
     @{ Path = "database/sql/academic/001_faculties.sql"; Label = "Academic - Faculties" },
     @{ Path = "database/sql/academic/002_programs.sql"; Label = "Academic - Programs" },

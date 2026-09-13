@@ -95,6 +95,18 @@ router.get(
 
 // LIVE / FINAL (S7-05) — acceso autenticado y validado por tenant
 
+// Resultados finales publicados: consulta pública para compartir el ganador.
+router.get(
+  '/public/elections',
+  asyncHandler(resultsController.listPublishedElections)
+);
+
+router.get(
+  '/public/results/final',
+  validate(finalResultsQuerySchema),
+  asyncHandler(resultsController.getFinalResults)
+);
+
 // GET /api/results/live?election_id=...
 router.get(
   '/results/live',

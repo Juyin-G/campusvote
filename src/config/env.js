@@ -117,18 +117,29 @@ export default {
   AUDIT_SECRET_KEY: process.env.AUDIT_SECRET_KEY,
   NOTIFICATION_WORKER_ENABLED: process.env.NOTIFICATION_WORKER_ENABLED || 'false',
 
-  // Email
-  SMTP_HOST: process.env.SMTP_HOST,
-  SMTP_PORT: parseInt(process.env.SMTP_PORT, 10) || 587,
-  SMTP_USER: process.env.SMTP_USER,
-  SMTP_PASS: process.env.SMTP_PASS,
-  SMTP_FROM: process.env.SMTP_FROM || 'noreply@campusvote.com',
+  // Gmail API OAuth2. GMAIL_REDIRECT_URI solo se usa al generar el token local.
+  GMAIL_CLIENT_ID: process.env.GMAIL_CLIENT_ID,
+  GMAIL_CLIENT_SECRET: process.env.GMAIL_CLIENT_SECRET,
+  GMAIL_REDIRECT_URI: process.env.GMAIL_REDIRECT_URI,
+  GMAIL_REFRESH_TOKEN: process.env.GMAIL_REFRESH_TOKEN,
+  GMAIL_FROM: process.env.GMAIL_FROM,
 
-  // Google OAuth
-  GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID,
-  GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET,
-  GOOGLE_CALLBACK_URL: process.env.GOOGLE_CALLBACK_URL,
+  // Firebase Authentication (opcional; login Google desde Flutter/Web)
+  FIREBASE_PROJECT_ID: process.env.FIREBASE_PROJECT_ID,
+  FIREBASE_CLIENT_EMAIL: process.env.FIREBASE_CLIENT_EMAIL,
+  FIREBASE_PRIVATE_KEY: process.env.FIREBASE_PRIVATE_KEY,
+  FIREBASE_STORAGE_BUCKET: process.env.FIREBASE_STORAGE_BUCKET,
+  UPLOAD_STORAGE_DRIVER:
+    process.env.UPLOAD_STORAGE_DRIVER || (process.env.NODE_ENV === 'production' ? 'firebase' : 'local'),
 
   // Frontend URL
-  FRONTEND_URL: process.env.FRONTEND_URL || 'http://localhost:5173',
+  // Debe ser una sola URL pública del frontend; se usa para enlaces de email.
+  FRONTEND_URL: (() => {
+    const configuredUrl = (process.env.FRONTEND_URL || 'http://localhost:5173').trim();
+    let normalizedUrl = configuredUrl;
+    while (normalizedUrl.endsWith('/')) {
+      normalizedUrl = normalizedUrl.slice(0, -1);
+    }
+    return normalizedUrl;
+  })(),
 };

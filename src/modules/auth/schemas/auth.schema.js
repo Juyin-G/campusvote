@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+<<<<<<< HEAD
 const EMAIL_INSTITUCIONAL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.(edu\.pe|edu)$/;
 
 export const UserRoleEnum = z.enum([
@@ -11,80 +12,14 @@ export const UserRoleEnum = z.enum([
   'JURY',
 ]);
 
+=======
+>>>>>>> 808dfb1f3b2bb1a7abdcec0c7d1706741d4ed99c
 // Login
 export const loginSchema = z.object({
   body: z.object({
     email: z.string().email('Email inválido').trim().toLowerCase(),
     password: z.string().min(1, 'La contraseña es obligatoria'),
   }),
-});
-
-// Registro Alineado con Constraints de Postgres
-export const registerSchema = z.object({
-  body: z
-    .object({
-      username: z
-        .string()
-        .min(3, 'Mínimo 3 caracteres')
-        .max(50, 'Máximo 50 caracteres')
-        .regex(/^[a-zA-Z0-9._-]+$/, 'El usuario solo admite letras, números, puntos y guiones')
-        .trim(),
-      email: z.string().email('Email inválido').trim().toLowerCase(),
-      password: z
-        .string()
-        .min(8, 'Mínimo 8 caracteres')
-        .regex(/[A-Z]/, 'Debe contener al menos una letra mayúscula')
-        .regex(/[a-z]/, 'Debe contener al menos una letra minúscula')
-        .regex(/\d/, 'Debe contener al menos un número'),
-      firstName: z.string().min(1, 'El nombre es obligatorio').max(150).trim(),
-      lastName: z.string().min(1, 'El apellido es obligatorio').max(150).trim(),
-      institutionalId: z.string().min(1, 'El ID institucional es obligatorio').trim(),
-      role: UserRoleEnum.default('STUDENT'),
-
-      // Contexto Académico y Organizacional
-      organizationId: z.string().uuid('UUID de organización inválido').optional(),
-      facultyId: z.string().uuid('UUID de facultad inválido').optional(),
-      programId: z.string().uuid('UUID de programa inválido').optional(),
-      currentCycle: z.number().int().min(1).max(20).optional(),
-      admissionPeriodId: z.string().uuid('UUID de periodo inválido').optional(),
-      specialty: z.string().max(255).optional(),
-      department: z.string().max(255).optional(),
-    })
-    .superRefine((data, ctx) => {
-      // Regla: Validar correo institucional para Estudiantes y Docentes
-      if (
-        ['STUDENT', 'TEACHER'].includes(data.role) &&
-        !EMAIL_INSTITUCIONAL_REGEX.test(data.email)
-      ) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: 'Estudiantes y docentes deben usar un correo institucional (.edu o .edu.pe)',
-          path: ['email'],
-        });
-      }
-
-      // Regla: chk_users_academic_linkage & chk_users_student_data para STUDENT
-      // El contexto académico (carrera/programa, ciclo) se asigna/configura por el ADMIN
-      // de la organización; el estudiante puede registrarse sin elegir ciclo.
-      if (data.role === 'STUDENT') {
-        if (!data.programId) {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            message: 'El programa académico (programId) es obligatorio para estudiantes',
-            path: ['programId'],
-          });
-        }
-      }
-
-      // Regla: chk_users_academic_linkage para TEACHER
-      if (data.role === 'TEACHER' && !data.facultyId) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: 'La facultad (facultyId) es obligatoria para docentes',
-          path: ['facultyId'],
-        });
-      }
-    }),
 });
 
 // TOTP Setup
@@ -163,5 +98,12 @@ export const refreshSchema = z.object({
 export const googleVerifySchema = z.object({
   body: z.object({
     code: z.string().min(1, 'El código de Google es obligatorio'),
+  }),
+});
+
+// ID token emitido por Firebase Authentication para login con Google.
+export const firebaseVerifySchema = z.object({
+  body: z.object({
+    idToken: z.string().min(1, 'El ID token de Firebase es obligatorio'),
   }),
 });

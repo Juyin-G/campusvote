@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { passwordSchema } from '../../shared/utils/passwordPolicy.js';
 import { ALL_ROLES } from '../../constants/roles.js';
 
+const uuid = (label) => z.string().uuid(`${label} inválido`);
 const roleEnum = z.enum(ALL_ROLES);
 
 // Identidad nacional peruana (DNI 8 dígitos / Carné de Extranjería 9-12).
@@ -62,9 +63,9 @@ export const createUserSchema = z.object({
     if (data.role === 'STUDENT') {
       if (!data.program_id) addIssue('program_id', 'Un estudiante requiere program_id');
       if (!data.current_cycle) addIssue('current_cycle', 'Un estudiante requiere current_cycle');
-    } else if (data.role === 'TEACHER' && !data.faculty_id) {
-      addIssue('faculty_id', 'Un docente requiere faculty_id');
     }
+    // faculty_id se mantiene como campo opcional: si la institucion lo usa,
+    // lo agrega; si no, el usuario se crea sin facultad asignada.
   }),
 });
 
@@ -181,12 +182,32 @@ export const provisionAdminSchema = z.object({
         .optional(),
     }),
     admin: z.object({
-      username: z.string().min(3, 'Como mínimo 3 caracteres').max(50),
+      username: z.string().min(3, 'Como mínimo 3 caracteres').max(50).optional(),
       email: z.string().email('Email inválido'),
-      password: passwordSchema,
-      first_name: z.string().min(1, 'Como mínimo 1 carácter').max(50),
-      last_name: z.string().min(1, 'Como mínimo 1 carácter').max(50),
+      password: passwordSchema.optional(),
+      first_name: z.string().min(1, 'Como mínimo 1 carácter').max(50).optional(),
+      last_name: z.string().min(1, 'Como mínimo 1 carácter').max(50).optional(),
     }),
+  }),
+});
+
+// SUPERADMIN: crear/otorgar un ADMIN en una organización existente.
+// - Si hay canal de email configurado → invitación (Opción 1): solo se usan
+//   email + rol; el admin define su contraseña con el enlace de activación.
+// - Si no → credenciales temporales (Opción 2): se requiere `password`.
+// Los campos personales/identidad son opcionales durante el onboarding.
+export const provisionExistingAdminSchema = z.object({
+  params: z.object({
+    organizationId: uuid('ID de la organización'),
+  }),
+  body: z.object({
+    username: z.string().min(3, 'Como mínimo 3 caracteres').max(50).optional(),
+    email: z.string().email('Email inválido'),
+    password: passwordSchema.optional(),
+    first_name: z.string().min(1, 'Como mínimo 1 carácter').max(50).optional(),
+    last_name: z.string().min(1, 'Como mínimo 1 carácter').max(50).optional(),
+    document_type: z.enum(['DNI', 'CE']).optional(),
+    document_number: z.string().trim().min(1).max(20).optional(),
   }),
 });
 

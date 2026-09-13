@@ -12,7 +12,7 @@
  * /api/elections/{electionId}/candidate-lists:
  *   get:
  *     summary: Listar proyectos/listas candidatas de una elección (con filtros)
- *     description: Obtiene los proyectos (listas candidatas) de una elección con filtros de búsqueda por proyecto: search (nombre/acrónimo/descripción), category, status de la candidatura, orden y paginación opcional. Sin limit se devuelven todas las listas (requerido por la papeleta).
+ *     description: "Obtiene los proyectos (listas candidatas) de una elección con filtros de búsqueda por proyecto: search (nombre/acrónimo/descripción), category, status de la candidatura, orden y paginación opcional. Sin limit se devuelven todas las listas (requerido por la papeleta)."
  *     tags: [Listas Candidatas]
  *     security:
  *       - bearerAuth: []
@@ -52,7 +52,7 @@
  *           type: integer
  *           minimum: 1
  *           maximum: 200
- *         description: Paginación (opcional, sin limit se devuelve todo)
+ *         description: Paginación (opcional, sin limit se devuelve la lista completa)
  *       - in: query
  *         name: offset
  *         schema:

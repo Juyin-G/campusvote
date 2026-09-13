@@ -20,6 +20,7 @@ export const formatUserResponse = (user) => ({
   is_superuser: user.isSuperuser,
   two_factor_enabled: user.twoFactorEnabled,
   must_change_password: user.mustChangePassword,
+  must_setup_2fa: user.mustSetup2fa ?? false,
   last_login: user.lastLogin,
   date_joined: user.dateJoined,
 });

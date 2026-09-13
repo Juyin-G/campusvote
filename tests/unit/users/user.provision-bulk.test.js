@@ -101,7 +101,7 @@ describe('User Service - provisionAdmin (superadmin)', () => {
     ).rejects.toThrow(ApiError);
   });
 
-  it('crea la organización + ADMIN y devuelve QR/OTP de primer acceso', async () => {
+  it('crea la organización + ADMIN en modo onboarding (sin 2FA provisionado)', async () => {
     const result = await userService.provisionAdmin(
       {
         organization: {
@@ -125,9 +125,13 @@ describe('User Service - provisionAdmin (superadmin)', () => {
     expect(result.organization.code).toBe('UNAL');
     expect(result.user.role).toBe('ADMIN');
     expect(result.user.organization_id).toBe('org-9');
-    expect(result.qrCode).toBe('data:image/png;base64,QR');
-    expect(result.secret).toBe('SECRET_TEST');
-    expect(result.backupCodes).toEqual(['CODE1', 'CODE2']);
+    // Sin canal de email → credenciales temporales: no se provisiona 2FA
+    expect(result.onboarding_mode).toBe('temp');
+    expect(result.must_change_password).toBe(true);
+    expect(result.must_setup_2fa).toBe(true);
+    expect(result.qrCode).toBeUndefined();
+    expect(result.secret).toBeUndefined();
+    expect(result.backupCodes).toBeUndefined();
   });
 
   it('rechaza si el correo ya está registrado', async () => {

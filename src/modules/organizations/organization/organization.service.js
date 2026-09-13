@@ -70,13 +70,18 @@ export const createOrganization = async (data = {}) => {
     country: data.country?.trim() || 'Perú',
     timezone: data.timezone?.trim() || 'America/Lima',
     allowedEmailDomains: data.allowed_email_domains || [],
+    memberLimit: data.member_limit ?? 100,
   });
 };
 
 /**
  * Actualizar una organización
  */
-export const updateOrganization = async (id, data = {}) => {
+export const updateOrganization = async (id, data = {}, actor = {}) => {
+  const isSuperAdmin = actor?.role === 'SUPERADMIN' || actor?.isSuperuser || actor?.isSuperAdmin;
+  if (!isSuperAdmin && actor?.organizationId !== id) {
+    throw ApiError.forbidden('Solo puedes actualizar la identidad de tu organización');
+  }
   const existingOrg = await orgRepository.findOrgById(id);
   if (!existingOrg) {
     throw ApiError.notFound('Organización no encontrada');
@@ -112,6 +117,19 @@ export const updateOrganization = async (id, data = {}) => {
 
   if (data.allowed_email_domains !== undefined) {
     updateData.allowedEmailDomains = data.allowed_email_domains;
+  }
+
+  if (data.member_limit !== undefined) {
+    if (!isSuperAdmin) {
+      throw ApiError.forbidden('Solo el SUPERADMIN puede modificar la capacidad de una organización');
+    }
+    const currentMembers = await orgRepository.countOrganizationMembers(id);
+    if (data.member_limit < currentMembers) {
+      throw ApiError.badRequest(
+        `La capacidad no puede ser menor que los ${currentMembers} miembros actuales`
+      );
+    }
+    updateData.memberLimit = data.member_limit;
   }
 
   if (Object.keys(updateData).length === 0) {

@@ -10,6 +10,7 @@ import electionRulesRoutes from '../electionRules/electionRules.routes.js';
 import { authenticate, authorize } from '../../../middlewares/auth.middleware.js';
 import { validate } from '../../../middlewares/validate.middleware.js';
 import { ROLES } from '../../../constants/roles.js';
+import { requireElectionInScope } from '../../../middlewares/scope.middleware.js';
 import {
   listElectionSchema,
   electionParamsSchema,
@@ -39,6 +40,7 @@ router.get(
   '/:id',
   authenticate,
   validate(electionParamsSchema),
+  requireElectionInScope,
   electionController.getElectionById
 );
 

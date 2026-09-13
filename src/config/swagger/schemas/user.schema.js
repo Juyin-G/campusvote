@@ -47,7 +47,7 @@ const UserSchema = {
     },
     auth_provider: {
       type: 'string',
-      enum: ['LOCAL', 'GOOGLE'],
+      enum: ['LOCAL'],
       description: 'Proveedor de autenticación',
       example: 'LOCAL',
     },

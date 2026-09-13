@@ -122,6 +122,14 @@ export class ApiError extends Error {
     return new ApiError(422, 'Invalid digital signature', null, 'INVALID_DIGITAL_SIGNATURE');
   }
 
+  static emailAuthFailed(message = 'Email authentication failed', details = null) {
+    return new ApiError(503, message, details, 'EMAIL_AUTH_FAILED');
+  }
+
+  static emailRateLimited(message = 'Email rate limit exceeded', details = null) {
+    return new ApiError(429, message, details, 'EMAIL_RATE_LIMITED');
+  }
+
   // UTILIDADES
 
   toJSON() {

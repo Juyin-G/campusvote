@@ -9,7 +9,6 @@ CREATE TABLE IF NOT EXISTS users (
     -- Autenticación
     password VARCHAR(255) NULL,
     auth_provider auth_provider_type NOT NULL DEFAULT 'LOCAL',
-    google_id VARCHAR(255) NULL,
 
     -- Sesión
     last_login TIMESTAMPTZ NULL,

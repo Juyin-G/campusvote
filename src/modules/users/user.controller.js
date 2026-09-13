@@ -12,7 +12,7 @@ const actorId = (user) => user?.userId ?? user?.id;
 
 // Listar usuarios paginados
 export const listUsers = asyncHandler(async (req, res) => {
-  const { users, pagination } = await userService.listUsers(req.query);
+  const { users, pagination } = await userService.listUsers(req.query, req.user);
 
   return sendPaginated(res, users, pagination, 'Consulta exitosa');
 });
@@ -41,7 +41,22 @@ export const provisionAdmin = asyncHandler(async (req, res) => {
   return sendSuccess(
     res,
     result,
-    'Organización y administrador creados. Entrega el QR/OTP de primer acceso.',
+    'Organización y administrador creados. Se procesa la activación del acceso.',
+    { requestId: req.requestId },
+    HTTP_STATUS.CREATED
+  );
+});
+
+export const provisionExistingAdmin = asyncHandler(async (req, res) => {
+  const result = await userService.provisionExistingAdmin(
+    req.params.organizationId,
+    req.body,
+    req.user
+  );
+  return sendSuccess(
+    res,
+    result,
+    'Administrador creado. Se procesa la activación de su acceso.',
     { requestId: req.requestId },
     HTTP_STATUS.CREATED
   );
@@ -55,7 +70,7 @@ export const createUsersBulk = asyncHandler(async (req, res) => {
 
 // Actualizar usuario por ID
 export const updateUser = asyncHandler(async (req, res) => {
-  const user = await userService.updateUser(req.params.id, req.body);
+  const user = await userService.updateUser(req.params.id, req.body, req.user);
   return sendSuccess(res, user, MESSAGES.USER.UPDATED_SUCCESS, { requestId: req.requestId }, HTTP_STATUS.OK);
 });
 
@@ -77,7 +92,7 @@ export const setActive = asyncHandler(async (req, res) => {
 
 // Desbloquear seguridad de usuario
 export const unlockUser = asyncHandler(async (req, res) => {
-  const user = await userService.unlockUser(req.params.id);
+  const user = await userService.unlockUser(req.params.id, req.user);
   return sendSuccess(res, user, 'Bloqueo de seguridad restablecido', { requestId: req.requestId }, HTTP_STATUS.OK);
 });
 

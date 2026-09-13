@@ -57,6 +57,13 @@ export const findNotificationsByUser = (userId, { page, limit, type, isRead }) =
   });
 };
 
+export const countNotificationsByUser = (userId, { type, isRead } = {}) => {
+  const where = { userId };
+  if (type) where.type = type;
+  if (isRead !== undefined) where.readAt = isRead ? { not: null } : null;
+  return prisma.notification.count({ where });
+};
+
 /**
  * Crea una notificación y sus registros de entrega en una sola transacción.
  */
@@ -182,6 +189,7 @@ export const createBroadcast = (userId, data) =>
 export default {
   countUnreadNotifications,
   findNotificationsByUser,
+  countNotificationsByUser,
   createNotificationWithDeliveries,
   updateNotificationReadStatus,
   markAllNotificationsAsRead,

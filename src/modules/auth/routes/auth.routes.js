@@ -4,6 +4,7 @@
  */
 import { Router } from 'express';
 import * as authController from '../controllers/auth.controller.js';
+import onboardingRoutes from './onboarding.routes.js';
 import {
   authenticate,
   authenticateAllowPending,
@@ -13,7 +14,6 @@ import { validate } from '../../../middlewares/validate.middleware.js';
 import { authLimiter, loginLimiter } from '../../../middlewares/rateLimiter.middleware.js';
 import {
   loginSchema,
-  registerSchema,
   verifyTotpSchema,
   verifyLoginTotpSchema,
   disableTotpSchema,
@@ -22,25 +22,28 @@ import {
   verifyEmailSchema,
   resendVerificationSchema,
   refreshSchema,
+  firebaseVerifySchema,
 } from '../schemas/auth.schema.js';
 
 const router = Router();
+
+router.use('/onboarding', onboardingRoutes);
 
 // RUTAS PÚBLICAS
 
 // Registro y Login
 router.post(
-  '/register',
-  authLimiter,
-  validate(registerSchema),
-  authController.register
-);
-
-router.post(
   '/login',
   loginLimiter,
   validate(loginSchema),
   authController.login
+);
+
+router.post(
+  '/firebase/verify',
+  authLimiter,
+  validate(firebaseVerifySchema),
+  authController.verifyFirebase
 );
 
 // Paso 2 del Login: Verificación TOTP (o Código de Respaldo)

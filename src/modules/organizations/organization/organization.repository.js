@@ -16,6 +16,7 @@ const ORG_SELECT = {
   onboardingCompleted: true,      // No 'onboarding_completed'
   onboardingCompletedAt: true,    // No 'onboarding_completed_at'
   allowedEmailDomains: true,      // No 'allowed_email_domains'
+  memberLimit: true,              // No 'member_limit'
   createdAt: true,        // No 'created_at'
   updatedAt: true,        // No 'updated_at'
 };
@@ -74,6 +75,15 @@ export const listOrgs = ({ isActive, search, skip = 0, take = 10 } = {}) =>
 
 export const countOrgs = ({ isActive, search } = {}) => 
   prisma.organization.count({ where: buildOrgWhere({ isActive, search }) });
+
+export const countOrganizationMembers = (organizationId) =>
+  prisma.user.count({
+    where: {
+      organizationId,
+      role: { not: 'SUPERADMIN' },
+      status: { not: 'DELETED' },
+    },
+  });
 
 export const createOrg = (data) => 
   prisma.organization.create({ data, select: ORG_SELECT });
@@ -149,11 +159,42 @@ export const rejectOrganizationRequest = async (requestId, reviewerUserId, reaso
   });
 };
 
+/**
+ * Aprueba una solicitud y genera un token de activación.
+ *
+ * Devuelve `{ activationToken }`. El `activationToken`
+ * es el texto plano que se envía al visitante; nunca se vuelve a recuperar.
+ *
+ * La organización y el usuario se crean de forma atómica cuando se consume
+ * el token durante la activación.
+ *
+ * El caller debe enviar el `activationToken` al `contact_email` justo después
+ * y manejar el fallo de email de forma defensiva (no relanzar, para no perder
+ * el trabajo de la aprobación).
+ */
+export const approveAndInviteAdmin = async (requestId, reviewerId) => {
+  return prisma.$transaction(async (tx) => {
+    const inviteRows = await tx.$queryRaw`
+      SELECT * FROM approve_request_for_admin_activation(
+        ${requestId}::uuid,
+        ${reviewerId}::uuid
+      )
+    `;
+    const inviteRow = inviteRows[0];
+    if (!inviteRow) throw new Error('No se pudo generar la invitación de activación');
+
+    return {
+      activationToken: inviteRow.out_raw_token,
+    };
+  });
+};
+
 export default {
   findOrgById,
   findOrgByCode,
   listOrgs,
   countOrgs,
+  countOrganizationMembers,
   createOrg,
   updateOrg,
   setOrgActive,
@@ -167,4 +208,5 @@ export default {
   deleteRequestById,
   approveOrganizationRequest,
   rejectOrganizationRequest,
+  approveAndInviteAdmin,
 };

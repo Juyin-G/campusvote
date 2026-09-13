@@ -10,6 +10,7 @@ const ELECTION_SELECT = {
   processType: true,      // No 'process_type'
   scopeType: true,        // No 'election_type'
   periodId: true,         // No 'period_id'
+  organizationId: true,
   facultyId: true,        // No 'faculty_id'
   programId: true,        // No 'program_id'
   startAt: true,          // No 'start_at'
@@ -29,6 +30,7 @@ const buildElectionWhere = ({
   facultyId,
   programId,
   search,
+  organizationId,
 } = {}) => {
   const where = {};
 
@@ -37,6 +39,7 @@ const buildElectionWhere = ({
   if (periodId) where.periodId = periodId;
   if (facultyId) where.facultyId = facultyId;
   if (programId) where.programId = programId;
+  if (organizationId) where.organizationId = organizationId;
 
   if (search) {
     where.OR = [
@@ -63,9 +66,10 @@ export const findElectionById = (id) =>
 export const findElectionOwnerOrganization = async (electionId) => {
   const election = await prisma.election.findUnique({
     where: { id: electionId },
-    select: { createdBy: true },
+    select: { organizationId: true, createdBy: true },
   });
   if (!election) return null;
+  if (election.organizationId) return election.organizationId;
 
   const creator = await prisma.user.findUnique({
     where: { id: election.createdBy },

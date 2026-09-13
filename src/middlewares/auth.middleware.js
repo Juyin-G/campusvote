@@ -8,10 +8,24 @@ import { ApiError } from '../shared/errors/ApiError.js';
  * @param {Object} options - Opciones de configuración
  * @param {boolean} options.allowPending - Si true, permite tokens TOTP_PENDING
  */
+/**
+ * Tokens de alcance limitado (flujo temporal): no pueden acceder a rutas
+ * ordinarias a menos que el middleware lo permita explícitamente.
+ * - TOTP_PENDING: tras ingresar credenciales, antes de completar 2FA.
+ * - ONBOARDING: primer acceso de un administrador (activación por email o
+ *   credenciales temporales) mientras configura 2FA y su contraseña.
+ */
+const LIMITED_PURPOSES = ['TOTP_PENDING', 'ONBOARDING'];
+
 const createAuthenticateMiddleware = (options = {}) => (req, res, next) => {
   const authHeader = req.headers.authorization;
+  const cookieToken = req.headers.cookie
+    ?.split(';')
+    .map((value) => value.trim())
+    .find((value) => value.startsWith('campusvote_access='))
+    ?.slice('campusvote_access='.length);
 
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+  if ((!authHeader || !authHeader.startsWith('Bearer ')) && !cookieToken) {
     return next(
       ApiError.unauthorized(
         'No se envió token de autenticación en el header Authorization'
@@ -19,7 +33,7 @@ const createAuthenticateMiddleware = (options = {}) => (req, res, next) => {
     );
   }
 
-  const token = authHeader.substring(7);
+  const token = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : cookieToken;
 
   try {
     // Se fija el algoritmo de forma explícita: aceptar cualquiera permitiría
@@ -27,8 +41,9 @@ const createAuthenticateMiddleware = (options = {}) => (req, res, next) => {
     // algoritmo. La firma siempre se emite con HS256 en auth.helpers.js.
     const decoded = jwt.verify(token, env.JWT_SECRET, { algorithms: ['HS256'] });
     
-    // Rechazar tokens TOTP_PENDING en rutas ordinarias (a menos que allowPending=true)
-    if (decoded.purpose === 'TOTP_PENDING' && !options.allowPending) {
+    // Rechazar tokens de flujo temporal (TOTP_PENDING / ONBOARDING) en rutas
+    // ordinarias (a menos que allowPending=true)
+    if (LIMITED_PURPOSES.includes(decoded.purpose) && !options.allowPending) {
       return next(
         ApiError.forbidden(
           'Debes completar la verificación de dos factores para acceder a este recurso'
@@ -77,6 +92,23 @@ export const requireTotpPending = (req, res, next) => {
   if (req.user.purpose !== 'TOTP_PENDING') {
     return next(
       ApiError.forbidden('Se requiere una sesión temporal de verificación TOTP')
+    );
+  }
+
+  next();
+};
+
+/**
+ * Garantiza que el token sea una sesión temporal de onboarding (ONBOARDING).
+ */
+export const requireOnboarding = (req, res, next) => {
+  if (!req.user) {
+    return next(ApiError.unauthorized('No autenticado'));
+  }
+
+  if (req.user.purpose !== 'ONBOARDING') {
+    return next(
+      ApiError.forbidden('Se requiere una sesión temporal de onboarding')
     );
   }
 

@@ -1,18 +1,17 @@
 /**
- * Auth Service — login, register, password reset, verificación de email
+ * Auth Service — login, password reset, verificación de email
  */
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import * as authRepository from '../repositories/auth.repository.js';
 import { ApiError } from '../../../shared/errors/ApiError.js';
-import { sendReset, sendVerification } from '../../../shared/services/email.service.js';
+import { sendReset } from '../../../shared/services/email.service.js';
 import { generateJwt, formatUserResponse, generateRefreshToken, hashToken } from './auth.helpers.js';
 import MESSAGES from '../../../constants/messages.js';
 import env from '../../../config/env.js';
 import logger from '../../../config/logger.js';
 import auditService from '../../audit/audit.service.js';
-import { extractDomain } from '../../../shared/utils/emailDomain.js';
-import { matchCareerFromCode, extractCycleFromCode } from '../../../shared/utils/careerParse.js';
+import { prisma } from '../../../database/prisma.js';
 
 export { setupTotp, verifyTotp, verifyLoginTotp } from './auth.totp.service.js';
 
@@ -62,12 +61,28 @@ export const login = async ({ email, password, ipAddress = null, userAgent = nul
     const tempToken = jwt.sign(
       { userId: user.id, email: user.email, purpose: 'TOTP_PENDING' },
       env.JWT_SECRET,
-      { expiresIn: '5m' }
+      { expiresIn: '15m' }
     );
 
     return {
       requiresTotp: true,
       tempToken,
+      mustChangePassword: user.mustChangePassword,
+    };
+  }
+
+  if (user.mustSetup2fa) {
+    const tempToken = jwt.sign(
+      { userId: user.id, email: user.email, purpose: 'ONBOARDING' },
+      env.JWT_SECRET,
+      { expiresIn: '30m' }
+    );
+
+    return {
+      requiresOnboarding: true,
+      requiresTotp: false,
+      tempToken,
+      email: user.email,
       mustChangePassword: user.mustChangePassword,
     };
   }
@@ -109,127 +124,73 @@ export const login = async ({ email, password, ipAddress = null, userAgent = nul
   };
 };
 
-export const register = async (userData) => {
-  const {
-    email,
-    username,
-    password,
-    institutionalId,
-    firstName,
-    lastName,
-    organizationId,
-    facultyId,
-    programId,
-    careerId,
-    currentCycle,
-    admissionPeriodId,
-    specialty,
-    department,
-  } = userData;
+export const activateAccount = async (rawToken, newPassword) => {
+  const passwordHash = await bcrypt.hash(newPassword, SALT_ROUNDS);
+  const rows = await prisma.$queryRaw`
+    SELECT activate_organization_request(
+      ${rawToken}::text,
+      ${passwordHash}::text
+    ) AS user_id
+  `;
+  const userId = rows[0]?.user_id;
 
-  // Seguridad: el registro público SIEMPRE crea estudiantes. El rol no se
-  // acepta desde el cliente; cualquier rol privilegiado debe asignarse por
-  // un administrador vía el módulo de usuarios (updateRole/createUser).
-  const role = 'STUDENT';
-
-  const cleanEmail = email.toLowerCase().trim();
-  const cleanUsername = username.toLowerCase().trim();
-
-  const existingEmail = await authRepository.findByEmail(cleanEmail);
-  if (existingEmail) {
-    throw ApiError.conflict(MESSAGES.USER.ALREADY_EXISTS);
+  if (!userId) {
+    throw ApiError.badRequest('El enlace de activación es inválido o expiró.');
   }
 
-  const existingUsername = await authRepository.findByUsername(cleanUsername);
-  if (existingUsername) {
-    throw ApiError.conflict(MESSAGES.USER.USERNAME_TAKEN);
+  const user = await authRepository.findById(userId);
+  if (!user) {
+    throw ApiError.notFound(MESSAGES.USER.NOT_FOUND);
   }
 
-  const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
+  const tempToken = jwt.sign(
+    { userId: user.id, email: user.email, purpose: 'ONBOARDING' },
+    env.JWT_SECRET,
+    { expiresIn: '30m' }
+  );
 
-  // Resolución automática de la organización por dominio del correo.
-  // Si el cliente no envía organization_id, se busca la organización cuyo
-  // allowed_email_domains contenga el dominio del correo. Si hay una única
-  // coincidencia, se asigna automáticamente (el usuario no necesita el UUID).
-  let resolvedOrgId = organizationId || null;
-  if (!resolvedOrgId) {
-    const domain = extractDomain(cleanEmail);
-    if (domain) {
-      const matches = await authRepository.findOrganizationsByEmailDomain(domain);
-      if (matches.length === 1) {
-        resolvedOrgId = matches[0].id;
-      }
-    }
+  return {
+    requiresOnboarding: true,
+    tempToken,
+    user: formatUserResponse(user),
+  };
+};
+
+export const finalizeOnboarding = async (
+  userId,
+  { ipAddress = null, userAgent = null } = {}
+) => {
+  const user = await authRepository.findById(userId);
+
+  if (!user) {
+    throw ApiError.notFound(MESSAGES.USER.NOT_FOUND);
   }
 
-  // Derivación automática de carrera (y ciclo) a partir del código institucional.
-  // Si el cliente no provee carrera/ciclo, se busca la carrera cuya `code` sea
-  // prefijo del código institucional en la organización resuelta.
-  let derivedCareerId = careerId ?? null;
-  let derivedCycle = currentCycle ?? null;
-  if (resolvedOrgId && !derivedCareerId) {
-    const careers = await authRepository.findCareersByOrganization(resolvedOrgId);
-    if (careers.length > 0) {
-      const matched = matchCareerFromCode(institutionalId, careers);
-      if (matched) {
-        derivedCareerId = matched.id;
-        if (derivedCycle === null || derivedCycle === undefined) {
-          derivedCycle = extractCycleFromCode(institutionalId, matched);
-        }
-      }
-    }
+  if (!user.twoFactorEnabled || user.status !== 'ACTIVE') {
+    throw ApiError.forbidden(
+      'Completa la configuración de autenticación antes de continuar.'
+    );
   }
 
-  // Pasa todos los datos académicos requeridos por los check constraints de PostgreSQL
-  const newUser = await authRepository.createUser({
-    username: cleanUsername,
-    email: cleanEmail,
-    password: hashedPassword,
-    firstName,
-    lastName,
-    institutionalId,
-    role,
-    authProvider: 'LOCAL',
-    mustChangePassword: false,
-    organizationId: resolvedOrgId,
-    facultyId,
-    programId,
-    careerId: derivedCareerId,
-    currentCycle: derivedCycle,
-    admissionPeriodId,
-    specialty,
-    department,
+  const token = generateJwt(user);
+  const { rawToken: refreshToken, tokenHash } = generateRefreshToken();
+  const expiresAt = new Date(Date.now() + durationToMs(env.JWT_REFRESH_EXPIRES_IN));
+
+  await authRepository.createRefreshToken({
+    userId: user.id,
+    tokenHash,
+    expiresAt,
+    ipAddress,
+    userAgent,
   });
 
-  const verificationToken = await authRepository.generateEmailVerificationToken(newUser.id);
-
-  if (verificationToken) {
-    try {
-      await sendVerification({
-        email: cleanEmail,
-        token: verificationToken,
-        firstName,
-      });
-    } catch (error) {
-      logger.error('Registro OK pero falló envío de verificación', {
-        userId: newUser.id,
-        error: error.message,
-      });
-      throw ApiError.serviceUnavailable(
-        MESSAGES.AUTH.REGISTER_EMAIL_FAILED,
-        { userId: newUser.id },
-        'REGISTER_EMAIL_FAILED'
-      );
-    }
-  } else {
-    logger.warn('No se pudo generar token de verificación para el usuario', {
-      userId: newUser.id,
-    });
-  }
-
-  logger.info('Usuario registrado exitosamente', { userId: newUser.id });
-
-  return { user: formatUserResponse(newUser) };
+  return {
+    requiresOnboarding: false,
+    token,
+    refreshToken,
+    mustChangePassword: false,
+    user: formatUserResponse(user),
+  };
 };
 
 export const logout = async ({ userId, tokenHash, refreshToken }) => {

@@ -3,7 +3,6 @@ import { Router } from 'express';
 
 import authRoutes from '../modules/auth/routes/auth.routes.js';
 import otpRoutes from '../modules/auth/routes/otp.routes.js';
-import googleRoutes from '../modules/auth/routes/google.routes.js';
 import userRoutes from '../modules/users/user.routes.js';
 import healthRoutes from '../modules/health/health.routes.js';
 import organizationRoutes from '../modules/organizations/organization/organization.routes.js';
@@ -11,6 +10,7 @@ import academicRoutes from '../modules/academic/academic.routes.js';
 import electionRoutes from '../modules/elections/elections/election.routes.js';
 import ballotRoutes from '../modules/ballots/ballot.routes.js';
 import resultsRoutes from '../modules/results/results.routes.js';
+import publicKpisRoutes from '../modules/results/publicKpis.routes.js';
 import auditRoutes from '../modules/audit/audit.routes.js';
 import platformTranslationRoutes from '../modules/PlatformTranslation/PlatformTranslation.routes.js';
 
@@ -20,6 +20,7 @@ import votingPublicRoutes from '../modules/voting/voting.public.routes.js';
 import ratingRoutes from '../modules/ratings/rating.routes.js';
 import objectionRoutes from '../modules/objections/objection.routes.js';
 import uploadRoutes from '../modules/upload/upload.routes.js';
+<<<<<<< HEAD
 import projectRoutes from '../modules/projects/project.routes.js';
 import fairRoutes from '../modules/fairs/fair.routes.js';
 import juryAssignmentRoutes from '../modules/juryAssignments/juryAssignment.routes.js';
@@ -27,6 +28,9 @@ import fairEvaluationRoutes from '../modules/fairEvaluations/fairEvaluation.rout
 import fairResultRoutes from '../modules/fairResults/fairResult.routes.js';
 import fairCategoryRoutes from '../modules/fairCategories/fairCategory.routes.js';
 import fairStandRoutes from '../modules/fairStands/fairStand.routes.js';
+=======
+import gmailTestRoutes from '../modules/admin/gmailTest.routes.js';
+>>>>>>> 808dfb1f3b2bb1a7abdcec0c7d1706741d4ed99c
 
 const router = Router();
 
@@ -35,7 +39,6 @@ router.use('/health', healthRoutes);
 
 // Autenticación y Usuarios
 router.use('/auth', authRoutes);
-router.use('/auth', googleRoutes);
 router.use('/auth/otp', otpRoutes);
 router.use('/users', userRoutes);
 
@@ -50,6 +53,7 @@ router.use('/ballots', ballotRoutes);
 // Resultados (certify/publish/tally/report/export viven bajo /elections/:id
 // y /results/live · /results/final → se monta en la raíz para respetar paths)
 router.use(resultsRoutes); 
+router.use(publicKpisRoutes);
 
 // Auditoría y Tokens de Un Solo Uso
 router.use('/audit', auditRoutes);
@@ -74,6 +78,7 @@ router.use(objectionRoutes);
 
 // Subida de archivos (imágenes/PDFs) para proyectos, avatares, etc.
 router.use('/upload', uploadRoutes);
+router.use(gmailTestRoutes);
 
 // Proyectos de ferias académicas (crear/listar/ver/editar/integrantes/revisión)
 router.use('/projects', projectRoutes);

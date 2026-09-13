@@ -16,6 +16,7 @@ import {
   setActiveSchema,
   changePasswordSchema,
   provisionAdminSchema,
+  provisionExistingAdminSchema,
   createUsersBulkSchema,
 } from './user.schema.js';
 
@@ -49,7 +50,7 @@ const requireSuperUserForRole = (req, res, next) => {
 router.get(
   '/',
   authenticate,
-  authorize(ROLES.ADMIN, ROLES.ELECTORAL_COMMISSION),
+  authorize(ROLES.SUPERADMIN, ROLES.ADMIN, ROLES.ELECTORAL_COMMISSION),
   validate(listUserSchema),
   userController.listUsers
 );
@@ -71,7 +72,7 @@ router.get(
 router.post(
   '/',
   authenticate,
-  authorize(ROLES.ADMIN),
+  authorize(ROLES.ADMIN, ROLES.SUPERADMIN),
   validate(createUserSchema),
   (req, res, next) => {
     const isSuperUser = req.user?.isSuperuser || req.user?.isSuperAdmin || req.user?.role === ROLES.SUPERADMIN;
@@ -90,6 +91,14 @@ router.post(
   authorize(ROLES.SUPERADMIN),
   validate(provisionAdminSchema),
   userController.provisionAdmin
+);
+
+router.post(
+  '/admin/provision-existing/:organizationId',
+  authenticate,
+  authorize(ROLES.SUPERADMIN),
+  validate(provisionExistingAdminSchema),
+  userController.provisionExistingAdmin
 );
 
 // ADMIN/SUPERADMIN: crea jurados/usuarios en lote (bulk)

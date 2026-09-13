@@ -36,7 +36,7 @@ export const createOrganization = asyncHandler(async (req, res) => {
 });
 
 export const updateOrganization = asyncHandler(async (req, res) => {
-  const organization = await organizationService.updateOrganization(req.params.id, req.body);
+  const organization = await organizationService.updateOrganization(req.params.id, req.body, req.user);
 
   logger.info(`Organización actualizada: ${req.params.id}`, {
     category: 'ORGANIZATION',

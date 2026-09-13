@@ -23,6 +23,15 @@ const REQUIRED_IDENTITY_ROLES = [
   ROLES.TEACHER,
 ];
 
+const ORGANIZATION_ROLES = [
+  ROLES.ADMIN,
+  ROLES.ELECTORAL_COMMISSION,
+  ROLES.STUDENT,
+  ROLES.TEACHER,
+  ROLES.JURY,
+  ROLES.OBSERVER,
+];
+
 /**
  * Normaliza y VERIFICA la identidad nacional (DNI/CE) contra el
  * IdentityProvider. Devuelve { documentType, documentNumber } o null.
@@ -63,9 +72,15 @@ const notFoundIfMissing = (err) => {
   throw err;
 };
 
-export const listUsers = async (query = {}) => {
+export const listUsers = async (query = {}, actor = {}) => {
   const { page, limit } = parsePagination(query);
   const skip = (page - 1) * limit;
+  const isSuperUser = actor.role === ROLES.SUPERADMIN || actor.isSuperuser || actor.isSuperAdmin;
+  const organizationId = isSuperUser ? query.organizationId : actor.organizationId;
+
+  if (!isSuperUser && query.organizationId && query.organizationId !== actor.organizationId) {
+    throw ApiError.forbidden('Solo puedes consultar usuarios de tu organización');
+  }
 
   if (query.role && !isValidRole(query.role)) {
     throw ApiError.badRequest(MESSAGES.USER.INVALID_ROLE);
@@ -73,13 +88,13 @@ export const listUsers = async (query = {}) => {
 
   const [total, users] = await Promise.all([
     userRepository.count({
-      organizationId: query.organizationId,
+      organizationId,
       role: query.role,
       search: query.search,
       isActive: query.isActive,
     }),
     userRepository.list({
-      organizationId: query.organizationId,
+      organizationId,
       role: query.role,
       search: query.search,
       isActive: query.isActive,
@@ -142,11 +157,27 @@ export const createUser = async (body = {}, actor = {}) => {
     throw ApiError.forbidden('Solo superusuarios pueden crear usuarios con roles privilegiados');
   }
 
+  if (!role || !isValidRole(role)) {
+    throw ApiError.badRequest(MESSAGES.USER.INVALID_ROLE);
+  }
+
+  if (role === ROLES.SUPERADMIN) {
+    throw ApiError.forbidden('El rol SUPERADMIN solo puede provisionarse mediante bootstrap seguro');
+  }
+
+  if (ORGANIZATION_ROLES.includes(role) && !organization_id) {
+    throw ApiError.badRequest('Los usuarios institucionales deben pertenecer a una organización');
+  }
+
+  if (!isSuperUser && organization_id !== actor.organizationId) {
+    throw ApiError.forbidden('Solo puedes crear usuarios dentro de tu organización');
+  }
+
   // F1: Identidad nacional (DNI/CE) — verificación contra IdentityProvider.
   const identity = await normalizeDocumentIdentity({
     document_type,
     document_number,
-    role: role || ROLES.VOTER,
+    role,
   });
 
   const hashedPassword = await bcrypt.hash(password, 12);
@@ -158,7 +189,7 @@ export const createUser = async (body = {}, actor = {}) => {
     firstName: first_name,
     lastName: last_name,
     institutionalId: institutional_id,
-    role: role || ROLES.VOTER,
+    role,
     organizationId: organization_id,
     programId: program_id,
     facultyId: faculty_id,

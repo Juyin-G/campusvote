@@ -11,6 +11,13 @@ export const MESSAGES = {
     LOGIN_MUST_CHANGE_PASSWORD: 'Debe cambiar su contraseña temporal para continuar.',
     LOGOUT_SUCCESS: 'Sesión cerrada correctamente.',
 
+    // Onboarding (primera activación de administradores)
+    ONBOARDING_REQUIRED: 'Debe completar la configuración de su cuenta para continuar.',
+    ONBOARDING_COMPLETE_2FA_FIRST: 'Debe completar la configuración de 2FA antes de finalizar el acceso.',
+    ACTIVATION_INVALID_TOKEN: 'El enlace de activación es inválido o ha expirado.',
+    ACTIVATION_EMAIL_SENT: 'Invitación de activación enviada correctamente.',
+    ACTIVATION_EMAIL_FAILED: 'El administrador fue creado, pero no se pudo enviar la invitación.',
+
     // 2FA
     TWO_FACTOR_REQUIRED: 'Se requiere autenticación de dos factores (2FA) para continuar.',
     TWO_FACTOR_INVALID_CODE: 'El código 2FA proporcionado es inválido o ha expirado.',
@@ -18,11 +25,6 @@ export const MESSAGES = {
     TWO_FACTOR_DISABLED_SUCCESS: 'Autenticación de dos factores desactivada correctamente.',
     TWO_FACTOR_BACKUP_CODES_GENERATED: 'Códigos de respaldo generados. Guárdelos en un lugar seguro.',
     TWO_FACTOR_NOT_CONFIGURED: 'El usuario no tiene configurado 2FA.',
-
-    // Google OAuth
-    GOOGLE_LOGIN_SUCCESS: 'Inicio de sesión con Google exitoso.',
-    GOOGLE_AUTH_FAILED: 'No se pudo autenticar con Google. Intente nuevamente.',
-    GOOGLE_ACCOUNT_NOT_LINKED: 'No existe una cuenta asociada a este correo de Google.',
 
     // Tokens
     TOKEN_EXPIRED: 'El token ha expirado. Inicie sesión nuevamente.',
@@ -86,6 +88,25 @@ export const MESSAGES = {
     REQUEST_ALREADY_PROCESSED: 'La solicitud ya ha sido procesada anteriormente.',
     REQUEST_APPROVED_SUCCESS: 'Solicitud aprobada. La organización ha sido creada.',
     REQUEST_REJECTED_SUCCESS: 'Solicitud rechazada. Se ha enviado un correo al solicitante.',
+  },
+
+  // SOLICITUDES / LEAD — emails automáticos al visitante
+  REQUEST: {
+    RECEIVED_SUBJECT: 'Recibimos tu solicitud — CampusVote',
+    RECEIVED_HEADING: 'Gracias por tu interes en CampusVote',
+    RECEIVED_BODY:
+      'Recibimos la solicitud de tu organizacion "{institution}". Nuestro equipo la revisara y se pondra en contacto contigo para coordinar el siguiente paso.',
+    RECEIVED_CTA: 'Visitar CampusVote',
+    RECEIVED_FOOTER:
+      'Si no solicitaste este registro, puedes ignorar este mensaje.',
+
+    APPROVED_SUBJECT: 'Tu solicitud fue aprobada — CampusVote',
+    APPROVED_HEADING: 'Tu solicitud fue aprobada',
+    APPROVED_BODY:
+      'La solicitud de "{institution}" fue aprobada por {approver}. Nuestro equipo se pondra en contacto contigo para coordinar el alta administrativa.',
+    APPROVED_CTA: 'Conocer CampusVote',
+    APPROVED_FOOTER:
+      'Este correo es informativo; no requiere ninguna accion inmediata.',
   },
 
   // ELECCIONES (ELECTIONS)

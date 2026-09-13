@@ -39,8 +39,20 @@ const MIGRATION_FILES = [
   'user/009_cleanup_tokens.sql',
   'user/010_media_files.sql',
   'user/011_document_identity.sql',
+<<<<<<< HEAD
   'user/012_drop_observer_role.sql',
+=======
+  'user/012_activation_enum.sql',
+  'user/013_activation.sql',
+  'user/014_remove_external_auth.sql',
+  'user/015_activation_constraint.sql',
+>>>>>>> 808dfb1f3b2bb1a7abdcec0c7d1706741d4ed99c
   'organizations/003_organization_requests.sql',
+  'organizations/005_organization_member_limit.sql',
+  'organizations/005_category_catalog.sql',
+  'organizations/006_admin_requires_organization.sql',
+  'organizations/007_admin_invite.sql',
+  'organizations/008_deferred_admin_activation.sql',
   'academic/000_prerequisites.sql',
   'academic/001_faculties.sql',
   'academic/002_programs.sql',
@@ -48,7 +60,9 @@ const MIGRATION_FILES = [
   'academic/003_academic_periods.sql',
   'academic/004_voter_registries.sql',
   'academic/010_voter_stake.sql',
+  'academic/011_teaching_evaluations.sql',
   'elections/002_elections.sql',
+  'elections/003_organization_scope.sql',
   'elections/003_positions.sql',
   'elections/004_candidate_lists.sql',
   'elections/005_candidacies.sql',
@@ -130,14 +144,32 @@ async function main() {
   try {
     console.log('Conectando a la base de datos...');
     await client.connect();
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS campusvote_schema_migrations (
+        filename TEXT PRIMARY KEY,
+        applied_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
 
     console.log('Aplicando migraciones SQL:');
     for (const relativePath of MIGRATION_FILES) {
+      const applied = await client.query(
+        'SELECT 1 FROM campusvote_schema_migrations WHERE filename = $1',
+        [relativePath]
+      );
+      if (applied.rowCount > 0) {
+        process.stdout.write(`   → ${relativePath} omitida (ya aplicada)\n`);
+        continue;
+      }
       const filePath = path.join(sqlRoot, relativePath);
       const sql = await fs.readFile(filePath, 'utf8');
       process.stdout.write(`   → ${relativePath} `);
       try {
         await client.query(sql);
+        await client.query(
+          'INSERT INTO campusvote_schema_migrations (filename) VALUES ($1)',
+          [relativePath]
+        );
         process.stdout.write('OK\n');
       } catch (err) {
         // Si el script falló a mitad de un bloque BEGIN...COMMIT, la conexión

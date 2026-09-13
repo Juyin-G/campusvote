@@ -3,54 +3,27 @@
  * @description Envío de correos transaccionales (verificación y reset)
  * @module shared/services/email
  */
-import nodemailer from 'nodemailer';
 import env from '../../config/env.js';
 import logger from '../../config/logger.js';
 import { ApiError } from '../errors/ApiError.js';
-
-let transport;
-
-const assertSmtpConfig = () => {
-  if (!env.SMTP_HOST || !env.SMTP_USER || !env.SMTP_PASS) {
-    throw ApiError.internal(
-      'Configuración SMTP incompleta. Revise SMTP_HOST, SMTP_USER y SMTP_PASS en .env',
-    );
-  }
-};
-
-const getTransport = () => {
-  assertSmtpConfig();
-
-  if (!transport) {
-    transport = nodemailer.createTransport({
-      host: env.SMTP_HOST,
-      port: env.SMTP_PORT,
-      secure: env.SMTP_PORT === 465,
-      auth: {
-        user: env.SMTP_USER,
-        pass: env.SMTP_PASS,
-      },
-      ...(env.NODE_ENV === 'development' && {
-        tls: { rejectUnauthorized: false },
-      }),
-    });
-  }
-
-  return transport;
-};
+import { sendRaw } from './gmail.client.js';
 
 const sendMail = async ({ to, subject, html, text }) => {
   try {
-    const info = await getTransport().sendMail({
-      from: env.SMTP_FROM,
+    if (!hasEmailConfigured()) {
+      throw ApiError.serviceUnavailable(
+        'Gmail no está configurado para enviar correos',
+        null,
+        'EMAIL_NOT_CONFIGURED',
+      );
+    }
+
+    const info = await sendRaw({ to, subject, html, text });
+    logger.info('Correo enviado por Gmail API', {
       to,
       subject,
-      html,
-      text,
+      messageId: info.messageId,
     });
-
-    logger.info('Correo enviado', { to, subject, messageId: info.messageId });
-
     return info;
   } catch (error) {
     logger.error('Error al enviar correo', {
@@ -69,6 +42,20 @@ const sendMail = async ({ to, subject, html, text }) => {
       'EMAIL_SEND_FAILED',
     );
   }
+};
+
+/**
+ * Indica si el canal Gmail está completamente configurado. El onboarding
+ * usa esto para decidir entre "invitar por email" (verificación) o
+ * "credenciales temporales" cuando el email no está disponible.
+ */
+export const hasEmailConfigured = () => {
+  return Boolean(
+    env.GMAIL_CLIENT_ID
+      && env.GMAIL_CLIENT_SECRET
+      && env.GMAIL_REFRESH_TOKEN
+      && env.GMAIL_FROM,
+  );
 };
 
 export const sendVerification = async ({
@@ -112,5 +99,48 @@ export const sendReset = async ({ email, token }) => {
     text: ['Restablece tu contraseña en CampusVote:', link, 'Expira en 1 hora.'].join(
       '\n',
     ),
+  });
+};
+
+export const sendRequestReceived = async ({
+  email,
+  institutionName,
+}) => {
+  await sendMail({
+    to: email,
+    subject: 'Solicitud recibida por CampusVote',
+    html: `
+      <p>Hemos recibido la solicitud de acceso para <strong>${institutionName}</strong>.</p>
+      <p>El equipo de CampusVote revisará la información y te notificará el resultado.</p>
+    `,
+    text: [
+      `Solicitud recibida para ${institutionName}.`,
+      'El equipo de CampusVote revisará la información y te notificará el resultado.',
+    ].join('\n'),
+  });
+};
+
+export const sendAdminActivation = async ({
+  email,
+  institutionName,
+  token,
+}) => {
+  const link = `${env.FRONTEND_URL}/activate-account?token=${encodeURIComponent(token)}`;
+
+  await sendMail({
+    to: email,
+    subject: `Solicitud aprobada para ${institutionName}`,
+    html: `
+      <p>Tu solicitud para <strong>${institutionName}</strong> fue aprobada.</p>
+      <p>Activa tu cuenta de administrador desde este enlace:</p>
+      <p><a href="${link}">${link}</a></p>
+      <p>El enlace expira en 24 horas.</p>
+    `,
+    text: [
+      `Tu solicitud para ${institutionName} fue aprobada.`,
+      'Activa tu cuenta de administrador:',
+      link,
+      'El enlace expira en 24 horas.',
+    ].join('\n'),
   });
 };
