@@ -81,7 +81,7 @@ CREATE TABLE IF NOT EXISTS users (
     CONSTRAINT chk_users_superuser_requires_staff CHECK (is_superuser = FALSE OR is_staff = TRUE),
     CONSTRAINT chk_users_failed_login_attempts_non_negative CHECK (failed_login_attempts >= 0),
     CONSTRAINT chk_users_institutional_email CHECK (
-        role IN ('ADMIN', 'SUPERADMIN', 'OBSERVER', 'ELECTORAL_COMMISSION', 'JURY') 
+        role IN ('ADMIN', 'SUPERADMIN', 'ELECTORAL_COMMISSION', 'JURY') 
         OR email ~* '^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.(edu\.pe|edu)$'
     ),
     -- El vínculo académico (carrera/programa y facultad) se asigna por el ADMIN

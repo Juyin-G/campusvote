@@ -21,6 +21,9 @@ import {
 // 3. Servicio de Aprobación
 import * as approvalService from '../organization-request/approval.service.js';
 
+// 4. Sedes (contexto físico de organizaciones/ferias)
+import organizationSiteRoutes from '../organizationSite/organizationSite.routes.js';
+
 // 4. Middlewares y Utilidades
 import asyncHandler from '../../../shared/utils/asyncHandler.js';
 import { sendSuccess } from '../../../shared/utils/apiResponse.js';
@@ -116,6 +119,13 @@ router.patch(
     );
   })
 );
+
+// ==========================================
+// --- SEDES (ORGANIZATION SITES) ---
+// ==========================================
+// Se monta ANTES de las rutas /:id para que el path estático /sites no
+// colisione con el parámetro de ruta.
+router.use('/sites', organizationSiteRoutes);
 
 // ==========================================
 // --- ORGANIZACIONES ---

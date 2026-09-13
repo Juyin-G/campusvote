@@ -11,7 +11,6 @@ BEGIN
         'ADMIN',
         'SUPERADMIN',
         'ELECTORAL_COMMISSION',
-        'OBSERVER',
         'JURY'
     );
 EXCEPTION

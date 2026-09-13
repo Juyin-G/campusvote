@@ -307,10 +307,10 @@ describe('Users Integration (HTTP + DB)', () => {
       const res = await request(app)
         .patch(`/api/users/${targetId}/role`)
         .set('Authorization', `Bearer ${adminToken}`)
-        .send({ role: 'OBSERVER' });
+        .send({ role: 'JURY' });
 
       expect(res.status).toBe(200);
-      expect(res.body.data.role).toBe('OBSERVER');
+      expect(res.body.data.role).toBe('JURY');
     });
   });
 

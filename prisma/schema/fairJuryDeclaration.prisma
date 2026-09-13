@@ -1,0 +1,37 @@
+// DECLARACIÓN DE JURADO PARA UNA FERIA (dominio exclusivo de FERIAS).
+//
+// Estructura:
+//   Organization ── Fair ── FairJuryAssignment ── User (role = JURY)
+//                                │
+//                                └─ FairJuryDeclaration (fair + jury + statement)
+//
+// Decisiones:
+//   * El jurado debe estar FORMALMENTE asignado a la feria
+//     (fair_jury_assignments) para poder declarar (validado en service;
+//     reforzado con trigger en SQL).
+//   * UNIQUE (fair_id, jury_user_id): UNA declaración por (feria, jurado).
+//   * statement: el texto de imparcialidad que el jurado acepta/hace propia.
+//   * signed_at = momento de la firma (se usa como fecha de la declaración).
+//   * La evaluación de un proyecto EXIGE la declaración previa (service).
+//   * ON DELETE CASCADE: al eliminar la feria o el usuario, la declaración
+//     deja de existir (sin historial persistente de declaraciones).
+
+model FairJuryDeclaration {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  fairId     String   @map("fair_id") @db.Uuid
+  juryUserId String   @map("jury_user_id") @db.Uuid
+  statement  String   @db.Text
+  signedAt   DateTime @default(now()) @map("signed_at") @db.Timestamptz
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  // Relaciones
+  fair Fair @relation(fields: [fairId], references: [id], onDelete: Cascade)
+  jury User @relation("FairJuryDeclarations", fields: [juryUserId], references: [id], onDelete: Cascade)
+
+  // Índices / unicidad
+  @@unique([fairId, juryUserId], map: "uq_fair_jury_declarations_fair_jury")
+  @@index([juryUserId], map: "idx_fair_jury_declarations_jury")
+  @@map("fair_jury_declarations")
+}

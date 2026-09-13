@@ -1,0 +1,49 @@
+// ENUMS
+
+// Estado del ciclo de vida de una feria/evento académico.
+// Independiente del estado de revisión de un proyecto (project_status).
+enum FairStatus {
+  DRAFT
+  OPEN
+  CLOSED
+
+  @@map("fair_status")
+}
+
+// MODELO
+
+// Feria/evento académico (tenant: pertenece a una única organización).
+// Una organización tiene muchas ferias y cada proyecto pertenece a una feria:
+//   Organization ── Fair ── Project ── ProjectMember
+model Fair {
+  id             String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String @map("organization_id") @db.Uuid
+
+  name        String  @db.VarChar(200)
+  description String? @db.Text
+  siteId      String? @map("site_id") @db.Uuid
+  status      FairStatus @default(DRAFT)
+  startsAt    DateTime? @map("starts_at") @db.Timestamptz
+  endsAt      DateTime? @map("ends_at") @db.Timestamptz
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  // Relaciones
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  site           OrganizationSite? @relation(fields: [siteId], references: [id], onDelete: SetNull)
+  projects       Project[]
+  juryAssignments FairJuryAssignment[]
+  rubric         FairRubric?
+  evaluations    FairEvaluation[]
+  resultPublication FairResultPublication?
+  categories     FairCategory[]
+  stands         FairStand[]
+  juryDeclarations FairJuryDeclaration[]
+
+  // Índices
+  @@index([organizationId], map: "idx_fairs_organization")
+  @@index([status], map: "idx_fairs_status")
+  @@index([siteId], map: "idx_fairs_site")
+  @@map("fairs")
+}

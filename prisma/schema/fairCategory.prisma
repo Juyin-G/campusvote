@@ -1,0 +1,34 @@
+// CATEGORÍAS DE UNA FERIA (dominio exclusivo de FERIAS).
+//
+// Estructura:
+//   Organization ── Fair ── FairCategory ── Project (category_id)
+//
+// Decisiones:
+//   * La categoría es ESTADÍSTICA de la feria (no existe catálogo global:
+//     cada feria define las suyas en DRAFT). NO se reutiliza el catálogo
+//     OCDE/CONCYTEC de candidate_lists (dominio electoral; organizations.
+//     category_catalog es un JSONB ajeno a las ferias).
+//   * UNIQUE (fair_id, name): sin duplicados dentro de la misma feria.
+//   * Una categoría se configura SOLO en DRAFT (validador en service).
+//   * projects.category_id → FK RESTRICT + FK compuesta (category_id, fair_id):
+//     la categoría SIEMPRE pertenece a la misma feria que el proyecto.
+//   * El backend impide eliminar una categoría en uso (409 antes que el FK).
+
+model FairCategory {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  fairId      String   @map("fair_id") @db.Uuid
+  name        String   @db.VarChar(200)
+  description String?  @db.Text
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  // Relaciones
+  fair     Fair      @relation(fields: [fairId], references: [id], onDelete: Cascade)
+  projects Project[]
+
+  // Índices / unicidad
+  @@unique([fairId, name], map: "uq_fair_categories_fair_name")
+  @@index([fairId], map: "idx_fair_categories_fair")
+  @@map("fair_categories")
+}

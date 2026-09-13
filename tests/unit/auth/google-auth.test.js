@@ -47,7 +47,7 @@ const baseUser = {
   id: 'user-1',
   email: 'juan@gmail.com',
   username: 'juan',
-  role: 'OBSERVER',
+  role: 'STUDENT',
   status: 'ACTIVE',
   authProvider: 'LOCAL',
   isSuperuser: false,

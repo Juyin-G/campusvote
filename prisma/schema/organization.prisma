@@ -54,6 +54,9 @@ model Organization {
   // Relaciones
   users                 User[]
   careers               Career[]
+  projects              Project[]
+  fairs                 Fair[]
+  sites                 OrganizationSite[]
 
   @@map("organizations")
 }
