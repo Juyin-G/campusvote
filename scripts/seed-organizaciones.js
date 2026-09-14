@@ -4,10 +4,12 @@
  *
  * Por cada organización de ORGANIZACIONES:
  *   - La organización (si ya existe con ese código, la reutiliza sin tocarla).
- *   - Un ADMIN y un JURADO, ambos ACTIVOS.
+ *   - Un ADMIN, un JURADO, un DOCENTE asesor y 6 ALUMNOS, todos ACTIVOS.
  *   - "Feria de Proyectos 2026-II" ABIERTA: empieza en 14 días y dura 2; la
  *     inscripción cierra 24 h antes del inicio (registration_deadline NULL).
  *   - El jurado asignado a esa feria.
+ *   - 3 categorías, 4 stands y 4 proyectos APROBADOS con portada, categoría,
+ *     stand, el docente como asesor y sus alumnos como expositores.
  *
  * Es idempotente: volver a correrlo no duplica nada ni mueve las fechas de
  * una feria ya creada; solo restablece la contraseña de sus cuentas.
@@ -44,7 +46,86 @@ const ORGANIZACIONES = [
 const CUENTAS = [
   { tipo: 'admin', role: 'ADMIN', firstName: 'Admin' },
   { tipo: 'jurado', role: 'JURY', firstName: 'Jurado' },
+  { tipo: 'docente', role: 'TEACHER', firstName: 'Docente asesor' },
+  ...[1, 2, 3, 4, 5, 6].map((n) => ({ tipo: `alumno${n}`, role: 'STUDENT', firstName: `Alumno ${n}` })),
 ];
+
+const CATEGORIAS = ['Software', 'Robótica e IoT', 'Energía y ambiente'];
+const STANDS = ['A-01', 'A-02', 'A-03', 'A-04'];
+
+const portada = (id) => `https://images.unsplash.com/photo-${id}?auto=format&fit=crop&w=1200&q=70`;
+const PORTADAS = {
+  robot: portada('1485827404703-89b55fcc595e'),
+  app: portada('1512941937669-90a1b58e7e9c'),
+  solar: portada('1509391366360-2e959784a276'),
+  datos: portada('1551288049-bebda4e38f71'),
+};
+
+const PROYECTOS = {
+  unt: [
+    {
+      name: 'Robot recolector de residuos para playas de Huanchaco',
+      description: 'Robot autónomo que recorre la orilla, detecta plásticos con una cámara y los recoge.',
+      categoria: 'Robótica e IoT',
+      cover: PORTADAS.robot,
+      alumnos: ['alumno1', 'alumno2'],
+    },
+    {
+      name: 'App de turismo cultural Chan Chan',
+      description: 'Guía móvil con rutas, audios y realidad aumentada sobre la ciudadela de barro.',
+      categoria: 'Software',
+      cover: PORTADAS.app,
+      alumnos: ['alumno3'],
+    },
+    {
+      name: 'Secador solar de productos agrícolas',
+      description: 'Secador de bajo costo que aprovecha la radiación solar para deshidratar frutas y granos.',
+      categoria: 'Energía y ambiente',
+      cover: PORTADAS.solar,
+      alumnos: ['alumno4', 'alumno5'],
+    },
+    {
+      name: 'Tablero de calidad del aire en Trujillo',
+      description: 'Red de sensores de bajo costo con un tablero web que muestra PM2.5 y CO2 por distrito.',
+      categoria: 'Software',
+      cover: PORTADAS.datos,
+      alumnos: ['alumno6'],
+    },
+  ],
+  tecsup: [
+    {
+      name: 'Brazo robótico clasificador con visión artificial',
+      description: 'Brazo de 4 ejes que clasifica piezas por color y forma usando una cámara y OpenCV.',
+      categoria: 'Robótica e IoT',
+      cover: PORTADAS.robot,
+      alumnos: ['alumno1', 'alumno2'],
+    },
+    {
+      name: 'App de asistencia con QR dinámico',
+      description: 'Registro de asistencia por sesión con códigos QR que cambian cada 30 segundos.',
+      categoria: 'Software',
+      cover: PORTADAS.app,
+      alumnos: ['alumno3'],
+    },
+    {
+      name: 'Estación fotovoltaica monitoreada',
+      description: 'Paneles solares con sensores que reportan en tiempo real la energía generada.',
+      categoria: 'Energía y ambiente',
+      cover: PORTADAS.solar,
+      alumnos: ['alumno4', 'alumno5'],
+    },
+    {
+      name: 'Mantenimiento predictivo de motores',
+      description: 'Sensores de vibración y temperatura que anticipan fallas en motores industriales.',
+      categoria: 'Robótica e IoT',
+      cover: PORTADAS.datos,
+      alumnos: ['alumno6'],
+    },
+  ],
+};
+
+const buscarOCrear = async (modelo, where, data) =>
+  (await modelo.findFirst({ where })) ?? modelo.create({ data: { ...where, ...data } });
 
 // El host interno de Render (dpg-xxxx-a) no lleva puntos y se usa tal cual,
 // igual que la API. El externo (…render.com) exige SSL.
@@ -145,17 +226,56 @@ async function main() {
         });
       }
 
-      resumen.push({ org, fair, u, nueva: !existente });
+      const categorias = {};
+      for (const name of CATEGORIAS) {
+        categorias[name] = await buscarOCrear(prisma.fairCategory, { fairId: fair.id, name }, {});
+      }
+      const stands = [];
+      for (const code of STANDS) {
+        stands.push(await buscarOCrear(prisma.fairStand, { fairId: fair.id, code }, {}));
+      }
+
+      for (const [i, p] of PROYECTOS[org.clave].entries()) {
+        const proyecto = await buscarOCrear(
+          prisma.project,
+          { fairId: fair.id, name: p.name },
+          {
+            organizationId: org.id,
+            createdById: u.docente.id,
+            description: p.description,
+            coverUrl: p.cover,
+            categoryId: categorias[p.categoria].id,
+            standId: stands[i].id,
+            status: 'APPROVED',
+            submittedAt: new Date(),
+            reviewedById: u.admin.id,
+            reviewedAt: new Date(),
+          }
+        );
+        const integrantes = [
+          { userId: u.docente.id, role: 'ADVISOR' },
+          ...p.alumnos.map((clave) => ({ userId: u[clave].id, role: 'EXPOSITOR' })),
+        ];
+        for (const m of integrantes) {
+          await buscarOCrear(prisma.projectMember, { projectId: proyecto.id, userId: m.userId }, { role: m.role });
+        }
+      }
+
+      const proyectos = await prisma.project.count({ where: { fairId: fair.id, status: 'APPROVED' } });
+      resumen.push({ org, fair, u, proyectos, nueva: !existente });
     }
 
     console.log('');
     console.log('Organizaciones listas');
-    for (const { org, fair, u, nueva } of resumen) {
+    for (const { org, fair, u, proyectos, nueva } of resumen) {
       console.log(`  ${org.name} (${org.code})${nueva ? '' : ' · ya existía'}`);
       console.log(`    Feria:  ${fair.name} · ${fair.status} · id ${fair.id}`);
       console.log(`            del ${fair.startsAt?.toISOString()} al ${fair.endsAt?.toISOString()}`);
+      console.log(`            proyectos aprobados: ${proyectos}`);
       console.log(`    ADMIN   ${u.admin.email}`);
       console.log(`    JURY    ${u.jurado.email}`);
+      console.log(`    TEACHER ${u.docente.email}`);
+      console.log(`    STUDENT alumno1.${org.clave} … alumno6.${org.clave}@${DOMINIO}`);
     }
     console.log('  Contraseña de las cuentas: la de SEED_PASSWORD.');
   } finally {
