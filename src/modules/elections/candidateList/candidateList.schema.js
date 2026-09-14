@@ -58,14 +58,8 @@ export const listCandidateListSchema = z.object({
       .transform((value) => value === 'true'),
     min_rating: z.coerce.number().min(0).max(20).optional(),
     max_rating: z.coerce.number().min(0).max(20).optional(),
-    from_date: z
-      .string()
-      .regex(/^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}:\d{2}(\.\d{3})?Z)?$/, 'from_date debe ser ISO 8601')
-      .optional(),
-    to_date: z
-      .string()
-      .regex(/^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}:\d{2}(\.\d{3})?Z)?$/, 'to_date debe ser ISO 8601')
-      .optional(),
+    from_date: z.string().refine((value) => !Number.isNaN(Date.parse(value)), 'from_date debe ser ISO 8601').optional(),
+    to_date: z.string().refine((value) => !Number.isNaN(Date.parse(value)), 'to_date debe ser ISO 8601').optional(),
   }),
 });
 

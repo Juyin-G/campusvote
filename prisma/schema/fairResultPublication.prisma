@@ -1,0 +1,26 @@
+// ============================================================
+// PUBLICACIÓN DE RESULTADOS DE FERIAS (dominio exclusivo de FERIAS)
+// ============================================================
+// Persistencia MÍNIMA del evento "resultados publicados":
+//   - Máximo UNA publicación por feria (@unique(fairId)).
+//   - publishedBy → User que realizó la publicación (pista de auditoría).
+//   - NO se persiste ranking / ganador / promedio / project_id ganador:
+//     esos valores se DERIVAN en el service a partir de FairEvaluation
+//     (fairResult.service.js). El estado "publicado" se deduce de la
+//     EXISTENCIA de esta fila (¿publicó? cuándo: created_at; quién: published_by).
+// ============================================================
+
+model FairResultPublication {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  fairId        String   @unique(map: "uq_fair_result_publications_fair") @map("fair_id") @db.Uuid
+  publishedById String   @map("published_by") @db.Uuid
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  // Relaciones
+  fair        Fair @relation(fields: [fairId], references: [id], onDelete: Restrict)
+  publishedBy User @relation("FairResultPublications", fields: [publishedById], references: [id], onDelete: Restrict)
+
+  @@map("fair_result_publications")
+}

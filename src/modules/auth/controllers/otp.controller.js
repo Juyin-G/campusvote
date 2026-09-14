@@ -14,7 +14,7 @@ export const setupTotp = asyncHandler(async (req, res) => {
     {
       secret: result.secret,
       uri: result.uri,
-      backupCodes: result.backupCodes,
+      qrCode: result.qrCode,
     },
     'Escanea el código QR con tu app de autenticación',
     { requestId: req.requestId },
@@ -41,7 +41,10 @@ export const verifyLoginTotp = asyncHandler(async (req, res) => {
   const userId = actorId(req.user);
 
   // Delegación unificada al servicio (maneja internamente code o backupCode).
-  const result = await otpService.verifyLoginTotp(userId, req.body);
+  const result = await otpService.verifyLoginTotp(userId, req.body, {
+    ipAddress: req.ip || req.headers['x-forwarded-for'] || null,
+    userAgent: req.headers['user-agent'] || null,
+  });
 
   return sendSuccess(
     res,

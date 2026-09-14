@@ -21,6 +21,9 @@ import {
 // 3. Servicio de Aprobación
 import * as approvalService from '../organization-request/approval.service.js';
 
+// 4. Sedes (contexto físico de organizaciones/ferias)
+import organizationSiteRoutes from '../organizationSite/organizationSite.routes.js';
+
 // 4. Middlewares y Utilidades
 import asyncHandler from '../../../shared/utils/asyncHandler.js';
 import { sendSuccess } from '../../../shared/utils/apiResponse.js';
@@ -82,14 +85,14 @@ router.patch(
   authorize('SUPERADMIN'),
   validate(requestParamsSchema),
   asyncHandler(async (req, res) => {
-    const newOrganization = await approvalService.approveRequest(
+    const approval = await approvalService.approveRequest(
       req.params.id,
       getUserId(req)
     );
     return sendSuccess(
       res,
-      newOrganization,
-      MESSAGES.ORGANIZATION_REQUEST?.APPROVED_SUCCESS || 'Solicitud aprobada y organización creada',
+      approval,
+      'Solicitud aprobada. Se envió el enlace para activar la cuenta y crear la organización.',
       { requestId: req.requestId },
       HTTP_STATUS.OK
     );
@@ -116,6 +119,13 @@ router.patch(
     );
   })
 );
+
+// ==========================================
+// --- SEDES (ORGANIZATION SITES) ---
+// ==========================================
+// Se monta ANTES de las rutas /:id para que el path estático /sites no
+// colisione con el parámetro de ruta.
+router.use('/sites', organizationSiteRoutes);
 
 // ==========================================
 // --- ORGANIZACIONES ---

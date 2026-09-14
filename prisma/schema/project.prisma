@@ -1,0 +1,102 @@
+// ENUMS
+
+// Estado de revisión administrativa de un proyecto (ferias académicas).
+// Puede evolucionar de forma independiente al ciclo electoral.
+enum ProjectStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  REJECTED
+
+  @@map("project_status")
+}
+
+// Rol de un participante DENTRO de un proyecto. NO es un rol global del
+// sistema (user_role): EXPOSITOR se expresa como participación, de modo que
+// un STUDENT/TEACHER conserva su rol académico y a la vez expone proyectos.
+enum ProjectMemberRole {
+  EXPOSITOR
+  COLLABORATOR
+  ADVISOR
+
+  @@map("project_member_role")
+}
+
+// MODELOS
+
+// Proyecto presentado a una feria/evento académico. Entidad deliberadamente
+// separada de elections/candidacies para no mezclar ferias con elecciones.
+// La ORGANIZACIÓN del proyecto la determina su FERIA (fair.organization_id);
+// organization_id se conserva únicamente como espejo de compatibilidad, y su
+// consistencia con la feria queda garantizada por la FK compuesta SQL
+// (fair_id, organization_id) -> fairs(id, organization_id).
+model Project {
+  id             String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String @map("organization_id") @db.Uuid
+  fairId         String @map("fair_id") @db.Uuid
+
+  // Propietario/creador: única fuente de verdad del owner del proyecto.
+  createdById String @map("created_by") @db.Uuid
+
+  name        String  @db.VarChar(200)
+  description String? @db.Text
+  logoUrl     String? @map("logo_url") @db.VarChar(500)
+  coverUrl    String? @map("cover_url") @db.VarChar(500)
+  projectUrl  String? @map("project_url") @db.VarChar(1000)
+  status      ProjectStatus @default(DRAFT)
+
+  // Categoría y stand de la feria (opcionales; SIEMPRE de la MISMA feria que
+  // el proyecto: reforzado con FK compuestas en SQL).
+  categoryId String? @map("category_id") @db.Uuid
+  standId    String? @map("stand_id") @db.Uuid
+
+  // Auditoría de la revisión administrativa.
+  reviewedById String?   @map("reviewed_by") @db.Uuid
+  reviewNotes  String?   @map("review_notes") @db.Text
+  reviewedAt   DateTime? @map("reviewed_at") @db.Timestamptz
+  submittedAt  DateTime? @map("submitted_at") @db.Timestamptz
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  // Relaciones
+  fair         Fair            @relation(fields: [fairId], references: [id], onDelete: Restrict)
+  organization Organization    @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  createdBy    User            @relation("CreatedProjects", fields: [createdById], references: [id], onDelete: Restrict)
+  reviewedBy   User?           @relation("ReviewedProjects", fields: [reviewedById], references: [id], onDelete: SetNull)
+  members      ProjectMember[]
+  evaluations  FairEvaluation[]
+  category     FairCategory?   @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  stand        FairStand?      @relation(fields: [standId], references: [id], onDelete: Restrict)
+
+  // Índices
+  @@index([organizationId], map: "idx_projects_organization")
+  @@index([fairId], map: "idx_projects_fair")
+  @@index([createdById], map: "idx_projects_created_by")
+  @@index([status], map: "idx_projects_status")
+  @@index([organizationId, status], map: "idx_projects_organization_status")
+  @@index([categoryId], map: "idx_projects_category")
+  @@index([standId], map: "idx_projects_stand")
+  // "1 stand = 1 proyecto": un stand no puede estar asignado a dos proyectos.
+  @@unique([standId], map: "uq_projects_stand")
+  @@map("projects")
+}
+
+// Participación de un usuario en un proyecto (muchos-a-muchos). No duplica
+// datos personales: solo referencia users.id.
+model ProjectMember {
+  id        String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  projectId String            @map("project_id") @db.Uuid
+  userId    String            @map("user_id") @db.Uuid
+  role      ProjectMemberRole @default(EXPOSITOR)
+  createdAt DateTime          @default(now()) @map("created_at") @db.Timestamptz
+
+  // Relaciones
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User    @relation("ProjectMemberships", fields: [userId], references: [id], onDelete: Cascade)
+
+  // Índices / restricciones
+  @@unique([projectId, userId], map: "uq_project_members_project_user")
+  @@index([userId], map: "idx_project_members_user")
+  @@map("project_members")
+}

@@ -19,8 +19,12 @@ import { createAcademicFixture } from './academic.fixture.js';
 
 // Mock email service to prevent actual emails
 jest.unstable_mockModule('../../src/shared/services/email.service.js', () => ({
+  hasEmailConfigured: jest.fn().mockReturnValue(false),
   sendVerification: jest.fn().mockResolvedValue(true),
   sendReset: jest.fn().mockResolvedValue(true),
+  sendActivation: jest.fn().mockResolvedValue(true),
+  sendAdminActivation: jest.fn().mockResolvedValue(true),
+  sendRequestReceived: jest.fn().mockResolvedValue(true),
 }));
 
 // Mock rate limiters to avoid rate limiting during tests

@@ -43,28 +43,6 @@ export const login = asyncHandler(async (req, res) => {
   );
 });
 
-export const register = asyncHandler(async (req, res) => {
-  const result = await authService.register(req.body);
-
-  logger.info(`Registro exitoso: ${safe(req.body?.email || 'N/A')}`, {
-    requestId: req.requestId,
-  });
-
-  // El alta se confirma aunque el correo no haya salido; en ese caso se indica
-  // al usuario que puede pedir el reenvío en lugar de dejarlo sin salida.
-  const message = result.verificationEmailSent
-    ? MESSAGES.USER.CREATED_SUCCESS
-    : MESSAGES.AUTH.REGISTER_EMAIL_FAILED;
-
-  return sendSuccess(
-    res,
-    result,
-    message,
-    { requestId: req.requestId },
-    HTTP_STATUS.CREATED
-  );
-});
-
 export const resendVerification = asyncHandler(async (req, res) => {
   const result = await authService.resendVerification(req.body.email);
 

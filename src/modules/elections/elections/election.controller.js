@@ -20,7 +20,7 @@ const STATUS_MESSAGES = {
  * @access Autenticado
  */
 export const listElections = asyncHandler(async (req, res) => {
-  const { elections, pagination } = await electionService.listElections(req.query);
+  const { elections, pagination } = await electionService.listElections(req.query, req.user);
 
   return sendPaginated(res, elections, pagination, 'Consulta exitosa');
 });
@@ -50,7 +50,8 @@ export const getElectionById = asyncHandler(async (req, res) => {
 export const createElection = asyncHandler(async (req, res) => {
   const election = await electionService.createElection(
     req.body,
-    actorId(req.user)
+    actorId(req.user),
+    req.user.organizationId
   );
 
   return sendSuccess(

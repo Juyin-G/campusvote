@@ -41,13 +41,13 @@ const UserSchema = {
     },
     role: {
       type: 'string',
-      enum: ['SUPERADMIN', 'STUDENT', 'TEACHER', 'ADMIN', 'ELECTORAL_COMMISSION', 'JURY', 'OBSERVER'],
+      enum: ['SUPERADMIN', 'STUDENT', 'TEACHER', 'ADMIN', 'ELECTORAL_COMMISSION', 'JURY'],
       description: 'Rol del usuario en el sistema',
       example: 'STUDENT',
     },
     auth_provider: {
       type: 'string',
-      enum: ['LOCAL', 'GOOGLE'],
+      enum: ['LOCAL'],
       description: 'Proveedor de autenticación',
       example: 'LOCAL',
     },

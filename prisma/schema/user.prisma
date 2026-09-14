@@ -6,7 +6,6 @@ enum UserRole {
   ADMIN
   SUPERADMIN
   ELECTORAL_COMMISSION
-  OBSERVER
   JURY
 
   @@map("user_role")
@@ -24,8 +23,6 @@ enum UserStatus {
 
 enum AuthProviderType {
   LOCAL
-  GOOGLE
-  AWS
 
   @@map("auth_provider_type")
 }
@@ -56,7 +53,6 @@ model User {
   // ------------------------------------------------------
   password     String?          @db.VarChar(255)
   authProvider AuthProviderType @default(LOCAL) @map("auth_provider")
-  googleId     String?          @map("google_id") @db.VarChar(255)
 
   // ------------------------------------------------------
   // SESIÓN
@@ -176,9 +172,32 @@ model User {
   mediaFiles              media_files[]
   advisorForCandidacies   Candidacy[]              @relation("AdvisorCandidacies")
   juryAssignments         JuryAssignment[]         @relation("JuryAssignments")
+  teachingAssignments     TeachingAssignment[]     @relation("TeachingAssignments")
+  teacherEvaluationsByStudent TeacherEvaluation[]  @relation("TeacherEvaluationsByStudent")
+  teacherEvaluationsForTeacher TeacherEvaluation[] @relation("TeacherEvaluationsForTeacher")
   assignedJuryAssignments JuryAssignment[]         @relation("JuryAssignmentsBy")
   objectionsFiled         CandidacyObjection[]     @relation("ObjectionFiler")
   objectionsReviewed      CandidacyObjection[]     @relation("ObjectionReviewer")
+
+  // Proyectos de feria (propietario / revisor / participante)
+  createdProjects         Project[]                @relation("CreatedProjects")
+  reviewedProjects        Project[]                @relation("ReviewedProjects")
+  projectMemberships      ProjectMember[]          @relation("ProjectMemberships")
+
+  // Jurados de FERIAS (rol global JURY; participación formal en una feria).
+  // Relación exclusiva del dominio de ferias — no se mezcla con
+  // juryAssignments (dominio electoral de elections/candidacies).
+  fairJuryAssignments         FairJuryAssignment[] @relation("FairJuryAssignments")
+  assignedFairJuryAssignments FairJuryAssignment[] @relation("FairJuryAssignmentsBy")
+
+  // Evaluaciones de proyectos de feria realizadas por este usuario como JURY.
+  fairEvaluations FairEvaluation[] @relation("FairEvaluations")
+
+  // Publicaciones de resultados de ferias realizadas por este usuario (ADMIN).
+  fairResultPublications FairResultPublication[] @relation("FairResultPublications")
+
+  // Declaraciones de imparcialidad firmadas por este usuario como JURY de ferias.
+  fairJuryDeclarations FairJuryDeclaration[] @relation("FairJuryDeclarations")
 
   // ------------------------------------------------------
   // ÍNDICES

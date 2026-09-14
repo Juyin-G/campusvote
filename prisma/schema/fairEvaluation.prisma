@@ -1,0 +1,104 @@
+// ============================================================
+// RÚBRICAS Y EVALUACIONES DE FERIAS (dominio exclusivo de FERIAS)
+// ============================================================
+// No se mezcla con el dominio electoral (rating.prisma: ratings/feria_criteria
+// están ligados a election/candidacy con rúbrica ponderada vigesimal).
+// En FERIAS:
+//   Organization ── Fair ── FairRubric ── RubricCriterion
+//   Fair ── FairEvaluation (fair + project + jury JURY) ── FairEvaluationDetail
+// Reglas:
+//   - UNA rúbrica activa por feria (@unique(fairId)): sin versionado.
+//   - La rúbrica solo se configura en DRAFT (se congela en OPEN; solo lectura
+//     en CLOSED) para que todos los jurados evalúen con las mismas reglas.
+//   - Las evaluaciones solo en fair.status = OPEN y sobre proyectos APPROVED
+//     de esa misma feria; UNIQUE (fair_id, project_id, jury_user_id) evita que
+//     el mismo jurado puntúe dos veces el mismo proyecto.
+//   - Cada puntuación respeta el [min_score, max_score] de su criterio
+//     (reforzado en PostgreSQL con trigger; aquí se recalcula en service).
+// ============================================================
+
+model FairRubric {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  fairId      String   @unique(map: "uq_fair_rubrics_fair") @map("fair_id") @db.Uuid
+  name        String   @db.VarChar(200)
+  description String?  @db.Text
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  fair     Fair               @relation(fields: [fairId], references: [id], onDelete: Restrict)
+  criteria RubricCriterion[]
+  evaluations FairEvaluation[]
+  evaluationDetails FairEvaluationDetail[]
+
+  @@map("fair_rubrics")
+}
+
+// Criterio de la rúbrica de una feria. El orden explícito (position) define
+// la estructura que verán los jurados al evaluar.
+model RubricCriterion {
+  id          String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  rubricId    String  @map("rubric_id") @db.Uuid
+  name        String  @db.VarChar(200)
+  description String? @db.Text
+  minScore    Decimal @map("min_score") @db.Decimal(5, 2) // 1.00
+  maxScore    Decimal @map("max_score") @db.Decimal(5, 2) // 5.00
+  position    Int     @db.SmallInt // 1, 2, 3...
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  rubric           FairRubric            @relation(fields: [rubricId], references: [id], onDelete: Cascade)
+  evaluationDetails FairEvaluationDetail[]
+
+  @@unique([rubricId, position], map: "uq_rubric_criteria_rubric_position")
+  @@index([rubricId], map: "idx_rubric_criteria_rubric")
+  @@map("rubric_criteria")
+}
+
+// Evaluación de un proyecto APPROVED por un JURY formalmente asignado a la
+// feria. UNA evaluación por combinación fair + project + jury.
+model FairEvaluation {
+  id          String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  fairId      String  @map("fair_id") @db.Uuid
+  projectId   String  @map("project_id") @db.Uuid
+  juryUserId  String  @map("jury_user_id") @db.Uuid
+  rubricId    String  @map("rubric_id") @db.Uuid
+  totalScore  Decimal @map("total_score") @db.Decimal(10, 2) // Σ puntuaciones (servidor)
+  comment     String? @db.Text
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  fair    Fair         @relation(fields: [fairId], references: [id], onDelete: Restrict)
+  project Project      @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  jury    User         @relation("FairEvaluations", fields: [juryUserId], references: [id], onDelete: Restrict)
+  rubric  FairRubric   @relation(fields: [rubricId], references: [id], onDelete: Restrict)
+  details FairEvaluationDetail[]
+
+  @@unique([fairId, projectId, juryUserId], map: "uq_fair_evaluations_fair_project_jury")
+  @@index([juryUserId], map: "idx_fair_evaluations_jury")
+  @@index([projectId], map: "idx_fair_evaluations_project")
+  @@map("fair_evaluations")
+}
+
+// Puntuación parcial por criterio. La rúbrica es la de la feria; criterion,
+// score y total_score los valida el backend y PostgreSQL (trigger rango).
+model FairEvaluationDetail {
+  id          String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  evaluationId String @map("evaluation_id") @db.Uuid
+  criterionId String  @map("criterion_id") @db.Uuid
+  rubricId    String  @map("rubric_id") @db.Uuid // espejo: = rubric de la evaluación
+  score       Decimal @db.Decimal(5, 2)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  evaluation FairEvaluation @relation(fields: [evaluationId], references: [id], onDelete: Cascade)
+  criterion  RubricCriterion @relation(fields: [criterionId], references: [id], onDelete: Restrict)
+  rubric     FairRubric       @relation(fields: [rubricId], references: [id], onDelete: Restrict)
+
+  @@unique([evaluationId, criterionId], map: "uq_fair_evaluation_details_eval_criterion")
+  @@index([criterionId], map: "idx_fair_evaluation_details_criterion")
+  @@map("fair_evaluation_details")
+}

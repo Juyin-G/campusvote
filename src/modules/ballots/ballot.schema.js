@@ -25,6 +25,7 @@ export const electionBallotParamsSchema = z.object({
 export const listBallotSchema = z.object({
   query: z.object({
     electionId: uuid('ID de elección').optional(),
+    election_id: uuid('ID de elección').optional(),
     page: z.coerce.number().int().min(1).default(1),
     limit: z.coerce.number().int().min(1).max(100).default(10),
   }),

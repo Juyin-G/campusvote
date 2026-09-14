@@ -30,7 +30,6 @@ const userAuthSelect = {
   failedLoginAttempts: true,
   lockedUntil: true,
   lastLogin: true,
-  dateJoined: true,
 };
 
 // BÚSQUEDAS
@@ -77,38 +76,6 @@ export const findByUsername = async (username) => {
   });
 };
 
-export const findByGoogleId = async (googleId) => {
-  return prisma.user.findFirst({
-    where: { googleId },
-  });
-};
-
-export const findByFirebaseUid = findByGoogleId;
-
-/**
- * Busca organizaciones cuyo `allowed_email_domains` contenga el dominio dado.
- * Usa JSONB containment (@>). @param {string} domain - dominio del correo (ej: "upc.edu.pe")
- */
-export const findOrganizationsByEmailDomain = async (domain) => {
-  return prisma.$queryRaw`
-    SELECT id, name, code, allowed_email_domains
-    FROM organizations
-    WHERE is_active = TRUE
-      AND allowed_email_domains @> ${JSON.stringify([String(domain).toLowerCase()])}::jsonb
-  `;
-};
-
-/**
- * Lista las carreras activas de una organización (para derivar carrera/ciclo
- * del código institucional).
- */
-export const findCareersByOrganization = (organizationId) =>
-  prisma.career.findMany({
-    where: { organizationId, isActive: true },
-    select: { id: true, code: true, name: true, cycle: true },
-    orderBy: { code: 'asc' },
-  });
-
 // CREACIÓN DE USUARIO CON CONSTRAINTS ACADÉMICOS
 
 export const createUser = async (data) => {
@@ -122,7 +89,6 @@ export const createUser = async (data) => {
       institutionalId: data.institutionalId,
       role: data.role || 'STUDENT',
       authProvider: data.authProvider || 'LOCAL',
-      googleId: data.googleId || null,
       organizationId: data.organizationId || null,
       facultyId: data.facultyId || null,
       programId: data.programId || null,
@@ -206,40 +172,6 @@ export const verifyEmailWithToken = async (token) => {
   return result[0]?.success ?? false;
 };
 
-// FUNCIONES SQL NATIVAS - ACTIVACIÓN DE ADMINISTRADORES (ONBOARDING)
-
-export const generateActivationToken = async (userId) => {
-  const result = await prisma.$queryRaw`
-    SELECT generate_activation_token(${userId}::text::uuid) AS token
-  `;
-
-  return result[0]?.token;
-};
-
-export const activateAccountWithToken = async (token, newPasswordHash) => {
-  const result = await prisma.$queryRaw`
-    SELECT activate_account_with_token(${token}::text, ${newPasswordHash}::text) AS user_id
-  `;
-
-  return result[0]?.user_id;
-};
-
-export const finalizeOnboarding = async (userId) => {
-  return prisma.user.update({
-    where: { id: userId },
-    data: {
-      mustSetup2fa: false,
-      mustChangePassword: false,
-      status: 'ACTIVE',
-    },
-    select: {
-      id: true,
-      status: true,
-      mustSetup2fa: true,
-    },
-  });
-};
-
 // GESTIÓN DE REFRESH TOKENS (SESIONES)
 
 export const createRefreshToken = async ({ userId, tokenHash, expiresAt, ipAddress = null, userAgent = null }) => {
@@ -280,20 +212,6 @@ export const updateLastLogin = async (userId) => {
     where: { id: userId },
     data: {
       lastLogin: new Date(),
-    },
-  });
-};
-
-export const linkGoogleIdentity = async (userId, googleId) => {
-  return prisma.user.update({
-    where: { id: userId },
-    data: {
-      googleId,
-      authProvider: 'LOCAL', // mantener LOCAL para seguir usando email/password
-    },
-    select: {
-      ...userAuthSelect,
-      googleId: true,
     },
   });
 };

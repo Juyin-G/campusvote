@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────
 // TACHAS E IMPUGNACIONES ELECTORALES (Perú)
-// Los usuarios/OBSERVER (personeros) pueden tachar una lista o candidato
+// Los usuarios (personeros) pueden tachar una lista o candidato
 // durante la fase SCHEDULED. El Comité Electoral resuelve FOUNDED/UNFOUNDED.
 // El tránsito a OPEN exige 0 tachas pendientes.
 // ─────────────────────────────────────────────────────────────

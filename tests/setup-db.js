@@ -75,12 +75,16 @@ export default async function setupTestDB() {
     await executeFile('user/009_cleanup_tokens.sql');
     await executeFile('user/010_media_files.sql');
     await executeFile('user/011_document_identity.sql');
+    await executeFile('user/012_drop_observer_role.sql');
     await executeFile('user/012_activation_enum.sql');
     await executeFile('user/013_activation.sql');
+    await executeFile('user/014_remove_external_auth.sql');
+    await executeFile('user/015_activation_constraint.sql');
 
     console.log('7. Creando solicitudes de organizaciones...');
 
     await executeFile('organizations/003_organization_requests.sql');
+    await executeFile('organizations/008_deferred_admin_activation.sql');
 
     console.log('8. Creando tablas académicas...');
 
@@ -90,10 +94,12 @@ export default async function setupTestDB() {
     await executeFile('academic/003_academic_periods.sql');
     await executeFile('academic/004_voter_registries.sql');
     await executeFile('academic/010_voter_stake.sql');
+    await executeFile('academic/011_teaching_evaluations.sql');
 
     console.log('9. Creando elecciones...');
 
     await executeFile('elections/002_elections.sql');
+    await executeFile('elections/003_organization_scope.sql');
     await executeFile('elections/003_positions.sql');
     await executeFile('elections/004_candidate_lists.sql');
     await executeFile('elections/005_candidacies.sql');
@@ -141,6 +147,8 @@ export default async function setupTestDB() {
 
     await executeFile('organizations/004_approval_functions.sql');
 
+    await executeFile('organizations/006_organization_sites.sql');
+
     await executeFile('reports/001_election_report_history.sql');
     await executeFile('claims/001_voter_registry_claims.sql');
     await executeFile('objections/001_candidacy_objections.sql');
@@ -166,7 +174,23 @@ export default async function setupTestDB() {
     await executeFile('notifications/002_channels.sql');
     await executeFile('i18n/001_locales_and_translations.sql');
 
-    console.log('16. Cargando foreign keys finales...');
+    console.log('16. Creando proyectos y ferias académicas...');
+
+    await executeFile('projects/001_projects.sql');
+    await executeFile('fairs/001_fairs.sql');
+    await executeFile('projects/002_projects_fair.sql');
+    await executeFile('fairs/002_jury_assignments.sql');
+    await executeFile('fairs/003_fair_rubrics.sql');
+    await executeFile('fairs/004_fair_evaluations.sql');
+    await executeFile('fairs/005_fair_result_publications.sql');
+    await executeFile('fairs/006_fair_site.sql');
+    await executeFile('fairs/007_fair_categories.sql');
+    await executeFile('fairs/008_fair_stands.sql');
+    await executeFile('projects/003_projects_category_stand.sql');
+    await executeFile('fairs/009_fair_jury_declarations.sql');
+    await executeFile('fairs/010_jury_assignment_integrity.sql');
+
+    console.log('17. Cargando foreign keys finales...');
 
     await executeFile('999_foreign_keys.sql');
 

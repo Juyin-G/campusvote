@@ -3,92 +3,27 @@
  * @description Envío de correos transaccionales (verificación y reset)
  * @module shared/services/email
  */
-import nodemailer from 'nodemailer';
 import env from '../../config/env.js';
 import logger from '../../config/logger.js';
 import { ApiError } from '../errors/ApiError.js';
-
-let transport;
-let resend;
-
-/**
- * Indica si hay algún canal de envío de correo configurado.
- * Con esto el onboarding decide entre invitar por email (Opción 1) o crear
- * credenciales temporales (Opción 2).
- */
-export const hasEmailConfigured = () => {
-  return Boolean(env.RESEND_API_KEY || (env.SMTP_HOST && env.SMTP_USER && env.SMTP_PASS));
-};
-
-const assertSmtpConfig = () => {
-  if (!env.SMTP_HOST || !env.SMTP_USER || !env.SMTP_PASS) {
-    throw ApiError.internal(
-      'Configuración SMTP incompleta. Revise SMTP_HOST, SMTP_USER y SMTP_PASS en .env',
-    );
-  }
-};
-
-const getTransport = () => {
-  assertSmtpConfig();
-
-  if (!transport) {
-    transport = nodemailer.createTransport({
-      host: env.SMTP_HOST,
-      port: env.SMTP_PORT,
-      secure: env.SMTP_PORT === 465,
-      auth: {
-        user: env.SMTP_USER,
-        pass: env.SMTP_PASS,
-      },
-      ...(env.NODE_ENV === 'development' && {
-        tls: { rejectUnauthorized: false },
-      }),
-    });
-  }
-
-  return transport;
-};
-
-const getResend = async () => {
-  if (!resend) {
-    // Import dinámico: evita cargar Resend si no se usa
-    const { Resend } = await import('resend');
-    resend = new Resend(env.RESEND_API_KEY);
-  }
-  return resend;
-};
+import { sendRaw } from './gmail.client.js';
 
 const sendMail = async ({ to, subject, html, text }) => {
   try {
-    if (env.RESEND_API_KEY) {
-      const client = await getResend();
-      const { data, error } = await client.emails.send({
-        from: env.RESEND_FROM,
-        to,
-        subject,
-        html,
-        text,
-      });
-
-      if (error) {
-        throw new Error(error.message);
-      }
-
-      logger.info('Correo enviado (Resend)', { to, subject, messageId: data?.id });
-
-      return data;
+    if (!hasEmailConfigured()) {
+      throw ApiError.serviceUnavailable(
+        'Gmail no está configurado para enviar correos',
+        null,
+        'EMAIL_NOT_CONFIGURED',
+      );
     }
 
-    const info = await getTransport().sendMail({
-      from: env.SMTP_FROM,
+    const info = await sendRaw({ to, subject, html, text });
+    logger.info('Correo enviado por Gmail API', {
       to,
       subject,
-      html,
-      text,
+      messageId: info.messageId,
     });
-
-    logger.info('Correo enviado', { to, subject, messageId: info.messageId });
-
     return info;
   } catch (error) {
     logger.error('Error al enviar correo', {
@@ -107,6 +42,20 @@ const sendMail = async ({ to, subject, html, text }) => {
       'EMAIL_SEND_FAILED',
     );
   }
+};
+
+/**
+ * Indica si el canal Gmail está completamente configurado. El onboarding
+ * usa esto para decidir entre "invitar por email" (verificación) o
+ * "credenciales temporales" cuando el email no está disponible.
+ */
+export const hasEmailConfigured = () => {
+  return Boolean(
+    env.GMAIL_CLIENT_ID
+      && env.GMAIL_CLIENT_SECRET
+      && env.GMAIL_REFRESH_TOKEN
+      && env.GMAIL_FROM,
+  );
 };
 
 export const sendVerification = async ({
@@ -153,28 +102,45 @@ export const sendReset = async ({ email, token }) => {
   });
 };
 
-export const sendActivation = async ({
+export const sendRequestReceived = async ({
   email,
+  institutionName,
+}) => {
+  await sendMail({
+    to: email,
+    subject: 'Solicitud recibida por CampusVote',
+    html: `
+      <p>Hemos recibido la solicitud de acceso para <strong>${institutionName}</strong>.</p>
+      <p>El equipo de CampusVote revisará la información y te notificará el resultado.</p>
+    `,
+    text: [
+      `Solicitud recibida para ${institutionName}.`,
+      'El equipo de CampusVote revisará la información y te notificará el resultado.',
+    ].join('\n'),
+  });
+};
+
+export const sendAdminActivation = async ({
+  email,
+  institutionName,
   token,
-  firstName = 'Administrador',
 }) => {
   const link = `${env.FRONTEND_URL}/activate-account?token=${encodeURIComponent(token)}`;
 
   await sendMail({
     to: email,
-    subject: 'Activa tu cuenta de administrador en CampusVote',
+    subject: `Solicitud aprobada para ${institutionName}`,
     html: `
-      <p>Hola ${firstName},</p>
-      <p>Fuiste asignado como administrador en CampusVote. Para activar tu cuenta y configurar tu acceso, usa este enlace:</p>
+      <p>Tu solicitud para <strong>${institutionName}</strong> fue aprobada.</p>
+      <p>Activa tu cuenta de administrador desde este enlace:</p>
       <p><a href="${link}">${link}</a></p>
-      <p>Este enlace expira en 24 horas.</p>
-      <p>Si no esperabas este correo, ignóralo.</p>
+      <p>El enlace expira en 24 horas.</p>
     `,
     text: [
-      `Hola ${firstName},`,
-      'Activa tu cuenta de administrador en CampusVote:',
+      `Tu solicitud para ${institutionName} fue aprobada.`,
+      'Activa tu cuenta de administrador:',
       link,
-      'Este enlace expira en 24 horas.',
+      'El enlace expira en 24 horas.',
     ].join('\n'),
   });
 };

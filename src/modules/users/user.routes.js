@@ -33,7 +33,7 @@ const preventSelfRoleChange = (req, res, next) => {
 
 // Guard 2: Exige privilegios de superusuario para gestión de roles privilegiados
 // (ADMIN / ELECTORAL_COMMISSION). Los roles electorales regulares
-// (STUDENT/TEACHER/OBSERVER) pueden ser gestionados por cualquier administrador.
+// (STUDENT/TEACHER) pueden ser gestionados por cualquier administrador.
 const requireSuperUserForRole = (req, res, next) => {
   const target = req.body?.role;
   if (target && !ADMIN_ROLES.includes(target)) {
@@ -72,7 +72,7 @@ router.get(
 router.post(
   '/',
   authenticate,
-  authorize(ROLES.ADMIN),
+  authorize(ROLES.ADMIN, ROLES.SUPERADMIN),
   validate(createUserSchema),
   (req, res, next) => {
     const isSuperUser = req.user?.isSuperuser || req.user?.isSuperAdmin || req.user?.role === ROLES.SUPERADMIN;

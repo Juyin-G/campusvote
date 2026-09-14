@@ -12,6 +12,10 @@ import {
 
 import { validate } from '../../middlewares/validate.middleware.js';
 import { ROLES } from '../../constants/roles.js';
+import {
+  requireBallotInScope,
+  requireElectionInScope,
+} from '../../middlewares/scope.middleware.js';
 
 import {
   ballotParamsSchema,
@@ -40,6 +44,7 @@ router.get(
   '/election/:electionId/active',
   authenticate,
   validate(electionBallotParamsSchema),
+  requireElectionInScope,
   ballotController.getActiveBallot
 );
 
@@ -53,6 +58,7 @@ router.post(
   authenticate,
   authorize(GESTORES),
   validate(electionBallotParamsSchema),
+  requireElectionInScope,
   ballotController.createBallotVersion
 );
 
@@ -72,6 +78,8 @@ router.get(
 
 router.use(
   '/:ballotId/positions',
+  authenticate,
+  requireBallotInScope,
   ballotPositionRoutes
 );
 
@@ -87,6 +95,7 @@ router.get(
   '/',
   authenticate,
   validate(listBallotSchema),
+  requireElectionInScope,
   ballotController.listBallots
 );
 
@@ -112,6 +121,7 @@ router.post(
   authenticate,
   authorize(GESTORES),
   validate(createBallotSchema),
+  requireElectionInScope,
   ballotController.createBallot
 );
 

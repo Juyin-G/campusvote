@@ -1,0 +1,39 @@
+// MODELO DE ASIGNACIÓN DE JURADOS A FERIAS
+//
+// Entidad dedicada al dominio de FERIAS (aislada del dominio electoral:
+// ratings/jury_assignments enumera jurados de electiones/candidacies con
+// flujo PENDING/APPROVED/REJECTED + doble ciego + dirimencia, y NO se mezcla).
+//
+// Estructura:
+//   Organization
+//   └── Fair
+//       └── FairJuryAssignment (fair_id, user_id)
+//           └── User (role = JURY)
+//
+// REGLAS:
+//   - Solo usuarios con rol global JURY pueden ser asignados (validado en
+//     servicio, nunca solo en frontend).
+//   - UNIQUE (fair_id, user_id): un JURY no puede asignarse dos veces a la
+//     misma feria.
+//   - Tenant: la organización del JURY debe coincidir con la de la feria
+//     (validación estricta en servicio).
+// ERRORES: se gestionan en service; la restricción UNIQUE es el candado final.
+model FairJuryAssignment {
+  id           String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  fairId       String @map("fair_id") @db.Uuid
+  userId       String @map("user_id") @db.Uuid
+  assignedById String @map("assigned_by") @db.Uuid
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  // Relaciones
+  fair       Fair @relation(fields: [fairId], references: [id], onDelete: Restrict)
+  user       User @relation("FairJuryAssignments", fields: [userId], references: [id], onDelete: Restrict)
+  assignedBy User @relation("FairJuryAssignmentsBy", fields: [assignedById], references: [id], onDelete: Restrict)
+
+  // Índices / unicidad
+  @@unique([fairId, userId], map: "uq_fair_jury_assignments_fair_user")
+  @@index([userId], map: "idx_fair_jury_assignments_user")
+  @@map("fair_jury_assignments")
+}

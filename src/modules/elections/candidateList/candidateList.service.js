@@ -218,7 +218,7 @@ export const listCandidateLists = async (electionId, query = {}) => {
 
   const total = lists.length;
 
-  // Paginación opcional: si no se envía limit se devuelve todo
+  // Paginación opcional: si no se envía limit se devuelve la lista completa
   // (comportamiento original requerido por la papeleta).
   if (limit !== undefined && limit !== null) {
     lists = lists.slice(offset, offset + limit);

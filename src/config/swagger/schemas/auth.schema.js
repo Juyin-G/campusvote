@@ -1,6 +1,6 @@
 /**
  * @file auth.schema.js
- * @description Schemas para autenticación (login, register, tokens)
+ * @description Schemas para autenticación local (login, tokens y 2FA)
  */
 
 const LoginRequestSchema = {

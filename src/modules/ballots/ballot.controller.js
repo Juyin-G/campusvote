@@ -12,7 +12,7 @@ import { HTTP_STATUS } from '../../constants/httpStatus.js';
 export const listBallots = asyncHandler(
   async (req, res) => {
     const { ballots, pagination } =
-      await ballotService.listBallots(req.query);
+      await ballotService.listBallots(req.query, req.user);
 
     return sendPaginated(
       res,
@@ -26,9 +26,7 @@ export const listBallots = asyncHandler(
 export const getBallotById = asyncHandler(
   async (req, res) => {
     const ballot =
-      await ballotService.getBallotById(
-        req.params.id
-      );
+      await ballotService.getBallotById(req.params.id, req.user);
 
     return sendSuccess(
       res,
@@ -43,7 +41,7 @@ export const getBallotById = asyncHandler(
 export const createBallot = asyncHandler(
   async (req, res) => {
     const ballot =
-      await ballotService.createBallot(req.body);
+      await ballotService.createBallot(req.body, req.user);
 
     return sendSuccess(
       res,
@@ -60,7 +58,8 @@ export const updateBallot = asyncHandler(
     const ballot =
       await ballotService.updateBallot(
         req.params.id,
-        req.body
+        req.body,
+        req.user
       );
 
     return sendSuccess(
@@ -77,7 +76,8 @@ export const deleteBallot = asyncHandler(
   async (req, res) => {
     const result =
       await ballotService.deleteBallot(
-        req.params.id
+        req.params.id,
+        req.user
       );
 
     return sendSuccess(
@@ -94,7 +94,8 @@ export const getActiveBallot = asyncHandler(
   async (req, res) => {
     const ballot =
       await ballotService.getActiveBallot(
-        req.params.electionId
+        req.params.electionId,
+        req.user
       );
 
     return sendSuccess(
@@ -111,7 +112,8 @@ export const createBallotVersion = asyncHandler(
   async (req, res) => {
     const ballot =
       await ballotService.createBallotVersion(
-        req.params.electionId
+        req.params.electionId,
+        req.user
       );
 
     return sendSuccess(
@@ -128,7 +130,8 @@ export const validateBallotCompleteness = asyncHandler(
   async (req, res) => {
     const result =
       await ballotService.validateBallotCompleteness(
-        req.params.id
+        req.params.id,
+        req.user
       );
 
     return sendSuccess(

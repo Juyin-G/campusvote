@@ -47,14 +47,32 @@ async function main() {
   try {
     console.log('Conectando a la base de datos...');
     await client.connect();
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS campusvote_schema_migrations (
+        filename TEXT PRIMARY KEY,
+        applied_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
 
     console.log('Aplicando migraciones SQL:');
     for (const relativePath of MIGRATION_FILES) {
+      const applied = await client.query(
+        'SELECT 1 FROM campusvote_schema_migrations WHERE filename = $1',
+        [relativePath]
+      );
+      if (applied.rowCount > 0) {
+        process.stdout.write(`   → ${relativePath} omitida (ya aplicada)\n`);
+        continue;
+      }
       const filePath = path.join(sqlRoot, relativePath);
       const sql = await fs.readFile(filePath, 'utf8');
       process.stdout.write(`   → ${relativePath} `);
       try {
         await client.query(sql);
+        await client.query(
+          'INSERT INTO campusvote_schema_migrations (filename) VALUES ($1)',
+          [relativePath]
+        );
         process.stdout.write('OK\n');
       } catch (err) {
         // Si el script falló a mitad de un bloque BEGIN...COMMIT, la conexión

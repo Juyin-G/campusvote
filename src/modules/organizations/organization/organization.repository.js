@@ -159,6 +159,36 @@ export const rejectOrganizationRequest = async (requestId, reviewerUserId, reaso
   });
 };
 
+/**
+ * Aprueba una solicitud y genera un token de activación.
+ *
+ * Devuelve `{ activationToken }`. El `activationToken`
+ * es el texto plano que se envía al visitante; nunca se vuelve a recuperar.
+ *
+ * La organización y el usuario se crean de forma atómica cuando se consume
+ * el token durante la activación.
+ *
+ * El caller debe enviar el `activationToken` al `contact_email` justo después
+ * y manejar el fallo de email de forma defensiva (no relanzar, para no perder
+ * el trabajo de la aprobación).
+ */
+export const approveAndInviteAdmin = async (requestId, reviewerId) => {
+  return prisma.$transaction(async (tx) => {
+    const inviteRows = await tx.$queryRaw`
+      SELECT * FROM approve_request_for_admin_activation(
+        ${requestId}::uuid,
+        ${reviewerId}::uuid
+      )
+    `;
+    const inviteRow = inviteRows[0];
+    if (!inviteRow) throw new Error('No se pudo generar la invitación de activación');
+
+    return {
+      activationToken: inviteRow.out_raw_token,
+    };
+  });
+};
+
 export default {
   findOrgById,
   findOrgByCode,
@@ -178,4 +208,5 @@ export default {
   deleteRequestById,
   approveOrganizationRequest,
   rejectOrganizationRequest,
+  approveAndInviteAdmin,
 };

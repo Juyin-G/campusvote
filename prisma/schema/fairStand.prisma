@@ -1,0 +1,32 @@
+// STANDS DE UNA FERIA (dominio exclusivo de FERIAS).
+//
+// Estructura:
+//   Organization ── Fair ── FairStand ── Project (stand_id)
+//
+// Decisiones:
+//   * code (identificador corto, p. ej. "A-01") único dentro de la feria.
+//   * UNIQUE (fair_id, code): sin cabinas duplicadas en la misma feria.
+//   * "1 stand = 1 proyecto": projects.stand_id es UNIQUE (dos proyectos no
+//     pueden ocupar la misma cabina; nullable mientras no se asigna).
+//   * projects.stand_id → FK RESTRICT + FK compuesta (stand_id, fair_id):
+//     el stand SIEMPRE pertenece a la misma feria que el proyecto.
+//   * El backend impide eliminar un stand en uso (409 antes que el FK).
+
+model FairStand {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  fairId      String   @map("fair_id") @db.Uuid
+  code        String   @db.VarChar(100)
+  description String?  @db.Text
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  // Relaciones
+  fair     Fair      @relation(fields: [fairId], references: [id], onDelete: Cascade)
+  projects Project[]
+
+  // Índices / unicidad
+  @@unique([fairId, code], map: "uq_fair_stands_fair_code")
+  @@index([fairId], map: "idx_fair_stands_fair")
+  @@map("fair_stands")
+}

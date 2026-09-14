@@ -1,0 +1,34 @@
+// SEDES DE UNA ORGANIZACIÓN (dominio exclusivo de organizaciones/ferias).
+//
+// Estructura:
+//   Organization ── OrganizationSite ── Fair (site_id opcional)
+//
+// Decisiones:
+//   * Una sede pertenece a UNA organización y se ELIMINA con ella
+//     (ON DELETE CASCADE): el ciclo de vida de sedes no sobrevive a su dueño.
+//   * name obligatorio; address/city opcionales.
+//   * latitude/longitude opcionales y validados por rango (CHECK en SQL);
+//     NO se implementan mapas/GPS (solo se guardan coordenadas).
+//   * fairs.site_id → ON DELETE SET NULL: si una sede se elimina, la feria
+//     conserva el resto de su configuración (el contexto físico queda libre).
+
+model OrganizationSite {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  name           String   @db.VarChar(200)
+  address        String?  @db.VarChar(500)
+  city           String?  @db.VarChar(100)
+  latitude       Decimal? @db.Decimal(9, 6)
+  longitude      Decimal? @db.Decimal(9, 6)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  // Relaciones
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  fairs        Fair[]
+
+  // Índices
+  @@index([organizationId], map: "idx_organization_sites_organization")
+  @@map("organization_sites")
+}
