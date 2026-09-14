@@ -8,17 +8,19 @@ import {
   hasEmailConfigured,
   sendVerification,
   sendReset,
-  sendActivation,
+  sendRequestReceived,
+  sendAdminActivation,
 } from '../../../src/shared/services/email.service.js';
 import { ApiError } from '../../../src/shared/errors/ApiError.js';
 
 describe('email.service (Gmail API)', () => {
   describe('contrato público', () => {
-    it('exporta las 4 funciones esperadas', () => {
+    it('exporta las 5 funciones esperadas', () => {
       expect(typeof hasEmailConfigured).toBe('function');
       expect(typeof sendVerification).toBe('function');
       expect(typeof sendReset).toBe('function');
-      expect(typeof sendActivation).toBe('function');
+      expect(typeof sendRequestReceived).toBe('function');
+      expect(typeof sendAdminActivation).toBe('function');
     });
 
     it('hasEmailConfigured devuelve un booleano coherente con env', () => {

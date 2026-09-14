@@ -25,6 +25,8 @@ model Fair {
   status      FairStatus @default(DRAFT)
   startsAt    DateTime? @map("starts_at") @db.Timestamptz
   endsAt      DateTime? @map("ends_at") @db.Timestamptz
+  // Cierre de inscripción de proyectos. NULL = 24 h antes de startsAt.
+  registrationDeadline DateTime? @map("registration_deadline") @db.Timestamptz
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz

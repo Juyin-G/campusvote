@@ -1,13 +1,11 @@
 import { jest } from '@jest/globals';
 
-const mockRegister = jest.fn();
 const mockLogin = jest.fn();
 
 // Mock del servicio de autenticación
 jest.unstable_mockModule(
   '../../../src/modules/auth/services/auth.service.js',
   () => ({
-    register: mockRegister,
     login: mockLogin,
   })
 );
@@ -53,49 +51,6 @@ describe('Auth Controller', () => {
     };
     next = jest.fn();
     jest.clearAllMocks();
-  });
-
-  describe('POST /api/v1/auth/register', () => {
-    it('Deberia responder 201 Created al registrar un usuario', async () => {
-      const mockUser = {
-        id: '1',
-        email: 'test@test.com',
-        username: 'test',
-      };
-
-      req.body = {
-        email: 'test@test.com',
-        username: 'test',
-        password: 'Pass123!',
-      };
-
-      mockRegister.mockResolvedValue(mockUser);
-
-      await authController.register(req, res, next);
-
-      expect(mockRegister).toHaveBeenCalledWith(req.body);
-      expect(res.status).toHaveBeenCalledWith(201);
-      expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({
-          success: true,
-          data: mockUser,
-        })
-      );
-    });
-
-    it('Deberia pasar el error al middleware next si falla el servicio', async () => {
-      const error = new Error('El correo ya esta registrado');
-
-      req.body = {
-        email: 'test@test.com',
-      };
-
-      mockRegister.mockRejectedValue(error);
-
-      await authController.register(req, res, next);
-
-      expect(next).toHaveBeenCalledWith(error);
-    });
   });
 
   describe('POST /api/v1/auth/login', () => {

@@ -26,6 +26,7 @@ let adminToken;
 let studentToken;
 let programId;
 let facultyId;
+let organizacionId;
 
 const login = async (email) => {
   const res = await request(app)
@@ -41,6 +42,12 @@ describe('Users Integration (HTTP + DB)', () => {
     programId = program.id;
     facultyId = faculty.id;
 
+    // Desde 84bf677 cada admin opera dentro de su organización.
+    const organizacion = await prisma.organization.create({
+      data: { name: `Users Org ${"$"}{runId}`, code: `USR${"$"}{runId}`.slice(0, 30) },
+    });
+    organizacionId = organizacion.id;
+
     const admin = await prisma.user.create({
       data: {
         username: `users.admin.${runId}`,
@@ -50,6 +57,7 @@ describe('Users Integration (HTTP + DB)', () => {
         lastName: 'Test',
         institutionalId: `UADM${runId}`,
         role: 'ADMIN',
+        organizationId: organizacionId,
         authProvider: 'LOCAL',
         isVerified: true,
         status: 'ACTIVE',
@@ -67,6 +75,7 @@ describe('Users Integration (HTTP + DB)', () => {
         lastName: 'Test',
         institutionalId: `USTU${runId}`,
         role: 'STUDENT',
+        organizationId: organizacionId,
         authProvider: 'LOCAL',
         isVerified: true,
         status: 'ACTIVE',
@@ -86,6 +95,7 @@ describe('Users Integration (HTTP + DB)', () => {
         lastName: 'User',
         institutionalId: `UTGT${runId}`,
         role: 'STUDENT',
+        organizationId: organizacionId,
         authProvider: 'LOCAL',
         isVerified: true,
         status: 'ACTIVE',
@@ -282,6 +292,7 @@ describe('Users Integration (HTTP + DB)', () => {
           last_name: 'PorAdmin',
           institutional_id: `UCRT${runId}`,
           role: 'STUDENT',
+          organization_id: organizacionId,
           program_id: programId,
           current_cycle: 5,
         });
@@ -403,4 +414,72 @@ describe('Users Integration (HTTP + DB)', () => {
       expect(res.status).toBe(400);
     });
   });
-}); 
+
+  // La facultad del docente es opcional (user/016_teacher_faculty_optional.sql):
+  // la plataforma sirve también a colegios, empresas y asociaciones, que no
+  // tienen facultades. Antes, un docente sin facultad terminaba en un 500.
+  describe('Docentes sin facultad', () => {
+    const teacherEmail = `users.teacher.nofaculty.${runId}@campusvote.edu.pe`;
+    const convertidoEmail = `users.to.teacher.${runId}@campusvote.edu.pe`;
+
+    afterAll(async () => {
+      await prisma.user
+        .deleteMany({ where: { email: { in: [teacherEmail, convertidoEmail] } } })
+        .catch(() => {});
+    });
+
+    it('el admin crea un docente sin facultad (201)', async () => {
+      const res = await request(app)
+        .post('/api/users')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          username: `users.teacher.nofaculty.${runId}`,
+          email: teacherEmail,
+          password: 'Password123!',
+          first_name: 'Docente',
+          last_name: 'SinFacultad',
+          institutional_id: `UTNF${runId}`,
+          role: 'TEACHER',
+          organization_id: organizacionId,
+          // Los docentes deben registrar DNI o CE (regla de identidad F1).
+          document_type: 'DNI',
+          document_number: String(runId).slice(-8),
+        });
+
+      expect(res.status).toBe(201);
+
+      const guardado = await prisma.user.findUnique({
+        where: { email: teacherEmail },
+        select: { role: true, facultyId: true },
+      });
+      expect(guardado).toEqual({ role: 'TEACHER', facultyId: null });
+    });
+
+    it('el admin convierte a un usuario en docente aunque no tenga facultad (200)', async () => {
+      const usuario = await prisma.user.create({
+        data: {
+          username: `users.to.teacher.${runId}`,
+          email: convertidoEmail,
+          password: await bcrypt.hash(PASSWORD, 12),
+          firstName: 'Futuro',
+          lastName: 'Docente',
+          institutionalId: `UTOT${runId}`,
+          role: 'STUDENT',
+          organizationId: organizacionId,
+          authProvider: 'LOCAL',
+          isVerified: true,
+          status: 'ACTIVE',
+          mustChangePassword: false,
+        },
+      });
+
+      const res = await request(app)
+        .patch(`/api/users/${usuario.id}/role`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ role: 'TEACHER' });
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.role).toBe('TEACHER');
+    });
+  });
+});

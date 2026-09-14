@@ -75,7 +75,7 @@ export const updateOnboarding = asyncHandler(async (req, res) => {
 
   // Validar que la organización exista y que el onboarding no esté completado
 
-  const organization = await organizationService.updateOnboarding(req.params.id, req.body);
+  const organization = await organizationService.updateOnboarding(req.params.id, req.body, req.user);
 
   return sendSuccess(
     res,
@@ -87,7 +87,7 @@ export const updateOnboarding = asyncHandler(async (req, res) => {
 });
 
 export const completeOnboarding = asyncHandler(async (req, res) => {
-  const organization = await organizationService.completeOnboarding(req.params.id);
+  const organization = await organizationService.completeOnboarding(req.params.id, req.user);
 
   logger.info(`Onboarding completado para la organización: ${req.params.id}`, {
     category: 'ORGANIZATION',

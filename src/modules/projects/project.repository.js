@@ -15,6 +15,8 @@ const PROJECT_SELECT = {
   coverUrl: true,
   projectUrl: true,
   status: true,
+  categoryId: true,
+  standId: true,
   reviewedById: true,
   reviewNotes: true,
   reviewedAt: true,
@@ -26,6 +28,12 @@ const PROJECT_SELECT = {
   },
   fair: {
     select: { id: true, name: true, status: true },
+  },
+  category: {
+    select: { id: true, name: true },
+  },
+  stand: {
+    select: { id: true, code: true },
   },
 };
 
@@ -89,6 +97,24 @@ export const create = async (data) => {
   }
 };
 
+/**
+ * Crea el proyecto y registra a quien lo inscribe (el docente) como ADVISOR,
+ * en una sola transacción: no queda un proyecto sin su asesor.
+ */
+export const createWithAdvisor = async (data) => {
+  try {
+    return await prisma.$transaction(async (tx) => {
+      const project = await tx.project.create({ data, select: { id: true } });
+      await tx.projectMember.create({
+        data: { projectId: project.id, userId: data.createdById, role: 'ADVISOR' },
+      });
+      return tx.project.findUnique({ where: { id: project.id }, select: PROJECT_SELECT });
+    });
+  } catch (error) {
+    return handlePrismaError(error);
+  }
+};
+
 export const update = async (id, data) => {
   try {
     return await prisma.project.update({
@@ -105,6 +131,58 @@ export const findUserById = (id) =>
   prisma.user.findUnique({
     where: { id },
     select: { id: true, organizationId: true, status: true, role: true },
+  });
+
+export const findUserByEmail = (email) =>
+  // email es CITEXT: la búsqueda ya ignora mayúsculas.
+  prisma.user.findUnique({
+    where: { email },
+    select: { id: true, organizationId: true, status: true, role: true },
+  });
+
+/** Participación del usuario en OTRO proyecto de la misma feria (o null). */
+export const findMembershipInFair = ({ fairId, userId, excludeProjectId }) =>
+  prisma.projectMember.findFirst({
+    where: {
+      userId,
+      projectId: { not: excludeProjectId },
+      project: { fairId },
+    },
+    select: { project: { select: { id: true, name: true } } },
+  });
+
+export const findCategoryById = (id) =>
+  prisma.fairCategory.findUnique({
+    where: { id },
+    select: { id: true, fairId: true, name: true },
+  });
+
+export const countCategoriesByFair = (fairId) => prisma.fairCategory.count({ where: { fairId } });
+
+export const findStandById = (id) =>
+  prisma.fairStand.findUnique({
+    where: { id },
+    select: { id: true, fairId: true, code: true },
+  });
+
+/** Ferias abiertas de la organización con sus categorías (catálogo de inscripción). */
+export const listOpenFairsWithCategories = (organizationId) =>
+  prisma.fair.findMany({
+    where: { organizationId, status: 'OPEN' },
+    select: {
+      id: true,
+      name: true,
+      description: true,
+      status: true,
+      startsAt: true,
+      endsAt: true,
+      registrationDeadline: true,
+      categories: {
+        select: { id: true, name: true, description: true },
+        orderBy: { name: 'asc' },
+      },
+    },
+    orderBy: [{ startsAt: 'asc' }, { createdAt: 'desc' }],
   });
 
 export const listMembers = (projectId) =>
@@ -148,8 +226,15 @@ export default {
   list,
   count,
   create,
+  createWithAdvisor,
   update,
   findUserById,
+  findUserByEmail,
+  findMembershipInFair,
+  findCategoryById,
+  countCategoriesByFair,
+  findStandById,
+  listOpenFairsWithCategories,
   listMembers,
   findMember,
   addMember,

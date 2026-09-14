@@ -194,7 +194,10 @@ export const createUser = async (body = {}, actor = {}) => {
     programId: program_id,
     facultyId: faculty_id,
     currentCycle: current_cycle,
+    // Quien da de alta el admin entra directo: verificado y ACTIVO. Sin
+    // status explícito la BD lo deja en PENDING y login_is_allowed lo rechaza.
     isVerified: true,
+    status: 'ACTIVE',
     ...(identity || {}),
   });
 
@@ -289,6 +292,7 @@ export const provisionAdmin = async (body = {}, actor = {}) => {
     organizationId: newOrg.id,
     mustChangePassword: true,
     isVerified: true,
+    status: 'ACTIVE',
   });
 
   // 3. Provisionar 2FA de primer acceso (OTP/QR).
@@ -403,6 +407,7 @@ export const createUsersBulk = async (items = [], actor = {}) => {
         organizationId: orgId,
         mustChangePassword: item.must_change_password ?? true,
         isVerified: true,
+        status: 'ACTIVE',
         ...(identity || {}),
       });
 
@@ -495,7 +500,6 @@ export const updateUserRole = async (id, role, actor = {}) => {
     where: { id },
     select: {
       isSuperuser: true,
-      facultyId: true,
       programId: true,
       currentCycle: true,
       admissionPeriodId: true,
@@ -516,9 +520,10 @@ export const updateUserRole = async (id, role, actor = {}) => {
     }
   }
 
-  // El CHECK académico de la BD exige coherencia entre rol y datos académicos:
-  // STUDENT -> program_id + current_cycle; TEACHER -> faculty_id; perfiles no
-  // académicos -> sin programa/ciclo/periodo de admisión, etc.
+  // Coherencia entre rol y datos académicos: STUDENT -> programa asignado;
+  // perfiles no académicos -> sin programa/ciclo/periodo de admisión. La
+  // facultad del docente es opcional (user/016_teacher_faculty_optional.sql):
+  // no todas las instituciones tienen facultades.
   const data = { role };
   if (role === 'STUDENT') {
     if (!existing.programId) {
@@ -529,11 +534,7 @@ export const updateUserRole = async (id, role, actor = {}) => {
     data.currentCycle = null;
     data.admissionPeriodId = null;
   }
-  if (role === 'TEACHER') {
-    if (!existing.facultyId) {
-      throw ApiError.badRequest('Un docente requiere una facultad asignada');
-    }
-  } else {
+  if (role !== 'TEACHER') {
     data.specialty = null;
     data.department = null;
   }

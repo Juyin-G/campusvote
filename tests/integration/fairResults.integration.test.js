@@ -12,7 +12,7 @@
  *   del cliente ignorado; winner solo después de publicar; published/gatado en
  *   GET results sin alterar el ranking).
  *   Revisión de proyectos por JURY (21-30): GET /api/fairs/:id/projects/:projectId
- *   exclusivo del JURY (403 para ADMIN/SUPERADMIN/STUDENT, 403 sin asignación,
+ *   para el JURY asignado y el ADMIN/SUPERADMIN de resultados (403 STUDENT, 403 sin asignación,
  *   404 si el proyecto es de otra feria o no está APPROVED, sin datos sensibles).
  */
 import { jest } from '@jest/globals';
@@ -67,6 +67,9 @@ let juryCToken;
 
 let closed2RankingBefore;
 
+// Docente con facultad, como en una universidad (la facultad es opcional).
+let facultyId;
+
 const login = async (email) => {
   const res = await request(app)
     .post('/api/auth/login')
@@ -88,6 +91,7 @@ const createUser = async ({ role, organizationId, suffix, id } = {}) => {
     status: 'ACTIVE',
     mustChangePassword: false,
     organizationId,
+    facultyId: role === 'TEACHER' ? facultyId : null,
   };
   const created = await prisma.user.create({ data: id ? { ...base, id } : base });
   return created;
@@ -95,7 +99,11 @@ const createUser = async ({ role, organizationId, suffix, id } = {}) => {
 
 const createProject = async ({ id, fairId, organizationId, createdById, name, status }) =>
   prisma.project.create({
-    data: { id, fairId, organizationId, createdById, name, status, description: null },
+    data: {
+      id, fairId, organizationId, createdById, name, status, description: null,
+      // chk_projects_review_consistency: aprobado/rechazado exige fecha de revisión.
+      reviewedAt: ['APPROVED', 'REJECTED'].includes(status) ? new Date() : null,
+    },
   });
 
 const createEvaluation = async ({ fairId, projectId, juryUserId, rubricId, totalScore }) =>
@@ -116,6 +124,11 @@ const getProjectReview = (token, fairId, projectId) =>
 
 describe('FairResults Integration (HTTP + DB)', () => {
   beforeAll(async () => {
+    const faculty = await prisma.faculty.create({
+      data: { name: `Facultad Ferias ${runId}`, code: `FR${runId}`.slice(0, 20) },
+    });
+    facultyId = faculty.id;
+
     const orgA = await prisma.organization.create({
       data: { name: `Org A ${runId}`, code: `ORGA${runId}` },
     });
@@ -131,6 +144,22 @@ describe('FairResults Integration (HTTP + DB)', () => {
     const ec = await createUser({ role: 'ELECTORAL_COMMISSION', organizationId: orgA.id, suffix: 'Ec' });
     const juryA = await createUser({ role: 'JURY', organizationId: orgA.id, suffix: 'JuryA', id: JURY_A });
     const juryC = await createUser({ role: 'JURY', organizationId: orgA.id, suffix: 'JuryC', id: JURY_C });
+    // Un jurado evalúa una sola vez cada proyecto (uq_fair_evaluations_fair_project_jury):
+    // para varias evaluaciones del mismo proyecto hacen falta varios jurados.
+    const juryE2 = await createUser({ role: 'JURY', organizationId: orgA.id, suffix: 'JuryE2' });
+    const juryE3 = await createUser({ role: 'JURY', organizationId: orgA.id, suffix: 'JuryE3' });
+    const evaluadores = [JURY_A, juryE2.id, juryE3.id];
+    const asignarEvaluadores = (fairId) =>
+      Promise.all(
+        evaluadores.map((userId) =>
+          prisma.fairJuryAssignment.create({ data: { fairId, userId, assignedById: adminA.id } })
+        )
+      );
+    const evaluar = async ({ fairId, projectId, rubricId, scores }) => {
+      for (const [i, totalScore] of scores.entries()) {
+        await createEvaluation({ fairId, projectId, juryUserId: evaluadores[i], rubricId, totalScore });
+      }
+    };
 
     adminAId = adminA.id;
 
@@ -145,9 +174,7 @@ describe('FairResults Integration (HTTP + DB)', () => {
       data: { fairId: fairClosedId, name: 'Rúbrica' },
     });
 
-    await prisma.fairJuryAssignment.create({
-      data: { fairId: fairClosedId, userId: JURY_A, assignedById: adminA.id },
-    });
+    await asignarEvaluadores(fairClosedId);
 
     await createProject({
       id: P1, fairId: fairClosedId, organizationId: orgA.id, createdById: student.id, name: 'Alpha', status: 'APPROVED',
@@ -183,18 +210,10 @@ describe('FairResults Integration (HTTP + DB)', () => {
     });
 
     // Evaluaciones Mientras la feria está OPEN (trigger de 004 lo exige).
-    for (const score of [18, 19, 17]) {
-      await createEvaluation({ fairId: fairClosedId, projectId: P1, juryUserId: JURY_A, rubricId: rubricClosed.id, totalScore: score });
-    }
-    for (const score of [18, 18, 18]) {
-      await createEvaluation({ fairId: fairClosedId, projectId: P4, juryUserId: JURY_A, rubricId: rubricClosed.id, totalScore: score });
-    }
-    for (const score of [18, 18]) {
-      await createEvaluation({ fairId: fairClosedId, projectId: P5, juryUserId: JURY_A, rubricId: rubricClosed.id, totalScore: score });
-    }
-    for (const score of [19, 19]) {
-      await createEvaluation({ fairId: fairClosedId, projectId: P2, juryUserId: JURY_A, rubricId: rubricClosed.id, totalScore: score });
-    }
+    await evaluar({ fairId: fairClosedId, projectId: P1, rubricId: rubricClosed.id, scores: [18, 19, 17] });
+    await evaluar({ fairId: fairClosedId, projectId: P4, rubricId: rubricClosed.id, scores: [18, 18, 18] });
+    await evaluar({ fairId: fairClosedId, projectId: P5, rubricId: rubricClosed.id, scores: [18, 18] });
+    await evaluar({ fairId: fairClosedId, projectId: P2, rubricId: rubricClosed.id, scores: [19, 19] });
 
     await prisma.fair.update({ where: { id: fairClosedId }, data: { status: 'CLOSED' } });
 
@@ -248,15 +267,11 @@ describe('FairResults Integration (HTTP + DB)', () => {
     const rubricClosed2 = await prisma.fairRubric.create({
       data: { fairId: fairClosed2Id, name: 'Rúbrica' },
     });
-    await prisma.fairJuryAssignment.create({
-      data: { fairId: fairClosed2Id, userId: JURY_A, assignedById: adminA.id },
-    });
+    await asignarEvaluadores(fairClosed2Id);
     await createProject({
       id: CLOSED2_P1, fairId: fairClosed2Id, organizationId: orgA.id, createdById: student.id, name: 'Publicado', status: 'APPROVED',
     });
-    for (const score of [10, 10]) {
-      await createEvaluation({ fairId: fairClosed2Id, projectId: CLOSED2_P1, juryUserId: JURY_A, rubricId: rubricClosed2.id, totalScore: score });
-    }
+    await evaluar({ fairId: fairClosed2Id, projectId: CLOSED2_P1, rubricId: rubricClosed2.id, scores: [10, 10] });
     await prisma.fair.update({ where: { id: fairClosed2Id }, data: { status: 'CLOSED' } });
 
     adminAToken = await login(adminA.email);
@@ -517,14 +532,21 @@ describe('FairResults Integration (HTTP + DB)', () => {
       expect(res.status).toBe(403);
     });
 
-    it('28. ADMIN no obtiene acceso al endpoint exclusivo de JURY → 403', async () => {
+    // El detalle es compartido: el ADMIN/SUPERADMIN lo consulta desde la vista
+    // de resultados (fairEvaluation.routes.js, READERS), siempre por tenant.
+    it('28. ADMIN de la organización de la feria ve el detalle → 200', async () => {
       const res = await getProjectReview(adminAToken, fairClosedId, P2);
+      expect(res.status).toBe(200);
+    });
+
+    it('28b. ADMIN de otra organización no ve el detalle → 403 (tenant)', async () => {
+      const res = await getProjectReview(adminBToken, fairClosedId, P2);
       expect(res.status).toBe(403);
     });
 
-    it('29. SUPERADMIN no obtiene acceso al endpoint exclusivo de JURY → 403', async () => {
+    it('29. SUPERADMIN ve el detalle con bypass de tenant → 200', async () => {
       const res = await getProjectReview(superToken, fairClosedId, P2);
-      expect(res.status).toBe(403);
+      expect(res.status).toBe(200);
     });
 
     it('30. el detalle devuelve solo información segura (sin email/documento)', async () => {

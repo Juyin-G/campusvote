@@ -202,6 +202,10 @@ describe('User Service', () => {
   });
 
   describe('createUser', () => {
+    // Desde 84bf677 los usuarios institucionales se crean dentro de la
+    // organización del admin que los da de alta.
+    const ADMIN_DE_LA_ORG = { userId: 'admin-uuid', role: 'ADMIN', organizationId: 'org-uuid' };
+
     it('Deberia crear usuario con password hasheado', async () => {
       mockHash.mockResolvedValue('hashed');
       mockCreate.mockResolvedValue({ ...sampleUser, id: 'new-id' });
@@ -214,11 +218,37 @@ describe('User Service', () => {
         last_name: 'User',
         institutional_id: '20249999',
         role: 'STUDENT',
-      });
+        organization_id: 'org-uuid',
+      }, ADMIN_DE_LA_ORG);
 
       expect(mockHash).toHaveBeenCalledWith('Password123!', 12);
       expect(mockCreate).toHaveBeenCalled();
       expect(result.id).toBe('new-id');
+    });
+
+    it('Deberia rechazar un usuario institucional sin organización', async () => {
+      await expect(
+        userService.createUser(
+          { username: 'sinorg', email: 'sinorg@test.edu.pe', password: 'Password123!', role: 'STUDENT' },
+          ADMIN_DE_LA_ORG
+        )
+      ).rejects.toThrow('Los usuarios institucionales deben pertenecer a una organización');
+      expect(mockCreate).not.toHaveBeenCalled();
+    });
+
+    it('Deberia impedir que un admin cree usuarios en otra organización', async () => {
+      await expect(
+        userService.createUser(
+          {
+            username: 'ajeno',
+            email: 'ajeno@test.edu.pe',
+            password: 'Password123!',
+            role: 'STUDENT',
+            organization_id: 'otra-org',
+          },
+          ADMIN_DE_LA_ORG
+        )
+      ).rejects.toThrow('Solo puedes crear usuarios dentro de tu organización');
     });
   });
 

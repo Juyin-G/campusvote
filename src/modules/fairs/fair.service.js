@@ -14,6 +14,7 @@ import { prisma } from '../../database/prisma.js';
 import { ApiError } from '../../shared/errors/ApiError.js';
 import { ROLES } from '../../constants/roles.js';
 import { parsePagination } from '../../shared/utils/pagination.js';
+import { getRegistrationDeadline } from './fair.registration.js';
 
 const isSuperAdmin = (actor) =>
   actor.role === ROLES.SUPERADMIN || actor.isSuperAdmin || actor.isSuperuser;
@@ -36,9 +37,14 @@ const assertTenantMatch = ({ fair, actor }) => {
   }
 };
 
-const assertValidDates = ({ startsAt, endsAt }) => {
+const assertValidDates = ({ startsAt, endsAt, registrationDeadline }) => {
   if (startsAt && endsAt && startsAt > endsAt) {
     throw ApiError.badRequest('La fecha de inicio no puede ser posterior a la fecha de fin');
+  }
+  if (registrationDeadline && startsAt && registrationDeadline > startsAt) {
+    throw ApiError.badRequest(
+      'El cierre de inscripción no puede ser posterior a la fecha de inicio de la feria'
+    );
   }
 };
 
@@ -73,6 +79,9 @@ const mapFair = (fair) => ({
   status: fair.status,
   starts_at: fair.startsAt,
   ends_at: fair.endsAt,
+  registration_deadline: fair.registrationDeadline,
+  // Cierre efectivo: el configurado o, si no hay, 24 h antes del inicio.
+  registration_closes_at: getRegistrationDeadline(fair),
   site: fair.site
     ? {
         id: fair.site.id,
@@ -118,7 +127,11 @@ export const createFair = async ({ data, actor }) => {
     throw ApiError.forbidden('Tu cuenta no está vinculada a ninguna organización');
   }
 
-  assertValidDates({ startsAt: data.starts_at, endsAt: data.ends_at });
+  assertValidDates({
+    startsAt: data.starts_at,
+    endsAt: data.ends_at,
+    registrationDeadline: data.registration_deadline,
+  });
   await assertSiteOfOrganization({ siteId: data.site_id, organizationId: actor.organizationId });
 
   const fair = await fairRepository.create({
@@ -129,6 +142,7 @@ export const createFair = async ({ data, actor }) => {
     siteId: data.site_id ?? null,
     startsAt: data.starts_at ?? null,
     endsAt: data.ends_at ?? null,
+    registrationDeadline: data.registration_deadline ?? null,
   });
 
   return mapFair(fair);
@@ -144,7 +158,13 @@ export const updateFair = async ({ fairId, data, actor }) => {
 
   const nextStartsAt = data.starts_at !== undefined ? data.starts_at : fair.startsAt;
   const nextEndsAt = data.ends_at !== undefined ? data.ends_at : fair.endsAt;
-  assertValidDates({ startsAt: nextStartsAt, endsAt: nextEndsAt });
+  const nextRegistrationDeadline =
+    data.registration_deadline !== undefined ? data.registration_deadline : fair.registrationDeadline;
+  assertValidDates({
+    startsAt: nextStartsAt,
+    endsAt: nextEndsAt,
+    registrationDeadline: nextRegistrationDeadline,
+  });
 
   await assertSiteOfOrganization({
     siteId: data.site_id !== undefined ? data.site_id : fair.siteId,
@@ -156,6 +176,9 @@ export const updateFair = async ({ fairId, data, actor }) => {
     ...(data.description !== undefined ? { description: data.description || null } : {}),
     ...(data.starts_at !== undefined ? { startsAt: data.starts_at } : {}),
     ...(data.ends_at !== undefined ? { endsAt: data.ends_at } : {}),
+    ...(data.registration_deadline !== undefined
+      ? { registrationDeadline: data.registration_deadline }
+      : {}),
     ...(data.site_id !== undefined ? { siteId: data.site_id || null } : {}),
   });
 

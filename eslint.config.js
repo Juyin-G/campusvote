@@ -1,3 +1,4 @@
+import globals from 'globals';
 import pluginSecurity from 'eslint-plugin-security';
 import pluginSonarjs from 'eslint-plugin-sonarjs';
 
@@ -12,7 +13,17 @@ export default [
   pluginSonarjs.configs.recommended,
 
   {
+    languageOptions: {
+      ecmaVersion: 'latest',
+      sourceType: 'module',
+      globals: { ...globals.node },
+    },
     rules: {
+      // Usar una función o variable que no se importó ni declaró rompe en
+      // tiempo de ejecución (p. ej. sendCreated sin importar → 500 al publicar
+      // resultados). Esta regla lo detecta antes de subir el código.
+      'no-undef': 'error',
+
       // Calidad de código
       'no-debugger': 'error',
       'no-eval': 'error',
@@ -36,6 +47,9 @@ export default [
 
   {
     files: ['scripts/**/*.js', 'tests/**/*.js', '**/*.test.js', '**/*.spec.js'],
+    languageOptions: {
+      globals: { ...globals.node, ...globals.jest },
+    },
     rules: {
       'no-console': 'off',
       'sonarjs/no-hardcoded-passwords': 'off',

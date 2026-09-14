@@ -24,6 +24,7 @@ jest.unstable_mockModule('../../src/middlewares/rateLimiter.middleware.js', () =
 
 const app = (await import('../../src/app.js')).default;
 const { prisma } = await import('../../src/database/prisma.js');
+const emailService = await import('../../src/shared/services/email.service.js');
 
 const TEST_PASSWORD = 'AuthTest123!';
 const runId = Date.now();
@@ -148,47 +149,18 @@ describe('Auth Integration (HTTP + DB)', () => {
   });
 
   describe('POST /api/auth/register', () => {
-    const registerEmail = `auth.register.${runId}@campusvote.edu.pe`;
-
-    afterAll(async () => {
-      await prisma.user.deleteMany({ where: { email: registerEmail } }).catch(() => {});
-    });
-
-    it('Deberia registrar un usuario nuevo con 201', async () => {
+    // No hay auto-registro: las cuentas las crea el admin (alta individual o
+    // carga masiva). La ruta se retiró en 84bf677 junto con el login externo.
+    it('Deberia responder 404 porque el auto-registro no existe', async () => {
       const res = await request(app)
         .post('/api/auth/register')
         .send({
           username: `register.${runId}`,
-          email: registerEmail,
+          email: `auth.register.${runId}@campusvote.edu.pe`,
           password: 'Register123!',
-          firstName: 'Nuevo',
-          lastName: 'Usuario',
-          institutionalId: `REG${runId}`,
-          programId,
-          currentCycle: 3,
         });
 
-      expect(res.status).toBe(201);
-      expect(res.body.success).toBe(true);
-      expect(res.body.data.user.email).toBe(registerEmail);
-    });
-
-    it('Deberia rechazar email duplicado con 409', async () => {
-      const res = await request(app)
-        .post('/api/auth/register')
-        .send({
-          username: `register.dup.${runId}`,
-          email: registerEmail,
-          password: 'Register123!',
-          firstName: 'Otro',
-          lastName: 'Usuario',
-          institutionalId: `REGDUP${runId}`,
-          programId,
-          currentCycle: 3,
-        });
-
-      expect(res.status).toBe(409);
-      expect(res.body.error.code).toBe('CONFLICT');
+      expect(res.status).toBe(404);
     });
   });
 
@@ -200,6 +172,126 @@ describe('Auth Integration (HTTP + DB)', () => {
 
       expect(res.status).toBe(200);
       expect(res.body.error?.code).not.toBe('DATABASE_QUERY_FAILED');
+    });
+  });
+
+  // resendVerification usaba sendVerification sin importarla: cualquier
+  // reenvío terminaba en un 500 (ReferenceError).
+  describe('POST /api/auth/verify-email/resend', () => {
+    const pendienteEmail = `auth.unverified.${runId}@campusvote.edu.pe`;
+
+    beforeAll(async () => {
+      await prisma.user.create({
+        data: {
+          username: `auth.unverified.${runId}`,
+          email: pendienteEmail,
+          password: await bcrypt.hash(TEST_PASSWORD, 12),
+          firstName: 'Sin',
+          lastName: 'Verificar',
+          institutionalId: `AUNV${runId}`,
+          role: 'STUDENT',
+          authProvider: 'LOCAL',
+          isVerified: false,
+          status: 'ACTIVE',
+          mustChangePassword: false,
+        },
+      });
+    });
+
+    afterAll(async () => {
+      await prisma.user.deleteMany({ where: { email: pendienteEmail } }).catch(() => {});
+    });
+
+    it('reenvía el correo de verificación a un usuario sin verificar (200)', async () => {
+      emailService.sendVerification.mockClear();
+
+      const res = await request(app)
+        .post('/api/auth/verify-email/resend')
+        .send({ email: pendienteEmail.toUpperCase() });
+
+      expect(res.status).toBe(200);
+      expect(emailService.sendVerification).toHaveBeenCalledTimes(1);
+      expect(emailService.sendVerification).toHaveBeenCalledWith(
+        expect.objectContaining({ email: pendienteEmail, token: expect.any(String) })
+      );
+    });
+
+    it('responde igual con un correo inexistente, sin enviar nada (no revela cuentas)', async () => {
+      emailService.sendVerification.mockClear();
+
+      const res = await request(app)
+        .post('/api/auth/verify-email/resend')
+        .send({ email: `nadie.${runId}@campusvote.edu.pe` });
+
+      expect(res.status).toBe(200);
+      expect(emailService.sendVerification).not.toHaveBeenCalled();
+    });
+  });
+
+  // login_is_allowed rechaza tanto un bloqueo temporal como una cuenta no
+  // ACTIVE; antes ambos casos respondían "bloqueada ... en {minutes} minutos".
+  describe('POST /api/auth/login con cuenta bloqueada o inactiva', () => {
+    const crear = async (sufijo, extra) =>
+      prisma.user.create({
+        data: {
+          username: `auth.${sufijo}.${runId}`,
+          email: `auth.${sufijo}.${runId}@campusvote.edu.pe`,
+          password: await bcrypt.hash(TEST_PASSWORD, 12),
+          firstName: 'Estado',
+          lastName: sufijo,
+          institutionalId: `AST${sufijo}${runId}`.slice(0, 50),
+          role: 'STUDENT',
+          authProvider: 'LOCAL',
+          isVerified: true,
+          mustChangePassword: false,
+          ...extra,
+        },
+      });
+
+    let suspendido;
+    let bloqueado;
+
+    beforeAll(async () => {
+      suspendido = await crear('suspendido', { status: 'SUSPENDED' });
+      bloqueado = await crear('bloqueado', {
+        status: 'ACTIVE',
+        failedLoginAttempts: 5,
+        lockedUntil: new Date(Date.now() + 10 * 60 * 1000),
+      });
+    });
+
+    afterAll(async () => {
+      await prisma.user
+        .deleteMany({ where: { id: { in: [suspendido.id, bloqueado.id] } } })
+        .catch(() => {});
+    });
+
+    it('una cuenta suspendida con la contraseña correcta recibe 403 ACCOUNT_INACTIVE', async () => {
+      const res = await request(app)
+        .post('/api/auth/login')
+        .send({ email: suspendido.email, password: TEST_PASSWORD });
+
+      expect(res.status).toBe(403);
+      expect(res.body.error.code).toBe('ACCOUNT_INACTIVE');
+    });
+
+    it('con contraseña incorrecta no revela que la cuenta está inactiva (401)', async () => {
+      const res = await request(app)
+        .post('/api/auth/login')
+        .send({ email: suspendido.email, password: 'Incorrecta123!' });
+
+      expect(res.status).toBe(401);
+    });
+
+    it('una cuenta bloqueada recibe 423 con los minutos reales, sin el marcador {minutes}', async () => {
+      const res = await request(app)
+        .post('/api/auth/login')
+        .send({ email: bloqueado.email, password: TEST_PASSWORD });
+
+      expect(res.status).toBe(423);
+      expect(res.body.error.code).toBe('ACCOUNT_LOCKED');
+      expect(res.body.error.message).not.toContain('{minutes}');
+      expect(res.body.error.message).toMatch(/en 10 minutos/);
     });
   });
 });

@@ -77,11 +77,21 @@ export const createOrganization = async (data = {}) => {
 /**
  * Actualizar una organización
  */
-export const updateOrganization = async (id, data = {}, actor = {}) => {
-  const isSuperAdmin = actor?.role === 'SUPERADMIN' || actor?.isSuperuser || actor?.isSuperAdmin;
-  if (!isSuperAdmin && actor?.organizationId !== id) {
-    throw ApiError.forbidden('Solo puedes actualizar la identidad de tu organización');
+/**
+ * Un ADMIN solo opera sobre SU organización; el SUPERADMIN, sobre cualquiera.
+ */
+const isSuperAdminActor = (actor) =>
+  actor?.role === 'SUPERADMIN' || actor?.isSuperuser || actor?.isSuperAdmin;
+
+const assertOwnOrganization = (id, actor, message) => {
+  if (!isSuperAdminActor(actor) && actor?.organizationId !== id) {
+    throw ApiError.forbidden(message);
   }
+};
+
+export const updateOrganization = async (id, data = {}, actor = {}) => {
+  assertOwnOrganization(id, actor, 'Solo puedes actualizar la identidad de tu organización');
+  const isSuperAdmin = isSuperAdminActor(actor);
   const existingOrg = await orgRepository.findOrgById(id);
   if (!existingOrg) {
     throw ApiError.notFound('Organización no encontrada');
@@ -154,7 +164,8 @@ export const deleteOrganization = async (id) => {
 /**
  * Actualizar datos específicos del proceso de onboarding
  */
-export const updateOnboarding = async (organizationId, data = {}) => {
+export const updateOnboarding = async (organizationId, data = {}, actor = {}) => {
+  assertOwnOrganization(organizationId, actor, 'Solo puedes configurar el onboarding de tu organización');
   const existingOrg = await orgRepository.findOrgById(organizationId);
   if (!existingOrg) {
     throw ApiError.notFound('Organización no encontrada');
@@ -179,7 +190,8 @@ export const updateOnboarding = async (organizationId, data = {}) => {
 /**
  * Marcar onboarding como completado
  */
-export const completeOnboarding = async (organizationId) => {
+export const completeOnboarding = async (organizationId, actor = {}) => {
+  assertOwnOrganization(organizationId, actor, 'Solo puedes completar el onboarding de tu organización');
   const existingOrg = await orgRepository.findOrgById(organizationId);
   if (!existingOrg) {
     throw ApiError.notFound('Organización no encontrada');

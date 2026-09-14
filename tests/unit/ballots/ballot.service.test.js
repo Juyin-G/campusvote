@@ -25,12 +25,24 @@ jest.unstable_mockModule(
   })
 );
 
+// Desde 84bf677 el servicio comprueba que la elección exista y sea de la
+// organización del actor antes de tocar sus boletas.
+const mockFindElectionOwnerOrganization = jest.fn();
+
+jest.unstable_mockModule(
+  '../../../src/modules/elections/elections/election.repository.js',
+  () => ({
+    findElectionOwnerOrganization: mockFindElectionOwnerOrganization,
+  })
+);
+
 const service = await import(
   '../../../src/modules/ballots/ballot.service.js'
 );
 
 const BALLOT = '11111111-1111-1111-1111-111111111111';
 const ELECTION = '22222222-2222-2222-2222-222222222222';
+const ORG = '33333333-3333-4333-8333-333333333333';
 
 const capturarError = async (fn) => {
   try {
@@ -42,7 +54,10 @@ const capturarError = async (fn) => {
 };
 
 describe('Ballot Service — CRUD', () => {
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockFindElectionOwnerOrganization.mockResolvedValue(ORG);
+  });
 
   it('lista ballots con paginación', async () => {
     mockCountBallotsByElection.mockResolvedValue(12);
@@ -164,7 +179,10 @@ describe('Ballot Service — CRUD', () => {
 });
 
 describe('Ballot Service — funciones especiales', () => {
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockFindElectionOwnerOrganization.mockResolvedValue(ORG);
+  });
 
   it('getActiveBallot devuelve 404 si no existe activa', async () => {
     mockGetActiveBallot.mockResolvedValue(null);
@@ -230,5 +248,42 @@ describe('Ballot Service — funciones especiales', () => {
       ballotId: BALLOT,
       isComplete: true,
     });
+  });
+});
+describe('Ballot Service — alcance por organización', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockFindElectionOwnerOrganization.mockResolvedValue(ORG);
+  });
+
+  it('un admin de otra organización no ve las boletas de la elección (403)', async () => {
+    const err = await capturarError(() =>
+      service.listBallots(
+        { election_id: ELECTION },
+        { role: 'ADMIN', organizationId: '44444444-4444-4444-8444-444444444444' }
+      )
+    );
+
+    expect(err.statusCode).toBe(403);
+    expect(mockListBallotsByElection).not.toHaveBeenCalled();
+  });
+
+  it('crear una boleta para una elección inexistente responde 404', async () => {
+    mockFindElectionOwnerOrganization.mockResolvedValue(null);
+
+    const err = await capturarError(() =>
+      service.createBallot({ election_id: ELECTION }, { role: 'ADMIN', organizationId: ORG })
+    );
+
+    expect(err.statusCode).toBe(404);
+    expect(mockCreateBallot).not.toHaveBeenCalled();
+  });
+
+  it('el SUPERADMIN puede operar sobre cualquier organización', async () => {
+    mockGetActiveBallot.mockResolvedValue({ id: BALLOT });
+
+    const ballot = await service.getActiveBallot(ELECTION, { role: 'SUPERADMIN' });
+
+    expect(ballot).toEqual({ id: BALLOT });
   });
 });

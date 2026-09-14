@@ -35,6 +35,7 @@ const controller = await import(
 
 const ID = '3f0c2b1e-1c2d-4a5b-8c9d-0e1f2a3b4c5d';
 const ACTOR = '7a2b9c4d-3e5f-4a6b-9c8d-1e2f3a4b5c6d';
+const ORG = 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee';
 
 describe('Election Controller', () => {
   let req;
@@ -46,7 +47,7 @@ describe('Election Controller', () => {
       body: {},
       params: {},
       query: {},
-      user: { userId: ACTOR, role: 'ADMIN' },
+      user: { userId: ACTOR, role: 'ADMIN', organizationId: ORG },
       requestId: 'rid-1',
     };
     res = { status: jest.fn().mockReturnThis(), json: jest.fn() };
@@ -63,7 +64,7 @@ describe('Election Controller', () => {
 
     await controller.listElections(req, res, next);
 
-    expect(mockListElections).toHaveBeenCalledWith(req.query);
+    expect(mockListElections).toHaveBeenCalledWith(req.query, req.user);
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -86,23 +87,23 @@ describe('Election Controller', () => {
     expect(res.status).toHaveBeenCalledWith(200);
   });
 
-  it('crear responde 201 y pasa el userId del JWT como creador', async () => {
+  it('crear responde 201 y pasa el userId y la organización del JWT', async () => {
     mockCreateElection.mockResolvedValue({ id: ID, status: 'DRAFT' });
     req.body = { title: 'Elecciones 2026' };
 
     await controller.createElection(req, res, next);
 
-    expect(mockCreateElection).toHaveBeenCalledWith(req.body, ACTOR);
+    expect(mockCreateElection).toHaveBeenCalledWith(req.body, ACTOR, ORG);
     expect(res.status).toHaveBeenCalledWith(201);
   });
 
   it('crear acepta req.user.id como respaldo si no viene userId', async () => {
     mockCreateElection.mockResolvedValue({ id: ID });
-    req.user = { id: ACTOR, role: 'ADMIN' };
+    req.user = { id: ACTOR, role: 'ADMIN', organizationId: ORG };
 
     await controller.createElection(req, res, next);
 
-    expect(mockCreateElection).toHaveBeenCalledWith(req.body, ACTOR);
+    expect(mockCreateElection).toHaveBeenCalledWith(req.body, ACTOR, ORG);
   });
 
   it('actualizar pasa id y body por separado', async () => {
@@ -163,7 +164,7 @@ describe('Election Controller — mensajes del workflow', () => {
       body: {},
       params: { id: ID },
       query: {},
-      user: { userId: ACTOR, role: 'ADMIN' },
+      user: { userId: ACTOR, role: 'ADMIN', organizationId: ORG },
       requestId: 'rid-1',
     };
     res = { status: jest.fn().mockReturnThis(), json: jest.fn() };

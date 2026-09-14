@@ -26,6 +26,25 @@ const ASSIGNMENT_SELECT = {
   },
 };
 
+// Vista del propio JURY: su asignación con los datos de la feria.
+const MY_FAIR_SELECT = {
+  id: true,
+  fairId: true,
+  userId: true,
+  createdAt: true,
+  fair: {
+    select: {
+      id: true,
+      organizationId: true,
+      name: true,
+      description: true,
+      status: true,
+      startsAt: true,
+      endsAt: true,
+    },
+  },
+};
+
 export const findByFairUser = (fairId, userId) =>
   prisma.fairJuryAssignment.findFirst({
     where: { fairId, userId },
@@ -39,26 +58,17 @@ export const listByFair = (fairId) =>
     orderBy: { createdAt: 'asc' },
   });
 
+/** Asignación del JURY en una feria, con los datos de la feria (o null). */
+export const findMyFair = (fairId, userId) =>
+  prisma.fairJuryAssignment.findFirst({
+    where: { fairId, userId },
+    select: MY_FAIR_SELECT,
+  });
+
 export const listByUser = ({ userId, skip = 0, take = 20 }) =>
   prisma.fairJuryAssignment.findMany({
     where: { userId },
-    select: {
-      id: true,
-      fairId: true,
-      userId: true,
-      createdAt: true,
-      fair: {
-        select: {
-          id: true,
-          organizationId: true,
-          name: true,
-          description: true,
-          status: true,
-          startsAt: true,
-          endsAt: true,
-        },
-      },
-    },
+    select: MY_FAIR_SELECT,
     orderBy: { createdAt: 'desc' },
     skip,
     take,
@@ -93,6 +103,7 @@ export const remove = async (fairId, userId) =>
 
 export default {
   findByFairUser,
+  findMyFair,
   listByFair,
   listByUser,
   countByUser,

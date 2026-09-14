@@ -28,6 +28,7 @@ const runId = Date.now();
 
 const enDias = (dias) => new Date(Date.now() + dias * 86400000).toISOString();
 
+let organizacionId;
 let adminId;
 let studentId;
 let facultyId;
@@ -41,6 +42,14 @@ let listId;
 
 const crearUsuario = async (rol, prefijo, programId) => {
   const hash = await bcrypt.hash(PASSWORD, 12);
+  // Desde 84bf677 las elecciones pertenecen a la organización de quien las
+  // crea: todos los usuarios de la prueba comparten una.
+  if (!organizacionId) {
+    const organizacion = await prisma.organization.create({
+      data: { name: `Elec Org ${runId}`, code: `ELEC${runId}`.slice(0, 30) },
+    });
+    organizacionId = organizacion.id;
+  }
   return prisma.user.create({
     data: {
       username: `elec.${prefijo}.${runId}`,
@@ -50,6 +59,7 @@ const crearUsuario = async (rol, prefijo, programId) => {
       lastName: rol,
       institutionalId: `E${prefijo.toUpperCase()}${runId}`,
       role: rol,
+      organizationId: organizacionId,
       authProvider: 'LOCAL',
       isVerified: true,
       status: 'ACTIVE',

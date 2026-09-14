@@ -1,10 +1,9 @@
 /**
  * Fixture académico compartido para tests de integración.
  *
- * Los CHECK constraints de Postgres (chk_users_academic_linkage y
- * chk_users_student_data) exigen que los usuarios STUDENT tengan
- * program_id y current_cycle. Este helper crea la Faculty + Program
- * necesarios una sola vez por suite.
+ * Crea la Faculty + Program que las suites usan para dar a sus usuarios un
+ * vínculo académico realista (programa del estudiante, facultad del
+ * docente). Ninguno de los dos es obligatorio en la BD.
  */
 import { prisma } from '../../src/database/prisma.js';
 

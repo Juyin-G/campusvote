@@ -240,7 +240,8 @@ export const listMyAssignments = async ({ actor, filters = {} }) => {
 
 /** Detalle básico de una feria asignada (sin permisos administrativos). */
 export const getMyAssignmentFair = async ({ fairId, actor }) => {
-  const assignment = await juryRepository.findByFairUser(fairId, actor.id);
+  // findMyFair incluye la feria; findByFairUser no (mapMyFair la necesita).
+  const assignment = await juryRepository.findMyFair(fairId, actor.id);
   if (!assignment) {
     // No se revela la existencia de la feria a un JURY no asignado.
     throw ApiError.forbidden('No tienes asignación en esta feria');

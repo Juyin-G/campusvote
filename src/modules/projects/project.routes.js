@@ -1,7 +1,7 @@
 // src/modules/projects/project.routes.js
 // Rutas de proyectos de feria académica.
-// Creación/edición/integrantes: propietario (STUDENT/TEACHER).
-// Revisión administrativa: ADMIN/SUPERADMIN.
+// Inscripción/edición/integrantes: el DOCENTE asesor que inscribe el proyecto.
+// Revisión de la inscripción y asignación de stand: ADMIN/SUPERADMIN.
 // Lectura: cualquier rol autenticado (el scope por organización se resuelve
 // en el service, siguiendo el patrón assertTenantAccess de rating/objection).
 
@@ -14,10 +14,15 @@ import * as projectSchema from './project.schema.js';
 
 const router = Router();
 
-const CREATORS = [ROLES.STUDENT, ROLES.TEACHER];
+const CREATORS = [ROLES.TEACHER];
 const REVIEWERS = [ROLES.ADMIN, ROLES.SUPERADMIN];
+const CATALOG_READERS = [ROLES.TEACHER, ROLES.ADMIN, ROLES.SUPERADMIN];
 
 router.use(authenticate);
+
+// ── CATÁLOGO DE INSCRIPCIÓN ─────────────────────────────────────────
+// Va antes de /:id para que "catalog" no se interprete como un ID.
+router.get('/catalog', authorize(CATALOG_READERS), projectController.getCatalog);
 
 // ── LECTURA (cualquier rol autenticado) ─────────────────────────────
 router.get('/', validate(projectSchema.listProjectsQuerySchema), projectController.listProjects);
@@ -34,7 +39,7 @@ router.get(
   projectController.listMembers
 );
 
-// ── GESTIÓN DEL PROPIETARIO (solo STUDENT/TEACHER) ─────────────────
+// ── GESTIÓN DEL DOCENTE QUE INSCRIBE ───────────────────────────────
 router.post(
   '/',
   authorize(CREATORS),
@@ -77,6 +82,14 @@ router.post(
   authorize(REVIEWERS),
   validate(projectSchema.reviewProjectSchema),
   projectController.reviewProject
+);
+
+// ── STAND (el admin lo asigna a proyectos aprobados) ───────────────
+router.put(
+  '/:id/stand',
+  authorize(REVIEWERS),
+  validate(projectSchema.assignStandSchema),
+  projectController.assignStand
 );
 
 export default router;

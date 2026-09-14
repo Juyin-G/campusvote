@@ -127,8 +127,11 @@ describe('Organization Controller Unit Tests', () => {
 
       await controller.completeOnboarding(req, res, next);
 
+      // El usuario de la sesión viaja al service para validar que la
+      // organización sea la suya.
       expect(orgService.completeOnboarding).toHaveBeenCalledWith(
-        'org-uuid-1'
+        'org-uuid-1',
+        req.user
       );
 
       expect(res.status).toHaveBeenCalledWith(200);

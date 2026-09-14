@@ -158,61 +158,6 @@ describe('Auth Service', () => {
     jest.clearAllMocks();
   });
 
-  describe('Register (Registro de usuarios)', () => {
-    const mockUserData = {
-      email: 'estudiante@universidad.edu',
-      username: 'juan.perez',
-      password: 'PasswordSeguro123!',
-      firstName: 'Juan',
-      lastName: 'Perez',
-      institutionalId: '20230001',
-    };
-
-    const mockCreatedUser = {
-      id: '123e4567-e89b-12d3-a456-426614174000',
-      username: 'juan.perez',
-      email: 'estudiante@universidad.edu',
-      firstName: 'Juan',
-      lastName: 'Perez',
-      institutionalId: '20230001',
-      password: 'hashed_password',
-      role: 'STUDENT',
-      status: 'ACTIVE',
-    };
-
-    it('Deberia registrar un usuario exitosamente y hashear la contrasena', async () => {
-      mockFindByEmail.mockResolvedValue(null);
-      mockFindByUsername.mockResolvedValue(null);
-      mockHash.mockResolvedValue('hashed_password');
-      mockCreateUser.mockResolvedValue(mockCreatedUser);
-      mockGenerateEmailVerificationToken.mockResolvedValue('token-123');
-      mockSendVerification.mockResolvedValue(true);
-
-      const result = await authService.register(mockUserData);
-
-      expect(mockFindByEmail).toHaveBeenCalledWith(mockUserData.email);
-      expect(mockHash).toHaveBeenCalledWith(mockUserData.password, 12);
-      expect(result.user.email).toBe(mockUserData.email);
-    });
-
-    it('Deberia lanzar error si el correo ya esta registrado', async () => {
-      mockFindByEmail.mockResolvedValue(mockCreatedUser);
-
-      await expect(
-        authService.register(mockUserData)
-      ).rejects.toThrow();
-    });
-
-    it('Deberia lanzar error si el nombre de usuario ya existe', async () => {
-      mockFindByEmail.mockResolvedValue(null);
-      mockFindByUsername.mockResolvedValue(mockCreatedUser);
-
-      await expect(
-        authService.register(mockUserData)
-      ).rejects.toThrow();
-    });
-  });
-
   describe('Login (Inicio de sesion)', () => {
     const mockUser = {
       id: '123',

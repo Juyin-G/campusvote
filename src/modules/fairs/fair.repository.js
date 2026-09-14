@@ -12,6 +12,7 @@ const FAIR_SELECT = {
   status: true,
   startsAt: true,
   endsAt: true,
+  registrationDeadline: true,
   siteId: true,
   site: {
     select: { id: true, name: true, address: true, city: true },

@@ -5,7 +5,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import * as authRepository from '../repositories/auth.repository.js';
 import { ApiError } from '../../../shared/errors/ApiError.js';
-import { sendReset } from '../../../shared/services/email.service.js';
+import { sendReset, sendVerification } from '../../../shared/services/email.service.js';
 import { generateJwt, formatUserResponse, generateRefreshToken, hashToken } from './auth.helpers.js';
 import MESSAGES from '../../../constants/messages.js';
 import env from '../../../config/env.js';
@@ -42,9 +42,32 @@ export const login = async ({ email, password, ipAddress = null, userAgent = nul
     throw ApiError.unauthorized(MESSAGES.AUTH.LOGIN_FAILED);
   }
 
+  // login_is_allowed rechaza por dos motivos distintos: bloqueo temporal por
+  // intentos fallidos, o cuenta no ACTIVE (pendiente, suspendida...).
   const isAllowed = await authRepository.loginIsAllowed(user.email);
   if (!isAllowed) {
-    throw new ApiError(423, MESSAGES.AUTH.LOGIN_LOCKED, null, 'ACCOUNT_LOCKED');
+    const lockedUntil = user.lockedUntil ? new Date(user.lockedUntil) : null;
+    if (lockedUntil && lockedUntil > new Date()) {
+      const minutes = Math.max(1, Math.ceil((lockedUntil.getTime() - Date.now()) / 60000));
+      throw new ApiError(
+        423,
+        MESSAGES.AUTH.LOGIN_LOCKED.replace('{minutes}', String(minutes)),
+        null,
+        'ACCOUNT_LOCKED'
+      );
+    }
+    // Cuenta no activa: solo se informa a quien conoce la contraseña, para no
+    // revelar el estado de una cuenta ajena.
+    const passwordMatches = await bcrypt.compare(password, user.password || DUMMY_HASH);
+    if (!passwordMatches) {
+      throw ApiError.unauthorized(MESSAGES.AUTH.LOGIN_FAILED);
+    }
+    throw new ApiError(
+      403,
+      'Tu cuenta no está activa. Contacta al administrador de tu institución.',
+      null,
+      'ACCOUNT_INACTIVE'
+    );
   }
 
   const isValidPassword = await bcrypt.compare(password, user.password);

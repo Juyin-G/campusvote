@@ -45,6 +45,7 @@ export const createFairSchema = z.object({
       description: descriptionField.optional(),
       starts_at: dateField.optional(),
       ends_at: dateField.optional(),
+      registration_deadline: dateField.optional(),
       site_id: z.union([z.literal(''), z.null(), uuid('El site_id')]).transform((v) => v || null).optional(),
     })
     .strict(),
@@ -58,6 +59,7 @@ export const updateFairSchema = z.object({
       description: descriptionField.optional(),
       starts_at: dateField.optional(),
       ends_at: dateField.optional(),
+      registration_deadline: dateField.optional(),
       site_id: z.union([z.literal(''), z.null(), uuid('El site_id')]).transform((v) => v || null).optional(),
     })
     .strict()

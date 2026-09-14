@@ -38,6 +38,11 @@ const cambiar = (status) =>
 
 describe('Elections Workflow Integration (HTTP + DB)', () => {
   beforeAll(async () => {
+    // Desde 84bf677 el admin crea elecciones dentro de su organización.
+    const organizacion = await prisma.organization.create({
+      data: { name: `Flow Org ${runId}`, code: `FLOW${runId}`.slice(0, 30) },
+    });
+
     const admin = await prisma.user.create({
       data: {
         username: `flow.admin.${runId}`,
@@ -47,6 +52,7 @@ describe('Elections Workflow Integration (HTTP + DB)', () => {
         lastName: 'Admin',
         institutionalId: `FADM${runId}`,
         role: 'ADMIN',
+        organizationId: organizacion.id,
         authProvider: 'LOCAL',
         isVerified: true,
         status: 'ACTIVE',

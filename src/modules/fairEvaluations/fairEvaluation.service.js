@@ -7,7 +7,8 @@
 // Estados:
 //   - La rúbrica SOLO se configura en DRAFT (se congela en OPEN; lectura en
 //     CLOSED) para que todos los jurados evalúen bajo las mismas reglas.
-//   - Las evaluaciones solo en OPEN; en CLOSED quedan en modo lectura.
+//   - Las evaluaciones solo en OPEN y desde que inicia la feria (starts_at);
+//     en CLOSED quedan en modo lectura.
 //   - Solo proyectos APPROVED y de la MISMA feria son evaluables.
 //
 // Autorización:
@@ -25,6 +26,7 @@ import projectRepository from '../projects/project.repository.js';
 import { ApiError } from '../../shared/errors/ApiError.js';
 import { ROLES } from '../../constants/roles.js';
 import { parsePagination } from '../../shared/utils/pagination.js';
+import { hasFairStarted } from '../fairs/fair.registration.js';
 
 const RUBRIC_CONFIGURABLE_STATUSES = ['DRAFT'];
 const EVALUATION_ALLOWED_STATUS = ['OPEN'];
@@ -93,6 +95,10 @@ const assertRubricConfigurable = (fair) => {
 const assertEvaluationOpen = (fair) => {
   if (!EVALUATION_ALLOWED_STATUS.includes(fair.status)) {
     throw ApiError.conflict('Las evaluaciones solo se registran mientras la feria está abierta (OPEN)');
+  }
+  // El jurado califica la versión final: la evaluación empieza con la feria.
+  if (!hasFairStarted(fair)) {
+    throw ApiError.conflict('Las evaluaciones empiezan cuando inicia la feria');
   }
 };
 
@@ -214,12 +220,18 @@ const normalizeScores = ({ rubricId, criteria, scores }) => {
 
 // ── Proyectos evaluables ────────────────────────────────────────────
 
+// Incluye portada, categoría y stand para que la lista (tarjetas de la app del
+// jurado) no tenga que pedir el detalle de cada proyecto.
 const mapApprovedProject = (p) => ({
   id: p.id,
   fair_id: p.fairId,
   name: p.name,
   description: p.description,
+  logo_url: p.logoUrl ?? null,
+  cover_url: p.coverUrl ?? null,
   status: p.status,
+  category: p.category ? { id: p.category.id, name: p.category.name } : null,
+  stand: p.stand ? { id: p.stand.id, code: p.stand.code } : null,
   created_by: p.createdBy
     ? { id: p.createdBy.id, first_name: p.createdBy.firstName, last_name: p.createdBy.lastName }
     : null,
@@ -482,6 +494,10 @@ export const createEvaluation = async ({ fairId, data, actor }) => {
   if (!EVALUABLE_PROJECT_STATUS.includes(project.status)) {
     throw ApiError.conflict('Solo se pueden evaluar proyectos aprobados (APPROVED)');
   }
+  // Conflicto de interés: nadie califica un proyecto en el que participa.
+  if (project.createdById === actor.id || (await projectRepository.findMember(project.id, actor.id))) {
+    throw ApiError.conflict('No puedes evaluar un proyecto en el que participas');
+  }
 
   const existing = await evaluationRepository.findEvaluationByFairProjectJury(fairId, data.project_id, actor.id);
   if (existing) {
@@ -653,7 +669,7 @@ export const createMyDeclaration = async ({ fairId, data, actor }) => {
 
 /** GET /api/fairs/:id/jury/declaration — consulta la declaración del jurado. */
 export const getMyDeclaration = async ({ fairId, actor }) => {
-  const fair = await loadFair(fairId);
+  await loadFair(fairId);
   await assertJuryAssignedToFair({ fairId, juryId: actor.id });
 
   const declaration = await evaluationRepository.findDeclaration(fairId, actor.id);

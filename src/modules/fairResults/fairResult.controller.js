@@ -1,7 +1,7 @@
 // src/modules/fairResults/fairResult.controller.js
 import * as fairResultService from './fairResult.service.js';
 import asyncHandler from '../../shared/utils/asyncHandler.js';
-import { sendSuccess } from '../../shared/utils/apiResponse.js';
+import { sendCreated, sendSuccess } from '../../shared/utils/apiResponse.js';
 import { HTTP_STATUS } from '../../constants/httpStatus.js';
 
 const getActorId = (user) => user?.userId ?? user?.id ?? null;

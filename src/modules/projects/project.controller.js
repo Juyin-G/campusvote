@@ -18,6 +18,12 @@ const getActor = (user) => ({
   isSuperuser: user?.isSuperuser || false,
 });
 
+// GET /api/projects/catalog
+export const getCatalog = asyncHandler(async (req, res) => {
+  const fairs = await projectService.getCatalog({ actor: getActor(req.user) });
+  return sendSuccess(res, fairs, 'Ferias con inscripción abierta obtenidas correctamente', {}, HTTP_STATUS.OK);
+});
+
 // GET /api/projects
 export const listProjects = asyncHandler(async (req, res) => {
   const result = await projectService.listProjects({
@@ -74,6 +80,16 @@ export const reviewProject = asyncHandler(async (req, res) => {
   return sendSuccess(res, project, 'Revisión registrada correctamente', {}, HTTP_STATUS.OK);
 });
 
+// PUT /api/projects/:id/stand
+export const assignStand = asyncHandler(async (req, res) => {
+  const project = await projectService.assignStand({
+    projectId: req.params.id,
+    data: req.body,
+    actor: getActor(req.user),
+  });
+  return sendSuccess(res, project, 'Stand asignado correctamente', {}, HTTP_STATUS.OK);
+});
+
 // GET /api/projects/:id/members
 export const listMembers = asyncHandler(async (req, res) => {
   const result = await projectService.listMembers({
@@ -104,12 +120,14 @@ export const removeMember = asyncHandler(async (req, res) => {
 });
 
 export default {
+  getCatalog,
   listProjects,
   getProjectById,
   createProject,
   updateProject,
   submitProject,
   reviewProject,
+  assignStand,
   listMembers,
   addMember,
   removeMember,

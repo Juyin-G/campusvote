@@ -37,6 +37,7 @@ export const SQL_ORDER = [
   'user/013_activation.sql',
   'user/014_remove_external_auth.sql',
   'user/015_activation_constraint.sql',
+  'user/016_teacher_faculty_optional.sql',
   'organizations/003_organization_requests.sql',
   'organizations/005_organization_member_limit.sql',
   'organizations/005_category_catalog.sql',
@@ -115,6 +116,8 @@ export const SQL_ORDER = [
   'projects/003_projects_category_stand.sql',
   'fairs/009_fair_jury_declarations.sql',
   'fairs/010_jury_assignment_integrity.sql',
+  'fairs/011_fair_registration_deadline.sql',
+  'fairs/012_fix_evaluation_project_fk.sql',
   '999_foreign_keys.sql',
 ];
 

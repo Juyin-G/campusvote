@@ -1,15 +1,21 @@
 -- user/012_drop_observer_role.sql
--- Elimina el rol OBSERVER del enum user_role en bases existentes.
+-- Retira el rol OBSERVER en bases existentes.
 --
--- PostgreSQL no permite ALTER TYPE ... DROP VALUE directamente, por lo que se
--- recrea el tipo sin el valor. El script es idempotente: si el enum ya no
--- contiene 'OBSERVER' (instalaciones nuevas creadas con 001_enums.sql
--- actualizado) no hace nada.
+-- Instalaciones nuevas: 001_enums.sql ya crea user_role sin OBSERVER y este
+-- script no hace nada.
 --
--- Si existen filas en users con role='OBSERVER', se aborta con un error
--- explícito: reasignar esos registros es una decisión de datos que se debe
--- tomar manualmente.
-
+-- Bases existentes (creadas cuando user_role incluía OBSERVER): recrear el
+-- tipo sin el valor NO es viable. Convertir users.role a TEXT obliga a
+-- reconstruir cada CHECK, índice y vista que compara role contra literales
+-- 'X'::user_role (chk_users_academic_linkage, chk_users_student_data, ...), y
+-- el ALTER falla con "operator does not exist: text = user_role".
+--
+-- En su lugar el valor queda inerte en el tipo y se prohíbe usarlo:
+--   * si hay usuarios con OBSERVER, se aborta (reasignarlos es una decisión de
+--     datos que se toma a mano);
+--   * chk_users_role_not_observer impide que vuelva a asignarse.
+-- La aplicación (roles.js, validaciones Zod) ya no conoce OBSERVER.
+-- Idempotente.
 
 BEGIN;
 
@@ -24,39 +30,22 @@ BEGIN
           AND n.nspname = 'public'
           AND e.enumlabel = 'OBSERVER'
     ) THEN
-        RAISE NOTICE 'user_role ya no contiene OBSERVER; no se require migración.';
+        RAISE NOTICE 'user_role no contiene OBSERVER; no se requiere migración.';
         RETURN;
     END IF;
 
     IF EXISTS (SELECT 1 FROM users WHERE role::text = 'OBSERVER') THEN
-        RAISE EXCEPTION 'Existen usuarios con rol OBSERVER. Reasigna manualmente su rol antes de eliminar el valor del enum.';
+        RAISE EXCEPTION 'Existen usuarios con rol OBSERVER. Reasigna manualmente su rol antes de continuar.';
     END IF;
 
-    -- El CHECK chk_users_institutional_email referencia 'OBSERVER' y depende del
-    -- tipo, por lo que se elimina y se vuelve a crear sin el valor eliminado.
-    ALTER TABLE users DROP CONSTRAINT IF EXISTS chk_users_institutional_email;
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'chk_users_role_not_observer'
+    ) THEN
+        ALTER TABLE users
+            ADD CONSTRAINT chk_users_role_not_observer CHECK (role::text <> 'OBSERVER');
+    END IF;
 
-    ALTER TABLE users ALTER COLUMN role TYPE TEXT;
-
-    DROP TYPE user_role;
-
-    CREATE TYPE user_role AS ENUM (
-        'STUDENT',
-        'TEACHER',
-        'ADMIN',
-        'SUPERADMIN',
-        'ELECTORAL_COMMISSION',
-        'JURY'
-    );
-
-    ALTER TABLE users ALTER COLUMN role TYPE user_role USING role::user_role;
-
-    ALTER TABLE users ADD CONSTRAINT chk_users_institutional_email CHECK (
-        role IN ('ADMIN', 'SUPERADMIN', 'ELECTORAL_COMMISSION', 'JURY')
-        OR email ~* '^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.(edu\.pe|edu)$'
-    );
-
-    RAISE NOTICE 'Rol OBSERVER eliminado del enum user_role.';
+    RAISE NOTICE 'Rol OBSERVER retirado: queda inerte en el tipo y prohibido en users.';
 END $$;
 
 COMMIT;

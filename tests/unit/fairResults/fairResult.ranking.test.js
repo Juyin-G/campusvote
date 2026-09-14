@@ -1,13 +1,13 @@
 // tests/unit/fairResults/fairResult.ranking.test.js
 // Pruebas de la LÓGICA PURA de cálculo de resultados de ferias.
-// Se ejecutan con `node --test` (sin PostgreSQL): solo importan la lógica
-// derivada (computeProjectStats / buildFairRanking) desde el service.
+// Corren con Jest como el resto de la suite (sin tocar PostgreSQL): solo
+// importan la lógica derivada (computeProjectStats / buildFairRanking).
+// Antes importaban describe/it de `node:test`, y Jest no veía ninguna prueba.
 //
 // Las reglas que dependen de la BD (404, tenant, filtro "solo APPROVED",
 // persistencia) se cubren en tests/integration/fairResults.integration.test.js
 // y requieren PostgreSQL real (jest + setup-db).
 
-import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 
 import {

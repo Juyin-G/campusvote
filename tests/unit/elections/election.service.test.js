@@ -41,6 +41,7 @@ const service = await import(
 const ID = '3f0c2b1e-1c2d-4a5b-8c9d-0e1f2a3b4c5d';
 const PERIODO = '11111111-2222-3333-4444-555555555555';
 const ACTOR = '99999999-8888-7777-6666-555555555555';
+const ORG = 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee';
 
 const enElFuturo = (dias) =>
   new Date(Date.now() + dias * 24 * 60 * 60 * 1000).toISOString();
@@ -99,7 +100,14 @@ describe('Election Service — CRUD', () => {
     expect(mockCreateElection).not.toHaveBeenCalled();
   });
 
-  it('createElection normaliza texto y adjunta created_by', async () => {
+  it('createElection exige que el creador pertenezca a una organización (403)', async () => {
+    const err = await capturarError(() => service.createElection({ title: 'X' }, ACTOR, null));
+
+    expect(err.statusCode).toBe(403);
+    expect(mockCreateElection).not.toHaveBeenCalled();
+  });
+
+  it('createElection normaliza texto y adjunta created_by y organización', async () => {
     mockCreateElection.mockResolvedValue({ id: ID });
 
       await service.createElection(
@@ -110,12 +118,14 @@ describe('Election Service — CRUD', () => {
           start_at: enElFuturo(1),
           end_at: enElFuturo(2),
         },
-        ACTOR
+        ACTOR,
+        ORG
       );
 
     const data = mockCreateElection.mock.calls[0][0];
     expect(data.title).toBe('X');
     expect(data.createdBy).toBe(ACTOR);
+    expect(data.organizationId).toBe(ORG);
     expect(data.facultyId).toBeNull();
     expect(data.startAt).toBeInstanceOf(Date);
   });
@@ -132,7 +142,8 @@ describe('Election Service — CRUD', () => {
           start_at: enElFuturo(1),
           end_at: enElFuturo(2),
         },
-        ACTOR
+        ACTOR,
+        ORG
       )
     );
 

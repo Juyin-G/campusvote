@@ -84,17 +84,45 @@ describe('Organization Service Unit Tests', () => {
   });
 
   describe('completeOnboarding', () => {
+    const ADMIN_ORG_1 = { id: 'admin-1', role: 'ADMIN', organizationId: 'org-1' };
+
     it('debe lanzar ApiError si el onboarding ya fue completado', async () => {
       orgRepository.findOrgById.mockResolvedValue({
         id: 'org-1',
         onboardingCompleted: true,
       });
 
+      await expect(orgService.completeOnboarding('org-1', ADMIN_ORG_1)).rejects.toThrow(
+        'El onboarding de esta organización ya fue completado'
+      );
+    });
+
+    it('un admin no puede completar el onboarding de otra organización (403)', async () => {
+      await expect(orgService.completeOnboarding('org-2', ADMIN_ORG_1)).rejects.toMatchObject({
+        statusCode: 403,
+      });
+      expect(orgRepository.findOrgById).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('updateOnboarding', () => {
+    it('un admin no puede cambiar el onboarding de otra organización (403)', async () => {
       await expect(
-        orgService.completeOnboarding('org-1')
-      )
-        .rejects
-        .toThrow(ApiError);
+        orgService.updateOnboarding(
+          'org-2',
+          { name: 'Otra' },
+          { id: 'admin-1', role: 'ADMIN', organizationId: 'org-1' }
+        )
+      ).rejects.toMatchObject({ statusCode: 403 });
+    });
+
+    it('el SUPERADMIN puede actualizar el onboarding de cualquier organización', async () => {
+      orgRepository.findOrgById.mockResolvedValue({ id: 'org-2', onboardingCompleted: false });
+      orgRepository.updateOrg.mockResolvedValue({ id: 'org-2', name: 'Otra' });
+
+      const result = await orgService.updateOnboarding('org-2', { name: 'Otra' }, { role: 'SUPERADMIN' });
+
+      expect(result).toEqual({ id: 'org-2', name: 'Otra' });
     });
   });
 });
