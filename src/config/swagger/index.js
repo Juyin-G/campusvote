@@ -77,6 +77,12 @@ const tags = [
   { name: 'Audit', description: 'Trazabilidad de logs de auditoría y gestión de tokens de un solo uso' },
   { name: 'Platform Translations', description: 'Gestión del diccionario de internacionalización (i18n) y locales' },
   { name: 'Notifications', description: 'Gestión de notificaciones del usuario y bandeja de entrada' },
+  { name: 'Fairs', description: 'Ciclo de vida y estado de ferias académicas' },
+  { name: 'FairJuries', description: 'Asignación de jurados a ferias académicas' },
+  { name: 'Fair Categories', description: 'Categorías de proyectos de ferias académicas' },
+  { name: 'Fair Stands', description: 'Stands/cabinas de ferias académicas' },
+  { name: 'Fair Evaluations', description: 'Rúbricas, declaraciones, evaluaciones y avance del jurado' },
+  { name: 'Fair Results', description: 'Resultados y ranking de ferias académicas' },
 ];
 
 const options = {

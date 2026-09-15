@@ -101,4 +101,45 @@ export const responses = {
       },
     },
   },
+  Conflict: {
+    description: 'Conflicto con el estado actual del recurso',
+    content: {
+      'application/json': {
+        schema: {
+          type: 'object',
+          properties: {
+            success: { type: 'boolean', example: false },
+            error: {
+              type: 'object',
+              properties: {
+                code: { type: 'string', example: 'CONFLICT' },
+                message: {
+                  type: 'string',
+                  example: 'La operación entra en conflicto con el estado actual del recurso',
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  },
 };
+
+// Alias de componentes de respuesta con sufijo "Response". Los archivos de
+// documentación (fairEvaluation.docs.js, juryAssignment.docs.js, etc.) referencian
+// '#/components/responses/UnauthorizedResponse' y variantes; se definen aquí para
+// que esos $ref resuelvan sin refs colgadas en el spec OpenAPI compilado.
+const alias = (name) => ({
+  description: responses[name].description,
+  content: responses[name].content,
+});
+
+Object.assign(responses, {
+  UnauthorizedResponse: alias('Unauthorized'),
+  ForbiddenResponse: alias('Forbidden'),
+  NotFoundResponse: alias('NotFound'),
+  BadRequestResponse: alias('BadRequest'),
+  ConflictResponse: alias('Conflict'),
+  InternalServerErrorResponse: alias('InternalServerError'),
+});

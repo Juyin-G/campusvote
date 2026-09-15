@@ -80,8 +80,60 @@
  *                 format: uuid
  *               criterion_name:
  *                 type: string
+ *               min_score:
+ *                 type: number
+ *               max_score:
+ *                 type: number
  *               score:
  *                 type: number
+ *     FairJuryDeclaration:
+ *       type: object
+ *       properties:
+ *         id:
+ *           type: string
+ *           format: uuid
+ *         fair_id:
+ *           type: string
+ *           format: uuid
+ *         signed_at:
+ *           type: string
+ *           format: date-time
+ *         statement:
+ *           type: string
+ *         created_at:
+ *           type: string
+ *           format: date-time
+ *         updated_at:
+ *           type: string
+ *           format: date-time
+ *     FairJuryProgress:
+ *       type: object
+ *       properties:
+ *         fair_id:
+ *           type: string
+ *           format: uuid
+ *         fair_name:
+ *           type: string
+ *         fair_status:
+ *           type: string
+ *           enum: [DRAFT, OPEN, CLOSED]
+ *         declaration:
+ *           allOf:
+ *             - $ref: '#/components/schemas/FairJuryDeclaration'
+ *           nullable: true
+ *         total_projects:
+ *           type: integer
+ *         evaluated_projects:
+ *           type: integer
+ *         remaining:
+ *           type: integer
+ *         progress_percentage:
+ *           type: integer
+ *           description: Porcentaje de avance redondeado (0-100)
+ *         evaluations:
+ *           type: array
+ *           items:
+ *             $ref: '#/components/schemas/FairEvaluation'
  */
 
 /**
@@ -479,6 +531,96 @@
  *       '401':
  *         $ref: '#/components/responses/UnauthorizedResponse'
  *       '403':
+ *         $ref: '#/components/responses/ForbiddenResponse'
+ *
+ * /api/fairs/{id}/jury/declaration:
+ *   get:
+ *     tags: [Fair Evaluations]
+ *     summary: Consultar la declaración de imparcialidad del JURY autenticado
+ *     description: >
+ *       Devuelve si el jurado ya firmó y, en tal caso, la declaración completa.
+ *       Requiere estar formalmente asignado a la feria.
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/FairId'
+ *     responses:
+ *       200:
+ *         description: Estado de la declaración del jurado
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 fair_id: { type: string, format: uuid }
+ *                 signed: { type: boolean }
+ *                 declaration:
+ *                   allOf:
+ *                     - $ref: '#/components/schemas/FairJuryDeclaration'
+ *                   nullable: true
+ *       '403':
+ *         $ref: '#/components/responses/ForbiddenResponse'
+ *   post:
+ *     tags: [Fair Evaluations]
+ *     summary: Firmar la declaración de imparcialidad del JURY
+ *     description: >
+ *       Es PREREQUISITO para registrar evaluaciones en la feria. Solo se firma
+ *       mientras la feria está en DRAFT u OPEN; una sola declaración por
+ *       (feria, jurado); si ya existe, 409.
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/FairId'
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [statement]
+ *             additionalProperties: false
+ *             properties:
+ *               statement:
+ *                 type: string
+ *                 minLength: 1
+ *                 maxLength: 2000
+ *     responses:
+ *       201:
+ *         description: Declaración de jurado registrada
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/FairJuryDeclaration'
+ *       409:
+ *         $ref: '#/components/responses/ConflictResponse'
+ *       '401':
+ *         $ref: '#/components/responses/UnauthorizedResponse'
+ *       '403':
+ *         $ref: '#/components/responses/ForbiddenResponse'
+ *
+ * /api/fairs/my-progress/{fairId}:
+ *   get:
+ *     tags: [Fair Evaluations]
+ *     summary: Panel de avance del JURY en una feria
+ *     description: >
+ *       Resumen derivado (no persiste nada): declaración firmada, proyectos
+ *       APPROVED evaluables, evaluaciones propias, restantes y porcentaje de
+ *       avance. Solo para el JURY formalmente asignado a la feria.
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: fairId
+ *         required: true
+ *         schema: { type: string, format: uuid }
+ *     responses:
+ *       200:
+ *         description: Avance del jurado en la feria
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/FairJuryProgress'
+ *       403:
  *         $ref: '#/components/responses/ForbiddenResponse'
  *
  * components:
