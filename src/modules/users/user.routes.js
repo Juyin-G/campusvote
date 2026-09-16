@@ -115,7 +115,6 @@ router.get('/me', authenticate, userController.getMe);
 router.get(
   '/:id',
   authenticate,
-  authorize(ROLES.ADMIN),
   validate(userParamsSchema),
   // Permiso self/admin y, si es ADMIN, que su scope cubra al target.
   async (req, res, next) => {
