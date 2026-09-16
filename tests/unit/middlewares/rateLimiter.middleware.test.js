@@ -13,7 +13,6 @@
 // Estos tests NO requieren PostgreSQL. Se aíslan usando un store
 // en memoria propio (memory store por defecto).
 
-import { describe, it, before } from 'node:test';
 import assert from 'node:assert/strict';
 
 // JWT_SECRET debe existir antes de cargar el middleware (lo importa de env).
@@ -25,7 +24,7 @@ let loginLimiter;
 let authLimiter;
 let userLimiter;
 let userElectionLimiter;
-before(async () => {
+beforeAll(async () => {
   const mod = await import('../../../src/middlewares/rateLimiter.middleware.js');
   loginLimiter = mod.loginLimiter;
   authLimiter = mod.authLimiter;
@@ -313,7 +312,7 @@ describe('Headers estándar de RateLimit', () => {
 describe('IP detrás de proxy — comportamiento con X-Forwarded-For', () => {
   // Carga perezosa de express + node:http para verificar req.ip.
   let express, http;
-  before(async () => {
+  beforeAll(async () => {
     express = (await import('express')).default;
     http = await import('node:http');
   });

@@ -7,7 +7,6 @@
 // persistencia) se cubren en tests/integration/fairResults.integration.test.js
 // y requieren PostgreSQL real (jest + setup-db).
 
-import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 
 import {

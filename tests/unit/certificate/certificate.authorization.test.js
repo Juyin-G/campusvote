@@ -10,7 +10,6 @@
 // real y están PENDIENTES de implementación en
 // tests/integration/certificate.integration.test.js (ver nota al final).
 
-import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { ROLES } from '../../../src/constants/roles.js';

@@ -63,7 +63,7 @@ describe('Election Controller', () => {
 
     await controller.listElections(req, res, next);
 
-    expect(mockListElections).toHaveBeenCalledWith(req.query);
+    expect(mockListElections).toHaveBeenCalledWith(req.query, req.user);
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -86,23 +86,24 @@ describe('Election Controller', () => {
     expect(res.status).toHaveBeenCalledWith(200);
   });
 
-  it('crear responde 201 y pasa el userId del JWT como creador', async () => {
+  it('crear responde 201 y pasa el userId del JWT como creador y organizationId', async () => {
     mockCreateElection.mockResolvedValue({ id: ID, status: 'DRAFT' });
     req.body = { title: 'Elecciones 2026' };
+    req.user = { userId: ACTOR, role: 'ADMIN', organizationId: 'org-1' };
 
     await controller.createElection(req, res, next);
 
-    expect(mockCreateElection).toHaveBeenCalledWith(req.body, ACTOR);
+    expect(mockCreateElection).toHaveBeenCalledWith(req.body, ACTOR, 'org-1');
     expect(res.status).toHaveBeenCalledWith(201);
   });
 
   it('crear acepta req.user.id como respaldo si no viene userId', async () => {
     mockCreateElection.mockResolvedValue({ id: ID });
-    req.user = { id: ACTOR, role: 'ADMIN' };
+    req.user = { id: ACTOR, role: 'ADMIN', organizationId: 'org-1' };
 
     await controller.createElection(req, res, next);
 
-    expect(mockCreateElection).toHaveBeenCalledWith(req.body, ACTOR);
+    expect(mockCreateElection).toHaveBeenCalledWith(req.body, ACTOR, 'org-1');
   });
 
   it('actualizar pasa id y body por separado', async () => {

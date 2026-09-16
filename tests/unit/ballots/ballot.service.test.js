@@ -25,6 +25,16 @@ jest.unstable_mockModule(
   })
 );
 
+// Mock del repository de elecciones para assertElectionScope/assertBallotScope
+const mockFindElectionOwnerOrganization = jest.fn();
+
+jest.unstable_mockModule(
+  '../../../src/modules/elections/elections/election.repository.js',
+  () => ({
+    findElectionOwnerOrganization: mockFindElectionOwnerOrganization,
+  })
+);
+
 const service = await import(
   '../../../src/modules/ballots/ballot.service.js'
 );
@@ -42,7 +52,10 @@ const capturarError = async (fn) => {
 };
 
 describe('Ballot Service — CRUD', () => {
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockFindElectionOwnerOrganization.mockResolvedValue('org-1');
+  });
 
   it('lista ballots con paginación', async () => {
     mockCountBallotsByElection.mockResolvedValue(12);
@@ -164,7 +177,10 @@ describe('Ballot Service — CRUD', () => {
 });
 
 describe('Ballot Service — funciones especiales', () => {
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockFindElectionOwnerOrganization.mockResolvedValue('org-1');
+  });
 
   it('getActiveBallot devuelve 404 si no existe activa', async () => {
     mockGetActiveBallot.mockResolvedValue(null);

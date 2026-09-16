@@ -1,6 +1,14 @@
--- Stub: 020 file replaced — migration logic disabled temporarily.
--- The schema changes are now part of the base SQL or applied via Prisma migrations.
--- This file remains as a no-op for backward compatibility.
-DO $noop$ BEGIN
-    RAISE NOTICE '020_user_scope.sql: stub — election enum overhaul deferred to maintenance script';
-END $noop$;
+-- 020a_user_scope_enum.sql
+-- Creates the user_scope_level enum type required by Prisma schema.
+
+BEGIN;
+
+DO $create_scope_enum$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'user_scope_level') THEN
+        CREATE TYPE user_scope_level AS ENUM ('ORG', 'REGION', 'SITE');
+    END IF;
+END
+$create_scope_enum$;
+
+COMMIT;

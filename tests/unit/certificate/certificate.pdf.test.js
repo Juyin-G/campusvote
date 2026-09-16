@@ -12,7 +12,6 @@
 //   * Es determinista: misma entrada lógica → mismo conjunto de tokens
 //     verificables.
 
-import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 
 import {

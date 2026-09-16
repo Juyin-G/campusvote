@@ -5,11 +5,12 @@
 --
 -- Esta migración debe correr DESPUÉS de `organizations/006_organization_sites.sql`
 -- (sitios existen) y ANTES del primer tenant CRUD que asigne scope.
+-- También requiere que el enum `user_scope_level` exista (020a).
 --
--- Diseño compatible con el modelo Prisma User.scopeLevel/regionId.
+-- Compatible con el modelo Prisma User.scopeLevel/regionId.
 
 -- 1. Nuevas columnas en users
-ALTER TABLE users ADD COLUMN IF NOT EXISTS scope_level VARCHAR(20);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS scope_level user_scope_level;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS region_id UUID;
 
 -- 2. FK region_id -> regions
@@ -36,7 +37,7 @@ BEGIN
         ALTER TABLE users ADD CONSTRAINT chk_users_scope_admin_only
             CHECK (
                 (role <> 'ADMIN'::user_role AND scope_level IS NULL AND region_id IS NULL)
-                OR (role = 'ADMIN'::user_role AND scope_level IN ('ORG','REGION','SITE'))
+                OR (role = 'ADMIN'::user_role AND scope_level IS NOT NULL)
             );
     END IF;
 END

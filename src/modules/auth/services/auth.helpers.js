@@ -17,6 +17,8 @@ export const generateJwt = (user, expiresIn = env.JWT_EXPIRES_IN || '15m') => {
       email: user.email,
       role: user.role,
       organizationId: user.organizationId,
+      scopeLevel: user.scopeLevel ?? null,
+      regionId: user.regionId ?? null,
       isSuperuser: user.isSuperuser,
       isStaff: user.isStaff,
     },

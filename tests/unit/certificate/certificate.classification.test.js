@@ -8,7 +8,6 @@
 // del service. La integración con BD se cubre en tests que requieren
 // una base de datos real (Pendiente — ver nota al final del archivo).
 
-import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 
 import {

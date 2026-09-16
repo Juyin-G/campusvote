@@ -10,7 +10,6 @@
 // Estos tests son la contraparte "mínima" para demostrar el contrato de
 // autorización definido por el PASO 8.2. NO tocan PostgreSQL.
 
-import { describe, it, before } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -28,7 +27,7 @@ process.env.JWT_SECRET = process.env.JWT_SECRET || 'unit-test-jwt-secret-for-sup
 process.env.NODE_ENV = process.env.NODE_ENV || 'test';
 
 let authorize;
-before(async () => {
+beforeAll(async () => {
   ({ authorize } = await import('../../../src/middlewares/auth.middleware.js'));
 });
 

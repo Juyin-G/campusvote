@@ -6,14 +6,30 @@ import bcrypt from 'bcryptjs';
 import request from 'supertest';
 import { createAcademicFixture } from './academic.fixture.js';
 
-jest.unstable_mockModule('../../src/shared/services/email.service.js', () => ({
-  hasEmailConfigured: jest.fn().mockReturnValue(false),
-  sendVerification: jest.fn().mockResolvedValue(true),
-  sendReset: jest.fn().mockResolvedValue(true),
-  sendActivation: jest.fn().mockResolvedValue(true),
-  sendAdminActivation: jest.fn().mockResolvedValue(true),
-  sendRequestReceived: jest.fn().mockResolvedValue(true),
-}));
+jest.unstable_mockModule('../../src/shared/services/email.service.js', () => {
+  const hasEmailConfigured = jest.fn().mockReturnValue(false);
+  const sendVerification = jest.fn().mockResolvedValue(true);
+  const sendReset = jest.fn().mockResolvedValue(true);
+  const sendAdminActivation = jest.fn().mockResolvedValue(true);
+  const sendActivation = jest.fn().mockResolvedValue(true);
+  const sendRequestReceived = jest.fn().mockResolvedValue(true);
+  return {
+    hasEmailConfigured,
+    sendVerification,
+    sendReset,
+    sendActivation,
+    sendAdminActivation,
+    sendRequestReceived,
+    default: {
+      hasEmailConfigured,
+      sendVerification,
+      sendReset,
+      sendActivation,
+      sendAdminActivation,
+      sendRequestReceived,
+    },
+  };
+});
 
 jest.unstable_mockModule('../../src/middlewares/rateLimiter.middleware.js', () => ({
   loginLimiter: (_req, _res, next) => next(),

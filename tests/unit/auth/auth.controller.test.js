@@ -1,14 +1,16 @@
 import { jest } from '@jest/globals';
 
-const mockRegister = jest.fn();
 const mockLogin = jest.fn();
+const mockRequestPasswordReset = jest.fn();
+const mockResetPassword = jest.fn();
 
 // Mock del servicio de autenticación
 jest.unstable_mockModule(
   '../../../src/modules/auth/services/auth.service.js',
   () => ({
-    register: mockRegister,
     login: mockLogin,
+    requestPasswordReset: mockRequestPasswordReset,
+    resetPassword: mockResetPassword,
   })
 );
 
@@ -55,44 +57,34 @@ describe('Auth Controller', () => {
     jest.clearAllMocks();
   });
 
-  describe('POST /api/v1/auth/register', () => {
-    it('Deberia responder 201 Created al registrar un usuario', async () => {
-      const mockUser = {
-        id: '1',
-        email: 'test@test.com',
-        username: 'test',
-      };
+  describe('POST /api/v1/auth/request-password-reset', () => {
+    it('Deberia responder 200 OK al solicitar restablecimiento', async () => {
+      const mockResponse = { message: 'Correo de restablecimiento enviado' };
 
-      req.body = {
-        email: 'test@test.com',
-        username: 'test',
-        password: 'Pass123!',
-      };
+      req.body = { email: 'test@test.com' };
 
-      mockRegister.mockResolvedValue(mockUser);
+      mockRequestPasswordReset.mockResolvedValue(mockResponse);
 
-      await authController.register(req, res, next);
+      await authController.requestPasswordReset(req, res, next);
 
-      expect(mockRegister).toHaveBeenCalledWith(req.body);
-      expect(res.status).toHaveBeenCalledWith(201);
+      expect(mockRequestPasswordReset).toHaveBeenCalledWith(req.body.email);
+      expect(res.status).toHaveBeenCalledWith(200);
       expect(res.json).toHaveBeenCalledWith(
         expect.objectContaining({
           success: true,
-          data: mockUser,
+          data: mockResponse,
         })
       );
     });
 
     it('Deberia pasar el error al middleware next si falla el servicio', async () => {
-      const error = new Error('El correo ya esta registrado');
+      const error = new Error('Error al enviar correo');
 
-      req.body = {
-        email: 'test@test.com',
-      };
+      req.body = { email: 'test@test.com' };
 
-      mockRegister.mockRejectedValue(error);
+      mockRequestPasswordReset.mockRejectedValue(error);
 
-      await authController.register(req, res, next);
+      await authController.requestPasswordReset(req, res, next);
 
       expect(next).toHaveBeenCalledWith(error);
     });

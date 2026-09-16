@@ -307,10 +307,10 @@ describe('FairResults Integration (HTTP + DB)', () => {
       expect(res.body.data.fair_status).toBe('CLOSED');
     });
 
-    it('20. SUPERADMIN mantiene el bypass de tenant (accede a feria de orgB)', async () => {
+    it('20. SUPERADMIN queda bloqueado por la frontera de tenant (403)', async () => {
       const res = await getResults(superToken, fairForeignId);
-      expect(res.status).toBe(200);
-      expect(res.body.data.fair_id).toBe(fairForeignId);
+      expect(res.status).toBe(403);
+      expect(res.body.error.code).toBe('FORBIDDEN');
     });
   });
 
@@ -461,10 +461,10 @@ describe('FairResults Integration (HTTP + DB)', () => {
       expect((await publishResults(studentExtraToken, fairClosedId)).status).toBe(403);
     });
 
-    it('9. SUPERADMIN publica con bypass de tenant (feria de orgB) → 201', async () => {
+    it('9. SUPERADMIN queda bloqueado por la frontera de tenant al intentar publicar → 403', async () => {
       const res = await publishResults(superToken, fairForeignId);
-      expect(res.status).toBe(201);
-      expect(res.body.data.published).toBe(true);
+      expect(res.status).toBe(403);
+      expect(res.body.error.code).toBe('FORBIDDEN');
     });
 
     it('10. PUBLICAR feria inexistente → 404', async () => {

@@ -24,11 +24,8 @@ const localStorage = multer.diskStorage({
   },
 });
 
-// Filtro estricto de seguridad (MIME types permitidos).
-// El contenido real se verifica por magic bytes en la ruta (upload.routes.js).
-const storage = process.env.UPLOAD_STORAGE_DRIVER === 'firebase'
-  ? multer.memoryStorage()
-  : localStorage;
+// Almacenamiento local (sistema de archivos). Firebase fue descontinuado en el proyecto.
+const storage = localStorage;
 
 // Filtro estricto de seguridad (MIME types permitidos)
 const fileFilter = (req, file, cb) => {

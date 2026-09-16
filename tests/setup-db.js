@@ -62,6 +62,8 @@ export default async function setupTestDB() {
     console.log('5. Creando organizaciones...');
 
     await executeFile('organizations/002_organizations.sql');
+    await executeFile('organizations/005_category_catalog.sql');
+    await executeFile('organizations/005_organization_member_limit.sql');
 
     console.log('6. Creando usuarios y funciones de sesión/verificación...');
 
@@ -80,6 +82,9 @@ export default async function setupTestDB() {
     await executeFile('user/013_activation.sql');
     await executeFile('user/014_remove_external_auth.sql');
     await executeFile('user/015_activation_constraint.sql');
+
+    await executeFile('organizations/006_admin_requires_organization.sql');
+    await executeFile('organizations/007_admin_invite.sql');
     // CAMBIO: scope multi-sede (region/site) + eliminación de ELECTORAL_COMMISSION.
     // Estas migraciones se cargan AQUÍ solo para los pasos que no dependen
     // todavía de organization_sites. La carga completa (018_regions → 006_sites

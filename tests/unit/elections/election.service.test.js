@@ -99,7 +99,7 @@ describe('Election Service — CRUD', () => {
     expect(mockCreateElection).not.toHaveBeenCalled();
   });
 
-  it('createElection normaliza texto y adjunta created_by', async () => {
+  it('createElection normaliza texto y adjunta created_by y organizationId', async () => {
     mockCreateElection.mockResolvedValue({ id: ID });
 
       await service.createElection(
@@ -110,14 +110,28 @@ describe('Election Service — CRUD', () => {
           start_at: enElFuturo(1),
           end_at: enElFuturo(2),
         },
-        ACTOR
+        ACTOR,
+        'org-1'
       );
 
     const data = mockCreateElection.mock.calls[0][0];
     expect(data.title).toBe('X');
     expect(data.createdBy).toBe(ACTOR);
+    expect(data.organizationId).toBe('org-1');
     expect(data.facultyId).toBeNull();
     expect(data.startAt).toBeInstanceOf(Date);
+  });
+
+  it('createElection rechaza si falta organizationId (403)', async () => {
+    const err = await capturarError(() =>
+      service.createElection(
+        { title: 'X', scope_type: 'UNIVERSITY' },
+        ACTOR,
+        undefined
+      )
+    );
+
+    expect(err.statusCode).toBe(403);
   });
 
   it('traduce P2003 (FK inexistente) a 400', async () => {
@@ -132,7 +146,8 @@ describe('Election Service — CRUD', () => {
           start_at: enElFuturo(1),
           end_at: enElFuturo(2),
         },
-        ACTOR
+        ACTOR,
+        'org-1'
       )
     );
 

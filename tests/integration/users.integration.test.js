@@ -34,10 +34,17 @@ const login = async (email) => {
 };
 
 describe('Users Integration (HTTP + DB)', () => {
+  let orgId;
+
   beforeAll(async () => {
     const hash = await bcrypt.hash(PASSWORD, 12);
     const { program } = await createAcademicFixture(runId);
     programId = program.id;
+
+    const org = await prisma.organization.create({
+      data: { name: `OrgUsers ${runId}`, code: `UORG${runId}` },
+    });
+    orgId = org.id;
 
     const admin = await prisma.user.create({
       data: {
@@ -52,6 +59,8 @@ describe('Users Integration (HTTP + DB)', () => {
         isVerified: true,
         status: 'ACTIVE',
         mustChangePassword: false,
+        organizationId: orgId,
+        scopeLevel: 'ORG',
       },
     });
     adminId = admin.id;
@@ -71,6 +80,7 @@ describe('Users Integration (HTTP + DB)', () => {
         mustChangePassword: false,
         programId,
         currentCycle: 5,
+        organizationId: orgId,
       },
     });
     studentId = student.id;
@@ -92,6 +102,7 @@ describe('Users Integration (HTTP + DB)', () => {
         currentCycle: 5,
         failedLoginAttempts: 5,
         lockedUntil: new Date(Date.now() + 60_000),
+        organizationId: orgId,
       },
     });
     targetId = target.id;
@@ -111,6 +122,9 @@ describe('Users Integration (HTTP + DB)', () => {
       await prisma.user.deleteMany({
         where: { id: { in: idsToDelete } },
       }).catch(() => {});
+    }
+    if (orgId) {
+      await prisma.organization.delete({ where: { id: orgId } }).catch(() => {});
     }
     await prisma.$disconnect();
   });

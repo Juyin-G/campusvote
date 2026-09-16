@@ -6,24 +6,6 @@ import env from '../../config/env.js';
 import { prisma } from '../../database/prisma.js';
 import { hasValidSignature } from '../../shared/utils/fileSignature.js';
 import logger from '../../config/logger.js';
-import { cert, getApps, initializeApp } from 'firebase-admin/app';
-import { getStorage } from 'firebase-admin/storage';
-
-const getBucket = () => {
-  if (env.UPLOAD_STORAGE_DRIVER !== 'firebase') return null;
-  if (!env.FIREBASE_PROJECT_ID || !env.FIREBASE_CLIENT_EMAIL || !env.FIREBASE_PRIVATE_KEY || !env.FIREBASE_STORAGE_BUCKET) {
-    throw new Error('La configuración de Firebase Storage está incompleta');
-  }
-  const app = getApps()[0] || initializeApp({
-    credential: cert({
-      projectId: env.FIREBASE_PROJECT_ID,
-      clientEmail: env.FIREBASE_CLIENT_EMAIL,
-      privateKey: env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
-    }),
-    storageBucket: env.FIREBASE_STORAGE_BUCKET,
-  });
-  return getStorage(app).bucket(env.FIREBASE_STORAGE_BUCKET);
-};
 
 const router = Router();
 

@@ -3,7 +3,6 @@
 // Garantiza que el cliente NO puede enviar datos que sorteen las
 // reglas del service (fair_id, project_id, user_id, certificate_type).
 
-import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
