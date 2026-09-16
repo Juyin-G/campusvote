@@ -160,7 +160,7 @@ export const getUserById = async (id, actor = {}) => {
 };
 
 export const createUser = async (body = {}, actor = {}) => {
-  const {
+  let {
     username,
     email,
     password,

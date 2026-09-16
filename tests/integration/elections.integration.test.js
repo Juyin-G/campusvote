@@ -39,7 +39,7 @@ let electionId;
 let positionId;
 let listId;
 
-const crearUsuario = async (rol, prefijo, programId) => {
+const crearUsuario = async (rol, prefijo, programId, organizationId) => {
   const hash = await bcrypt.hash(PASSWORD, 12);
   return prisma.user.create({
     data: {
@@ -54,6 +54,9 @@ const crearUsuario = async (rol, prefijo, programId) => {
       isVerified: true,
       status: 'ACTIVE',
       mustChangePassword: false,
+      organizationId: organizationId ?? null,
+      scopeLevel: rol === 'ADMIN' ? 'ORG' : null,
+      regionId: null,
       programId: programId ?? null,
       currentCycle: rol === 'STUDENT' ? 5 : null,
     },
@@ -72,7 +75,19 @@ const comoAdmin = (metodo, url) =>
   request(app)[metodo](url).set('Authorization', `Bearer ${adminToken}`);
 
 describe('Elections Integration (HTTP + DB)', () => {
+  let orgId;
+
   beforeAll(async () => {
+    const org = await prisma.organization.create({
+      data: {
+        name: `OrgElections ${runId}`,
+        code: `EORG${runId}`.slice(0, 20),
+        categoryCatalog: [],
+        memberLimit: 100,
+      },
+    });
+    orgId = org.id;
+
     const faculty = await prisma.faculty.create({
       data: { name: `Facultad Test ${runId}`, code: `FT${runId}`.slice(0, 20) },
     });
@@ -86,9 +101,9 @@ describe('Elections Integration (HTTP + DB)', () => {
       },
     });
 
-    const admin = await crearUsuario('ADMIN', 'admin');
+    const admin = await crearUsuario('ADMIN', 'admin', null, org.id);
     adminId = admin.id;
-    const student = await crearUsuario('STUDENT', 'student', program.id);
+    const student = await crearUsuario('STUDENT', 'student', program.id, org.id);
     studentId = student.id;
 
     adminToken = await token(admin.email);
@@ -115,6 +130,9 @@ describe('Elections Integration (HTTP + DB)', () => {
     await prisma.user
       .deleteMany({ where: { id: { in: [adminId, studentId].filter(Boolean) } } })
       .catch(() => {});
+    if (orgId) {
+      await prisma.organization.delete({ where: { id: orgId } }).catch(() => {});
+    }
     await prisma.$disconnect();
   });
 

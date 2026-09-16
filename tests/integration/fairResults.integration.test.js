@@ -74,7 +74,7 @@ const login = async (email) => {
   return res.body.data.token;
 };
 
-const createUser = async ({ role, organizationId, suffix, id } = {}) => {
+const createUser = async ({ role, organizationId, suffix, id, facultyId } = {}) => {
   const base = {
     username: `fr.${role.toLowerCase()}.${suffix}.${runId}`,
     email: `fr.${role.toLowerCase()}.${suffix}.${runId}@campusvote.edu.pe`,
@@ -88,6 +88,11 @@ const createUser = async ({ role, organizationId, suffix, id } = {}) => {
     status: 'ACTIVE',
     mustChangePassword: false,
     organizationId,
+    scopeLevel: role === 'ADMIN' ? 'ORG' : null,
+    regionId: null,
+    programId: null,
+    currentCycle: role === 'STUDENT' ? 5 : null,
+    facultyId: facultyId ?? null,
   };
   const created = await prisma.user.create({ data: id ? { ...base, id } : base });
   return created;
@@ -95,7 +100,16 @@ const createUser = async ({ role, organizationId, suffix, id } = {}) => {
 
 const createProject = async ({ id, fairId, organizationId, createdById, name, status }) =>
   prisma.project.create({
-    data: { id, fairId, organizationId, createdById, name, status, description: null },
+    data: {
+      id,
+      fairId,
+      organizationId,
+      createdById,
+      name,
+      status,
+      description: null,
+      reviewedAt: status === 'APPROVED' || status === 'REJECTED' ? new Date() : null,
+    },
   });
 
 const createEvaluation = async ({ fairId, projectId, juryUserId, rubricId, totalScore }) =>
@@ -126,8 +140,13 @@ describe('FairResults Integration (HTTP + DB)', () => {
     const adminA = await createUser({ role: 'ADMIN', organizationId: orgA.id, suffix: 'AdmA' });
     const adminB = await createUser({ role: 'ADMIN', organizationId: orgB.id, suffix: 'AdmB' });
     const superAdmin = await createUser({ role: 'SUPERADMIN', organizationId: null, suffix: 'Sup' });
+
+    const faculty = await prisma.faculty.create({
+      data: { name: `Facultad FR ${runId}`, code: `FFR${runId}`.slice(0, 20) },
+    });
+
     const student = await createUser({ role: 'STUDENT', organizationId: orgA.id, suffix: 'Std' });
-    const teacher = await createUser({ role: 'TEACHER', organizationId: orgA.id, suffix: 'Tch' });
+    const teacher = await createUser({ role: 'TEACHER', organizationId: orgA.id, suffix: 'Tch', facultyId: faculty.id });
     const studentExtra = await createUser({ role: 'STUDENT', organizationId: orgA.id, suffix: 'Std2' });
     const juryA = await createUser({ role: 'JURY', organizationId: orgA.id, suffix: 'JuryA', id: JURY_A });
     const juryC = await createUser({ role: 'JURY', organizationId: orgA.id, suffix: 'JuryC', id: JURY_C });

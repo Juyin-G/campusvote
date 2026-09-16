@@ -164,47 +164,20 @@ describe('Auth Integration (HTTP + DB)', () => {
   });
 
   describe('POST /api/auth/register', () => {
-    const registerEmail = `auth.register.${runId}@campusvote.edu.pe`;
-
-    afterAll(async () => {
-      await prisma.user.deleteMany({ where: { email: registerEmail } }).catch(() => {});
-    });
-
-    it('Deberia registrar un usuario nuevo con 201', async () => {
+    it('no existe auto-registro: la peticion es rechazada (401 sin sesion)', async () => {
       const res = await request(app)
         .post('/api/auth/register')
         .send({
           username: `register.${runId}`,
-          email: registerEmail,
+          email: `auth.register.${runId}@campusvote.edu.pe`,
           password: 'Register123!',
           firstName: 'Nuevo',
           lastName: 'Usuario',
           institutionalId: `REG${runId}`,
-          programId,
-          currentCycle: 3,
         });
 
-      expect(res.status).toBe(201);
-      expect(res.body.success).toBe(true);
-      expect(res.body.data.user.email).toBe(registerEmail);
-    });
-
-    it('Deberia rechazar email duplicado con 409', async () => {
-      const res = await request(app)
-        .post('/api/auth/register')
-        .send({
-          username: `register.dup.${runId}`,
-          email: registerEmail,
-          password: 'Register123!',
-          firstName: 'Otro',
-          lastName: 'Usuario',
-          institutionalId: `REGDUP${runId}`,
-          programId,
-          currentCycle: 3,
-        });
-
-      expect(res.status).toBe(409);
-      expect(res.body.error.code).toBe('CONFLICT');
+      expect(res.status).toBe(401);
+      expect(res.body.success).toBe(false);
     });
   });
 

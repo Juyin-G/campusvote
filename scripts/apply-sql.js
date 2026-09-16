@@ -39,7 +39,6 @@ const MIGRATION_FILES = [
   'user/009_cleanup_tokens.sql',
   'user/010_media_files.sql',
   'user/011_document_identity.sql',
-  'user/012_drop_observer_role.sql',
   'user/012_activation_enum.sql',
   'user/013_activation.sql',
   'user/014_remove_external_auth.sql',
