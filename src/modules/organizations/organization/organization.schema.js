@@ -16,25 +16,33 @@ export const organizationRequestStatusEnum = z.enum([
   'REJECTED',
 ]);
 
-// Permite URL válida, string vacío, null o undefined. En Zod 4 la cadena
-// `.string().url().or().nullable().optional()` rechaza null silenciosamente;
-// usamos `z.union([...])` que es la forma idiomática y robusta.
-const optionalUrlSchema = z
-  .union([
-    z.string().url('El logo debe ser una URL válida'),
-    z.literal(''),
-    z.null(),
-  ])
-  .optional();
-
-const optionalNullableString = (maxLen) =>
+// Permite URL válida, string vacío, null o undefined. La cadena con
+// `.nullable().optional()` falla en Zod 4 cuando llega `null`. Usamos un
+// preprocesador que convierte null/undefined a `null` antes de validar.
+const optionalUrlSchema = z.preprocess(
+  (value) => (value === undefined ? null : value),
   z
     .union([
-      z.string().trim().max(maxLen),
+      z.string().url('El logo debe ser una URL válida'),
       z.literal(''),
       z.null(),
     ])
-    .optional();
+    .optional()
+    .nullable(),
+);
+
+const optionalNullableString = (maxLen) =>
+  z.preprocess(
+    (value) => (value === undefined ? null : value),
+    z
+      .union([
+        z.string().trim().max(maxLen),
+        z.literal(''),
+        z.null(),
+      ])
+      .optional()
+      .nullable(),
+  );
 
 // Dominios de correo permitidos (ej: "universidad.edu.pe", "gmail.com").
 // Se acepta con o sin el "@"; se normaliza quitando el "@" inicial.
