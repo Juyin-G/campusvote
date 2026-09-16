@@ -74,6 +74,7 @@ export const errorHandler = (err, req, res, next) => {
         message: err.message,
         code: err.code,
         stack: err.stack,
+        details: err.details,
         path: req.originalUrl,
         method: req.method,
       });
@@ -81,6 +82,7 @@ export const errorHandler = (err, req, res, next) => {
       logger.warn({
         message: err.message,
         code: err.code,
+        details: err.details,
         path: req.originalUrl,
         method: req.method,
       });
