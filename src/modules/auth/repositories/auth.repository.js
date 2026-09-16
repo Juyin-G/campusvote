@@ -19,6 +19,8 @@ const userAuthSelect = {
   lastName: true,
   institutionalId: true,
   organizationId: true,
+  scopeLevel: true,
+  regionId: true,
   facultyId: true,
   programId: true,
   currentCycle: true,
