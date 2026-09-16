@@ -394,6 +394,7 @@ export const provisionAdmin = async (body = {}, actor = {}) => {
     organizationId: newOrg.id,
     mustChangePassword: true,
     isVerified: true,
+    scopeLevel: 'ORG',
   });
 
   // 3. Provisionar credenciales/2FA según el canal de email disponible.
@@ -505,6 +506,7 @@ export const provisionExistingAdmin = async (organizationId, body = {}, actor = 
     organizationId: targetOrg.id,
     mustChangePassword: true,
     isVerified: true,
+    scopeLevel: 'ORG',
     ...(identity || {}),
   });
 
