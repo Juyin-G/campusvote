@@ -121,7 +121,7 @@ describe('buildScopeUserWhere', () => {
   });
 
   test('actor no autenticado → FORBIDDEN', async () => {
-    await expect(buildScopeUserWhere(null)).rejects.toThrow(/autenticado/);
+    await expect(buildScopeUserWhere(null)).rejects.toThrow(/administrador/);
   });
 
   test('actor no ADMIN → FORBIDDEN', async () => {
