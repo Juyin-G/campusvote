@@ -93,6 +93,7 @@ const MIGRATION_FILES = [
   'organizations/019_site_region.sql',          // <--- MIGRACIÓN AGREGADA
   'user/020a_user_scope_enum.sql',               // <--- MIGRACIÓN AGREGADA (Crea scope_level)
   'user/020b_user_scope_columns.sql',            // <--- MIGRACIÓN AGREGADA (Agrega scope_level a users)
+  'organizations/009_admin_scope_in_activation.sql',
   'user/021_user_site_assignments.sql',          // <--- MIGRACIÓN AGREGADA
   'reports/001_election_report_history.sql',
   'claims/001_voter_registry_claims.sql',
