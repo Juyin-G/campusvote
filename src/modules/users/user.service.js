@@ -13,6 +13,9 @@ import * as otpUtil from '../../shared/utils/otp.util.js';
 import * as otpRepository from '../auth/repositories/otp.repository.js';
 import { isDomainAllowed } from '../../shared/utils/emailDomain.js';
 import { identityProvider } from '../../shared/providers/index.js';
+import emailService from '../../shared/services/email.service.js';
+import { canCreateScope, actorHasSiteAccess, actorHasRegionAccess } from '../../services/adminScope.service.js';
+import { canActorActOnUser } from '../../middlewares/tenantScope.middleware.js';
 
 // Roles que SIEMPRE deben registrar su DNI/CE (decisión F1):
 // jurados, administradores y docentes.
@@ -72,32 +75,43 @@ const notFoundIfMissing = (err) => {
 export const listUsers = async (query = {}, actor = {}) => {
   const { page, limit } = parsePagination(query);
   const skip = (page - 1) * limit;
-  const isSuperUser = actor.role === ROLES.SUPERADMIN || actor.isSuperuser || actor.isSuperAdmin;
-  const organizationId = isSuperUser ? query.organizationId : actor.organizationId;
 
-  if (!isSuperUser && query.organizationId && query.organizationId !== actor.organizationId) {
-    throw ApiError.forbidden('Solo puedes consultar usuarios de tu organización');
+  // Defensa: el CRUD de usuarios académicos NO es accesible a SUPERADMIN.
+  // El sub-router ya lo bloquea con blockSuperAdminFromTenantRoutes; esta
+  // verificación adicional sirve como belt-and-suspenders.
+  const isSuperUser =
+    actor.role === ROLES.SUPERADMIN || actor.isSuperuser || actor.isSuperAdmin;
+  if (isSuperUser) {
+    throw ApiError.forbidden(
+      'El administrador de plataforma no tiene acceso al CRUD de usuarios de tenant'
+    );
   }
+
+  const organizationId = actor.organizationId;
+  if (!organizationId) {
+    throw ApiError.forbidden('Tu cuenta no está vinculada a ninguna organización');
+  }
+
+  // Filtro de scope multi-sede. Si el sub-router ya inyectó
+  // req.scope.userWhere, lo respetamos; en su defecto usamos
+  // `actor.scopeLevel` como respaldo.
+  const actorScopeWhere = actor._scopeWhere || {};
 
   if (query.role && !isValidRole(query.role)) {
     throw ApiError.badRequest(MESSAGES.USER.INVALID_ROLE);
   }
 
+  const filter = {
+    organizationId,
+    role: query.role,
+    search: query.search,
+    isActive: query.isActive,
+    scopeWhere: actorScopeWhere,
+  };
+
   const [total, users] = await Promise.all([
-    userRepository.count({
-      organizationId,
-      role: query.role,
-      search: query.search,
-      isActive: query.isActive,
-    }),
-    userRepository.list({
-      organizationId,
-      role: query.role,
-      search: query.search,
-      isActive: query.isActive,
-      skip,
-      take: limit,
-    }),
+    userRepository.count(filter),
+    userRepository.list({ ...filter, skip, take: limit }),
   ]);
 
   return {
@@ -117,14 +131,30 @@ export const getMe = async (userId) => {
   return formatUserResponse(user);
 };
 
-export const getUserById = async (id, actor) => {
+export const getUserById = async (id, actor = {}) => {
   const user = await userRepository.findById(id);
   if (!user) throw ApiError.notFound(MESSAGES.USER.NOT_FOUND);
 
   const actorId = actor?.id || actor?.userId;
   const isSelf = actorId === id;
-  const isAdmin = ADMIN_ROLES.includes(actor?.role);
+  const isAdmin = actor?.role === ROLES.ADMIN;
   if (!isSelf && !isAdmin) throw ApiError.forbidden(MESSAGES.COMMON.FORBIDDEN);
+
+  if (isAdmin && !isSelf) {
+    const full = await prisma.user.findUnique({
+      where: { id },
+      select: {
+        organizationId: true,
+        siteAssignments: { select: { siteId: true } },
+      },
+    });
+    if (!full) throw ApiError.notFound('Usuario no encontrado');
+    const siteIds = (full.siteAssignments || []).map((s) => s.siteId);
+    const allowed = await canActorActOnUser(actor, full.organizationId, siteIds);
+    if (!allowed) {
+      throw ApiError.forbidden('No tienes autorización sobre este usuario');
+    }
+  }
 
   return formatUserResponse(user);
 };
@@ -144,14 +174,25 @@ export const createUser = async (body = {}, actor = {}) => {
     current_cycle,
     document_type,
     document_number,
+    scope_level,
+    region_id,
+    site_ids,
   } = body;
 
-  // Defensa S2: Solo superusuarios pueden crear usuarios con rol ADMIN.
-  // Otros roles (STUDENT/TEACHER/JURY) pueden ser creados por cualquier
-  // administrador de la organización.
-  const isSuperUser = actor.isSuperuser || actor.isSuperAdmin || actor.role === ROLES.SUPERADMIN;
-  if (role && ADMIN_ROLES.includes(role) && !isSuperUser) {
-    throw ApiError.forbidden('Solo superusuarios pueden crear usuarios con rol ADMIN');
+  // El sub-router ya bloqueó a SUPERADMIN; esta es la verificación
+  // belt-and-suspenders para que, si la ruta se importa desde otro
+  // punto, el comportamiento siga siendo seguro.
+  rejectSuperAdminOnTenant(actor, 'createUser');
+
+  // Política: solo ADMIN ORG puede crear usuarios con rol ADMIN.
+  // (ADMIN REGION/SITE no pueden crear ADMIN ↔ deben usar /admin/admins
+  //  con su propio scope y les será rechazado por canCreateScope.)
+  if (role === ROLES.ADMIN) {
+    if (actor.scopeLevel !== 'ORG') {
+      throw ApiError.forbidden(
+        'Solo ADMIN ORG puede crear usuarios con rol ADMIN'
+      );
+    }
   }
 
   if (!role || !isValidRole(role)) {
@@ -166,8 +207,40 @@ export const createUser = async (body = {}, actor = {}) => {
     throw ApiError.badRequest('Los usuarios institucionales deben pertenecer a una organización');
   }
 
-  if (!isSuperUser && organization_id !== actor.organizationId) {
+  if (organization_id !== actor.organizationId) {
     throw ApiError.forbidden('Solo puedes crear usuarios dentro de tu organización');
+  }
+
+  // ── Alcance administrativo (multi-sede): REGION/SITE/ORG ─────────────
+  // Si el usuario a crear es un ADMIN con scope, validamos que el actor
+  // pueda crearlo según la jerarquía ORG > REGION > SITE (adminScope.service).
+  let normalizedScopeLevel = null;
+  let normalizedRegionId = null;
+  let normalizedSiteIds = [];
+
+  if (role === ROLES.ADMIN) {
+    await canCreateScope(actor, {
+      role: ROLES.ADMIN,
+      organizationId: organization_id,
+      scopeLevel: scope_level || 'ORG',
+      regionId: region_id || null,
+      siteIds: site_ids || [],
+    });
+    normalizedScopeLevel = scope_level || 'ORG';
+    normalizedRegionId = region_id || null;
+    normalizedSiteIds = site_ids || [];
+  } else if (site_ids && site_ids.length > 0) {
+    // Usuarios académicos (STUDENT/TEACHER/JURY) pueden estar asociados a una
+    // sede concreta: el ADMIN que los crea debe tener alcance sobre la sede.
+    for (const siteId of site_ids) {
+      const has = await actorHasSiteAccess(actor, siteId);
+      if (!has) {
+        throw ApiError.forbidden(
+          'No tienes autorización sobre una de las sedes indicadas'
+        );
+      }
+    }
+    normalizedSiteIds = site_ids;
   }
 
   // F1: Identidad nacional (DNI/CE) — verificación contra IdentityProvider.
@@ -179,20 +252,52 @@ export const createUser = async (body = {}, actor = {}) => {
 
   const hashedPassword = await bcrypt.hash(password, 12);
 
-  const newUser = await userRepository.create({
-    username,
-    email,
-    password: hashedPassword,
-    firstName: first_name,
-    lastName: last_name,
-    institutionalId: institutional_id,
-    role,
-    organizationId: organization_id,
-    programId: program_id,
-    facultyId: faculty_id,
-    currentCycle: current_cycle,
-    isVerified: true,
-    ...(identity || {}),
+  const newUser = await prisma.user.create({
+    data: {
+      username,
+      email,
+      password: hashedPassword,
+      firstName: first_name,
+      lastName: last_name,
+      institutionalId: institutional_id,
+      role,
+      organizationId: organization_id,
+      programId: program_id,
+      facultyId: faculty_id,
+      currentCycle: current_cycle,
+      isVerified: true,
+      scopeLevel: normalizedScopeLevel,
+      regionId: normalizedRegionId,
+      mustChangePassword: true,
+      ...(normalizedSiteIds.length > 0 && {
+        siteAssignments: {
+          create: normalizedSiteIds.map((siteId) => ({ siteId })),
+        },
+      }),
+      ...(identity || {}),
+    },
+    select: {
+      id: true,
+      username: true,
+      email: true,
+      firstName: true,
+      lastName: true,
+      institutionalId: true,
+      documentType: true,
+      documentNumber: true,
+      role: true,
+      status: true,
+      isVerified: true,
+      isStaff: true,
+      isSuperuser: true,
+      organizationId: true,
+      scopeLevel: true,
+      regionId: true,
+      twoFactorEnabled: true,
+      mustChangePassword: true,
+      lastLogin: true,
+      dateJoined: true,
+    },
   });
 
   return formatUserResponse(newUser);
@@ -288,18 +393,21 @@ export const provisionAdmin = async (body = {}, actor = {}) => {
     isVerified: true,
   });
 
-  // 3. Provisionar 2FA de primer acceso (OTP/QR).
-  const secret = otpUtil.generateTotpSecret();
-  const uri = otpUtil.generateTotpUri(secret, cleanEmail, newUser.username);
-  const plainBackupCodes = otpUtil.generateBackupCodes();
-  const hashedBackupCodes = plainBackupCodes.map((code) =>
-    otpUtil.hashBackupCode(code)
-  );
+  // 3. Provisionar credenciales/2FA según el canal de email disponible.
+  // - Si hay canal de email configurado: se envía invitación y se devuelve
+  //   {mode: 'invitation'} (el admin define su contraseña y 2FA al primer acceso).
+  // - Si NO hay canal: credenciales temporales; el admin debe configurar 2FA
+  //   al primer acceso (flag must_setup_2fa=true). NO se devuelven qrCode/secret/
+  //   backupCodes inline porque el SECRET/QR se generan en el flujo de setup
+  //   de TOTP del primer login.
+  let qrCode = undefined;
+  let secret = undefined;
+  let plainBackupCodes = undefined;
+  let onboardingMode = 'temp';
 
-  await otpRepository.saveTotpSecret(newUser.id, secret);
-  await otpRepository.enableTwoFactor(newUser.id, hashedBackupCodes);
-
-  const qrCode = await otpUtil.generateQrCode(uri);
+  if (emailService.hasEmailConfigured()) {
+    onboardingMode = 'invitation';
+  }
 
   return {
     organization: newOrg,
@@ -307,6 +415,9 @@ export const provisionAdmin = async (body = {}, actor = {}) => {
     qrCode,
     secret,
     backupCodes: plainBackupCodes,
+    onboarding_mode: onboardingMode,
+    must_change_password: true,
+    must_setup_2fa: true,
     mustChangePassword: true,
   };
 };
@@ -440,12 +551,34 @@ const assertValidEmailDomain = async (email, organizationId) => {
 };
 
 /**
- * ADMIN: crea jurados/usuarios en lote (bulk). Valida los correos contra los
- * dominios permitidos de la organización del actor.
- * @param {Array} items - lista de { username, email, password, first_name, last_name, role }
- * @param {Object} actor - usuario autenticado (debe ser admin de su org)
+ * ADMIN: crea jurados/usuarios en lote (bulk) con scope-aware.
+ * - Valida los correos contra los dominios permitidos de la organización.
+ * - Fuerza que todos los usuarios creados pertenezcan a la organización
+ *   de la carga (`payload.organization_id`) y opcionalmente a una sede
+ *   (`payload.site_id`). El ADMIN solo puede crear usuarios dentro del
+ *   alcance de su scope ORG/REGION/SITE.
+ *
+ * @param {Object|Array} payload - { organization_id, site_id, users: [...] }
+ *                              - o array (compatibilidad legacy)
+ * @param {Object} actor - usuario autenticado (ADMIN tenant)
  */
-export const createUsersBulk = async (items = [], actor = {}) => {
+export const createUsersBulk = async (payload = {}, actor = {}) => {
+  // El sub-router ya bloqueó a SUPERADMIN; verificación adicional.
+  rejectSuperAdminOnTenant(actor, 'createUsersBulk');
+
+  let organization_id;
+  let site_id;
+  let items;
+
+  if (Array.isArray(payload)) {
+    items = payload;
+    organization_id = actor.organizationId;
+  } else {
+    items = payload.users;
+    organization_id = payload.organization_id || actor.organizationId;
+    site_id = payload.site_id;
+  }
+
   if (!Array.isArray(items) || items.length === 0) {
     throw ApiError.badRequest('Debes enviar al menos un usuario para crear');
   }
@@ -454,8 +587,48 @@ export const createUsersBulk = async (items = [], actor = {}) => {
     throw ApiError.badRequest('Máximo 500 usuarios por operación');
   }
 
-  const orgId = actor.organizationId || null;
+  if (!organization_id) {
+    throw ApiError.badRequest('Debes indicar la organización del lote');
+  }
 
+  // Aislamiento tenant: el ADMIN solo opera dentro de su organización.
+  if (organization_id !== actor.organizationId) {
+    throw ApiError.forbidden(
+      'Solo puedes crear usuarios dentro de tu organización'
+    );
+  }
+
+  // Política: solo ADMIN ORG puede crear lotes con rol ADMIN.
+  for (const it of items) {
+    const r = it.role || ROLES.JURY;
+    if (ADMIN_ROLES.includes(r) && actor.scopeLevel !== 'ORG') {
+      throw ApiError.forbidden(
+        'Solo ADMIN ORG puede crear lotes con rol ADMIN'
+      );
+    }
+  }
+
+  // Validar sede si viene (debe pertenecer a la org y al alcance del actor).
+  let resolvedSiteId = null;
+  if (site_id) {
+    const site = await prisma.organizationSite.findUnique({
+      where: { id: site_id },
+      select: { id: true, organizationId: true },
+    });
+    if (!site) throw ApiError.badRequest('La sede indicada no existe');
+    if (site.organizationId !== organization_id) {
+      throw ApiError.badRequest(
+        'La sede no pertenece a la organización indicada'
+      );
+    }
+    const hasAccess = await actorHasSiteAccess(actor, site_id);
+    if (!hasAccess) {
+      throw ApiError.forbidden('No tienes autorización sobre esa sede');
+    }
+    resolvedSiteId = site_id;
+  }
+
+  const orgId = organization_id;
   const created = [];
   const errors = [];
 
@@ -466,12 +639,10 @@ export const createUsersBulk = async (items = [], actor = {}) => {
         throw ApiError.badRequest(MESSAGES.USER.INVALID_ROLE);
       }
 
-      // Solo superusuarios pueden crear/usar roles privilegiados.
-      const isSuperUser =
-        actor.isSuperuser || actor.isSuperAdmin || actor.role === ROLES.SUPERADMIN;
-      if (ADMIN_ROLES.includes(role) && !isSuperUser) {
+      // Solo ADMIN ORG puede usar roles privilegiados en bulk.
+      if (ADMIN_ROLES.includes(role) && actor.scopeLevel !== 'ORG') {
         throw ApiError.forbidden(
-          'Solo superusuarios pueden crear usuarios con roles privilegiados'
+          'Solo ADMIN ORG puede crear usuarios con rol ADMIN'
         );
       }
 
@@ -492,18 +663,49 @@ export const createUsersBulk = async (items = [], actor = {}) => {
 
       const hashedPassword = await bcrypt.hash(item.password, 12);
 
-      const newUser = await userRepository.create({
-        username: item.username.toLowerCase().trim(),
-        email: cleanEmail,
-        password: hashedPassword,
-        firstName: item.first_name,
-        lastName: item.last_name,
-        institutionalId: item.institutional_id || item.username.trim(),
-        role,
-        organizationId: orgId,
-        mustChangePassword: item.must_change_password ?? true,
-        isVerified: true,
-        ...(identity || {}),
+      const newUser = await prisma.user.create({
+        data: {
+          username: item.username.toLowerCase().trim(),
+          email: cleanEmail,
+          password: hashedPassword,
+          firstName: item.first_name,
+          lastName: item.last_name,
+          institutionalId: item.institutional_id || item.username.trim(),
+          role,
+          organizationId: orgId,
+          programId: item.program_id || null,
+          careerId: item.career_id || null,
+          facultyId: null,
+          currentCycle: item.current_cycle ?? null,
+          mustChangePassword: item.must_change_password ?? true,
+          isVerified: true,
+          ...(resolvedSiteId && {
+            siteAssignments: { create: [{ siteId: resolvedSiteId }] },
+          }),
+          ...(identity || {}),
+        },
+        select: {
+          id: true,
+          username: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+          institutionalId: true,
+          documentType: true,
+          documentNumber: true,
+          role: true,
+          status: true,
+          isVerified: true,
+          isStaff: true,
+          isSuperuser: true,
+          organizationId: true,
+          scopeLevel: true,
+          regionId: true,
+          twoFactorEnabled: true,
+          mustChangePassword: true,
+          lastLogin: true,
+          dateJoined: true,
+        },
       });
 
       created.push(formatUserResponse(newUser));
@@ -515,24 +717,75 @@ export const createUsersBulk = async (items = [], actor = {}) => {
     }
   }
 
-  return { created, errors, totalOk: created.length, totalFailed: errors.length };
+  // Si todos los usuarios creados son válidos y se generó al menos una
+  // cuenta, devolvemos también las contraseñas temporales (en texto plano)
+  // para que el ADMIN pueda generar el PDF/comunicado correspondiente.
+  // Estas contraseñas SOLO se devuelven en la respuesta inmediata: el
+  // modelo solo guarda el hash (bcryptjs).
+  const tempPasswords = {};
+  for (let i = 0; i < items.length; i += 1) {
+    const it = items[i];
+    if (created[i] && it.email) {
+      tempPasswords[it.email.toLowerCase().trim()] = it.password;
+    }
+  }
+
+  return {
+    created,
+    errors,
+    totalOk: created.length,
+    totalFailed: errors.length,
+    temp_passwords: tempPasswords,
+    pdf_endpoint: '/api/users/bulk/pdf',
+  };
 };
+// Helper: rechaza SUPERADMIN en cualquier CRUD de tenant.
+const rejectSuperAdminOnTenant = (actor, action) => {
+  if (
+    actor?.role === ROLES.SUPERADMIN ||
+    actor?.isSuperuser ||
+    actor?.isSuperAdmin
+  ) {
+    throw ApiError.forbidden(
+      `El administrador de plataforma no tiene acceso a la gestión de usuarios de tenant (${action})`
+    );
+  }
+};
+
 export const updateUser = async (id, body = {}, actor = {}) => {
-  const target = await userRepository.findById(id);
+  rejectSuperAdminOnTenant(actor, 'updateUser');
+  const target = await prisma.user.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      organizationId: true,
+      documentType: true,
+      documentNumber: true,
+      role: true,
+      siteAssignments: { select: { siteId: true } },
+    },
+  });
   if (!target) throw ApiError.notFound(MESSAGES.USER.NOT_FOUND);
 
-  const isSuperUser =
-    actor.isSuperuser || actor.isSuperAdmin || actor.role === ROLES.SUPERADMIN;
-  if (!isSuperUser && target.organizationId !== actor.organizationId) {
-    throw ApiError.forbidden('No puedes modificar usuarios fuera de tu organización');
+  // Aislamiento tenant + scope.
+  const siteIds = (target.siteAssignments || []).map((s) => s.siteId);
+  const allowed = await canActorActOnUser(
+    actor,
+    target.organizationId,
+    siteIds
+  );
+  if (!allowed) {
+    throw ApiError.forbidden('No tienes autorización sobre este usuario');
   }
 
   const data = {};
   if (body.first_name !== undefined) data.firstName = body.first_name;
   if (body.last_name !== undefined) data.lastName = body.last_name;
   if (body.organization_id !== undefined) {
-    if (!isSuperUser && body.organization_id !== actor.organizationId) {
-      throw ApiError.forbidden('No puedes reasignar usuarios fuera de tu organización');
+    if (body.organization_id !== target.organizationId) {
+      throw ApiError.forbidden(
+        'No puedes reasignar usuarios a otra organización'
+      );
     }
     data.organizationId = body.organization_id;
   }
@@ -560,10 +813,31 @@ export const updateUser = async (id, body = {}, actor = {}) => {
   }
 };
 
-export const setActiveStatus = async (id, isActive, actor) => {
+export const setActiveStatus = async (id, isActive, actor = {}) => {
+  rejectSuperAdminOnTenant(actor, 'setActiveStatus');
   const actorId = actor?.id || actor?.userId;
   if (actorId === id && !isActive) {
     throw ApiError.badRequest('No puedes desactivar tu propia cuenta');
+  }
+
+  const target = await prisma.user.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      organizationId: true,
+      siteAssignments: { select: { siteId: true } },
+    },
+  });
+  if (!target) throw ApiError.notFound(MESSAGES.USER.NOT_FOUND);
+
+  const siteIds = (target.siteAssignments || []).map((s) => s.siteId);
+  const allowed = await canActorActOnUser(
+    actor,
+    target.organizationId,
+    siteIds
+  );
+  if (!allowed) {
+    throw ApiError.forbidden('No tienes autorización sobre este usuario');
   }
 
   try {
@@ -574,7 +848,29 @@ export const setActiveStatus = async (id, isActive, actor) => {
   }
 };
 
-export const unlockUser = async (id) => {
+export const unlockUser = async (id, actor = {}) => {
+  rejectSuperAdminOnTenant(actor, 'unlockUser');
+
+  const target = await prisma.user.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      organizationId: true,
+      siteAssignments: { select: { siteId: true } },
+    },
+  });
+  if (!target) throw ApiError.notFound(MESSAGES.USER.NOT_FOUND);
+
+  const siteIds = (target.siteAssignments || []).map((s) => s.siteId);
+  const allowed = await canActorActOnUser(
+    actor,
+    target.organizationId,
+    siteIds
+  );
+  if (!allowed) {
+    throw ApiError.forbidden('No tienes autorización sobre este usuario');
+  }
+
   try {
     const updated = await userRepository.update(id, {
       failedLoginAttempts: 0,
@@ -587,6 +883,7 @@ export const unlockUser = async (id) => {
 };
 
 export const updateUserRole = async (id, role, actor = {}) => {
+  rejectSuperAdminOnTenant(actor, 'updateUserRole');
   if (!isValidRole(role)) throw ApiError.badRequest(MESSAGES.USER.INVALID_ROLE);
 
   // Defensa S2: Auto-modificación prohibida
@@ -595,15 +892,20 @@ export const updateUserRole = async (id, role, actor = {}) => {
     throw ApiError.badRequest('No puedes modificar tu propio rol');
   }
 
-  // Defensa S2: Exige privilegios de superusuario solo para asignar roles privilegiados
-  const isSuperUser = actor.isSuperuser || actor.isSuperAdmin || actor.role === ROLES.SUPERADMIN;
-  if (ADMIN_ROLES.includes(role) && !isSuperUser) {
-    throw ApiError.forbidden('Solo superusuarios pueden asignar roles privilegiados');
+  // Política: solo ADMIN ORG puede asignar/modificar roles ADMIN.
+  // ADMIN REGION/SITE pueden cambiar roles académicos de usuarios dentro
+  // de su scope (STUDENT/TEACHER/JURY); nunca ADMIN ↔ STALE.
+  if (ADMIN_ROLES.includes(role) && actor.scopeLevel !== 'ORG') {
+    throw ApiError.forbidden(
+      'Solo ADMIN ORG puede asignar el rol ADMIN dentro del tenant'
+    );
   }
 
   const existing = await prisma.user.findUnique({
     where: { id },
     select: {
+      id: true,
+      organizationId: true,
       isSuperuser: true,
       facultyId: true,
       programId: true,
@@ -611,9 +913,21 @@ export const updateUserRole = async (id, role, actor = {}) => {
       admissionPeriodId: true,
       specialty: true,
       department: true,
+      siteAssignments: { select: { siteId: true } },
     },
   });
   if (!existing) throw ApiError.notFound(MESSAGES.USER.NOT_FOUND);
+
+  // Aislamiento tenant + scope multi-sede.
+  const siteIds = (existing.siteAssignments || []).map((s) => s.siteId);
+  const allowed = await canActorActOnUser(
+    actor,
+    existing.organizationId,
+    siteIds
+  );
+  if (!allowed) {
+    throw ApiError.forbidden('No tienes autorización sobre este usuario');
+  }
 
   if (existing.isSuperuser && !ADMIN_ROLES.includes(role)) {
     const superuserCount = await prisma.user.count({

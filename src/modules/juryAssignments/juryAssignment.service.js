@@ -11,7 +11,7 @@
 //   - La invariante "el jurado pertenece a la misma organización que la feria"
 //     se exige SIEMPRE (evita mezclar organizaciones incluso si el actor fuera
 //     ADMIN de una organización distinta).
-//   - ELECTORAL_COMMISSION, STUDENT y TEACHER NO reciben permisos nuevos.
+//   - STUDENT y TEACHER NO reciben permisos nuevos sobre jurados.
 //   - JURY SOLO lee sus propias asignaciones (sin acceso administrativo ni a
 //     todas las ferias del sistema).
 //

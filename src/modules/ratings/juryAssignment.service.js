@@ -162,7 +162,7 @@ export const listAssignments = async ({ electionId, candidacyId, status, actor }
   await assertTenantAccess({ electionId, actor });
 
   const isConfigurator =
-    isSuperAdmin(actor) || actor.role === ROLES.ADMIN || actor.role === ROLES.ELECTORAL_COMMISSION;
+    isSuperAdmin(actor) || actor.role === ROLES.ADMIN;
 
   const assignments = await juryRepository.listAssignments({
     electionId,

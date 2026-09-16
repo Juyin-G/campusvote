@@ -7,7 +7,6 @@ export const UserRoleEnum = z.enum([
   'TEACHER',
   'ADMIN',
   'SUPERADMIN',
-  'ELECTORAL_COMMISSION',
   'JURY',
 ]);
 

@@ -56,6 +56,9 @@ export const createUserSchema = z.object({
     document_type: z.enum(['DNI', 'CE']).optional(),
     document_number: z.string().trim().max(20).optional(),
     phone_number: z.string().trim().max(20).optional(),
+    scope_level: z.enum(['ORG', 'REGION', 'SITE']).optional(),
+    region_id: z.string().uuid('ID de región inválido').optional(),
+    site_ids: z.array(z.string().uuid('ID de sede inválido')).optional(),
   })
   .superRefine((data, ctx) => {
     const addIssue = (field, message) =>
@@ -63,6 +66,13 @@ export const createUserSchema = z.object({
     if (data.role === 'STUDENT') {
       if (!data.program_id) addIssue('program_id', 'Un estudiante requiere program_id');
       if (!data.current_cycle) addIssue('current_cycle', 'Un estudiante requiere current_cycle');
+    }
+    // Alcance multi-sede: validación consistente.
+    if (data.scope_level === 'REGION' && !data.region_id) {
+      addIssue('region_id', 'scope_level=REGION requiere region_id');
+    }
+    if (data.scope_level === 'SITE' && (!data.site_ids || data.site_ids.length === 0)) {
+      addIssue('site_ids', 'scope_level=SITE requiere al menos una sede');
     }
     // faculty_id se mantiene como campo opcional: si la institucion lo usa,
     // lo agrega; si no, el usuario se crea sin facultad asignada.
@@ -214,6 +224,8 @@ export const provisionExistingAdminSchema = z.object({
 // ADMIN: crear jurados/usuarios en lote (bulk)
 export const createUsersBulkSchema = z.object({
   body: z.object({
+    organization_id: z.string().uuid('ID de organización inválido'),
+    site_id: z.string().uuid('ID de sede inválido').optional(),
     users: z
       .array(
         z.object({
@@ -227,9 +239,41 @@ export const createUsersBulkSchema = z.object({
           document_type: z.enum(['DNI', 'CE']).optional(),
           document_number: z.string().trim().max(20).optional(),
           must_change_password: z.boolean().optional(),
+          program_id: z.string().uuid('ID inválido').optional(),
+          career_id: z.string().uuid('ID inválido').optional(),
+          current_cycle: z.number().int().min(1).max(20).optional(),
         })
       )
       .min(1, 'Debes enviar al menos un usuario')
       .max(500, 'Máximo 500 usuarios por operación'),
   }),
+});
+
+// Asignar / reemplazar sede(s) académica(s) de un usuario académico.
+//   PUT /api/users/:id/site
+export const assignSiteSchema = z.object({
+  params: z.object({
+    id: z.string().uuid('ID inválido'),
+  }),
+  body: z.object({
+    site_ids: z.array(z.string().uuid('ID de sede inválido')),
+  }),
+});
+
+// Asignar / actualizar datos académicos de un usuario académico.
+//   PUT /api/users/:id/academic
+export const assignAcademicSchema = z.object({
+  params: z.object({
+    id: z.string().uuid('ID inválido'),
+  }),
+  body: z
+    .object({
+      faculty_id: z.string().uuid('ID inválido').nullable().optional(),
+      program_id: z.string().uuid('ID inválido').nullable().optional(),
+      career_id: z.string().uuid('ID inválido').nullable().optional(),
+      current_cycle: z.number().int().min(1).max(20).nullable().optional(),
+    })
+    .refine((d) => Object.keys(d).length > 0, {
+      message: 'Debes enviar al menos un campo académico',
+    }),
 });

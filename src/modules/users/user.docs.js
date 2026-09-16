@@ -25,7 +25,7 @@
  *           type: string
  *         role:
  *           type: string
- *           enum: [STUDENT, TEACHER, ADMIN, ELECTORAL_COMMISSION, JURY]
+ *           enum: [STUDENT, TEACHER, ADMIN, SUPERADMIN, JURY]
  *         is_active:
  *           type: boolean
  *         is_verified:
@@ -84,7 +84,7 @@
  *           maxLength: 50
  *         role:
  *           type: string
- *           enum: [STUDENT, TEACHER, ADMIN, ELECTORAL_COMMISSION, JURY]
+ *           enum: [STUDENT, TEACHER, ADMIN, SUPERADMIN, JURY]
  *         organization_id:
  *           type: string
  *           format: uuid
@@ -120,7 +120,7 @@
  *       properties:
  *         role:
  *           type: string
- *           enum: [STUDENT, TEACHER, ADMIN, ELECTORAL_COMMISSION, JURY]
+ *           enum: [STUDENT, TEACHER, ADMIN, SUPERADMIN, JURY]
  *
  *     SetActiveRequest:
  *       type: object
@@ -189,7 +189,7 @@
  *         name: role
  *         schema:
  *           type: string
- *           enum: [STUDENT, TEACHER, ADMIN, ELECTORAL_COMMISSION, JURY]
+ *           enum: [STUDENT, TEACHER, ADMIN, SUPERADMIN, JURY]
  *       - in: query
  *         name: search
  *         schema:

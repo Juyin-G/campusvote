@@ -25,7 +25,7 @@ export const getRules = asyncHandler(async (req, res) => {
 /**
  * Configurar las reglas de una elección (solo en DRAFT/SCHEDULED, una sola vez)
  * @route POST /api/elections/:electionId/rules
- * @access ADMIN, ELECTORAL_COMMISSION
+ * @access ADMIN
  */
 export const createRules = asyncHandler(async (req, res) => {
   const rules = await electionRulesService.createRules(
@@ -45,7 +45,7 @@ export const createRules = asyncHandler(async (req, res) => {
 /**
  * Modificar parcialmente las reglas de una elección (solo en DRAFT/SCHEDULED)
  * @route PATCH /api/elections/:electionId/rules
- * @access ADMIN, ELECTORAL_COMMISSION
+ * @access ADMIN
  */
 export const updateRules = asyncHandler(async (req, res) => {
   const rules = await electionRulesService.updateRules(
@@ -65,7 +65,7 @@ export const updateRules = asyncHandler(async (req, res) => {
 /**
  * Eliminar las reglas de una elección (vuelve a los valores por defecto de la BD)
  * @route DELETE /api/elections/:electionId/rules
- * @access ADMIN, ELECTORAL_COMMISSION
+ * @access ADMIN
  */
 export const deleteRules = asyncHandler(async (req, res) => {
   const result = await electionRulesService.deleteRules(req.params.electionId);

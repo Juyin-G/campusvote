@@ -17,7 +17,7 @@ import { ROLES } from '../../../constants/roles.js';
 const router = Router();
 
 // Solo gestores (ADMIN / COMISIÓN ELECTORAL) pueden gestionar el padrón.
-const GESTORES = [ROLES.ADMIN, ROLES.ELECTORAL_COMMISSION];
+const GESTORES = [ROLES.ADMIN];
 
 // 1. Sincronización masiva desde SIS
 // (El procedimiento almacenado sync_sis_voters exige rol ADMIN)

@@ -4,8 +4,7 @@
 //   - ADMIN gestiona las ferias de SU organización (scope por tenant en service).
 //   - SUPERADMIN es administrador de plataforma y NO pertenece a ninguna
 //     organización: NO tiene acceso operativo a ferias (403 desde este router).
-//   - ELECTORAL_COMMISSION, JURY, STUDENT y TEACHER NO gestionan ferias
-//     (sin permisos nuevos en este paso).
+//   - JURY, STUDENT y TEACHER NO gestionan ferias (sin permisos nuevos).
 
 import { Router } from 'express';
 import { authenticate, authorize } from '../../middlewares/auth.middleware.js';

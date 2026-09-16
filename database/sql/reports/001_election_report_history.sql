@@ -68,9 +68,9 @@ BEGIN
         RAISE EXCEPTION 'El registro de resultado electoral especificado no existe.';
     END IF;
 
-    -- 2. Validar permisos (Solo Admin o Comisión Electoral)
+    -- 2. Validar permisos (Solo Admin o Superadmin de plataforma)
     SELECT role INTO v_user_role FROM users WHERE id = p_generated_by AND status = 'ACTIVE';
-    IF v_user_role IS NULL OR v_user_role NOT IN ('ADMIN', 'ELECTORAL_COMMISSION') THEN
+    IF v_user_role IS NULL OR v_user_role NOT IN ('ADMIN', 'SUPERADMIN') THEN
         RAISE EXCEPTION 'Usuario no autorizado para generar actas oficiales.';
     END IF;
 

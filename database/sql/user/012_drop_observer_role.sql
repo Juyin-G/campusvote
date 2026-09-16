@@ -45,14 +45,13 @@ BEGIN
         'TEACHER',
         'ADMIN',
         'SUPERADMIN',
-        'ELECTORAL_COMMISSION',
         'JURY'
     );
 
     ALTER TABLE users ALTER COLUMN role TYPE user_role USING role::user_role;
 
     ALTER TABLE users ADD CONSTRAINT chk_users_institutional_email CHECK (
-        role IN ('ADMIN', 'SUPERADMIN', 'ELECTORAL_COMMISSION', 'JURY')
+        role IN ('ADMIN', 'SUPERADMIN', 'JURY')
         OR email ~* '^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.(edu\.pe|edu)$'
     );
 

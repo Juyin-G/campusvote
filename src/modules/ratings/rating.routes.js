@@ -31,16 +31,17 @@ import {
 
 const router = Router();
 
-const SCORERS = [ROLES.JURY, ROLES.ADMIN, ROLES.ELECTORAL_COMMISSION, ROLES.SUPERADMIN];
+// Scoring roles: JURY (cuando está asignado a un proyecto) + ADMIN + SUPERADMIN.
+// ELECTORAL_COMMISSION eliminado: el rol de configuración pertenece solo a ADMIN.
+const SCORERS = [ROLES.JURY, ROLES.ADMIN, ROLES.SUPERADMIN];
 const VIEWERS = [
   ROLES.JURY,
   ROLES.ADMIN,
-  ROLES.ELECTORAL_COMMISSION,
   ROLES.SUPERADMIN,
   ROLES.TEACHER,
   ROLES.STUDENT,
 ];
-const CONFIGURERS = [ROLES.ADMIN, ROLES.ELECTORAL_COMMISSION, ROLES.SUPERADMIN];
+const CONFIGURERS = [ROLES.ADMIN, ROLES.SUPERADMIN];
 
 // ── CRITERIOS DE RÚBRICA ──────────────────────────────────────────
 router.post(

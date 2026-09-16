@@ -18,7 +18,7 @@
 //   - JURY: consulta la rúbrica y proyectos APPROVED SOLO de ferias donde está
 //     formalmente asignado; crea/actualiza SU PROPIA evaluación mientras la
 //     feria está OPEN y sigue asignado. NO elimina, NO toca evaluaciones ajenas.
-//   - STUDENT/TEACHER/ELECTORAL_COMMISSION/EXPOSITOR/OBSERVER: sin acceso.
+//   - STUDENT/TEACHER/EXPOSITOR: sin acceso administrativo sobre evaluaciones.
 
 import * as evaluationRepository from './fairEvaluation.repository.js';
 import * as fairRepository from '../fairs/fair.repository.js';

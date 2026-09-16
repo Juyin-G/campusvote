@@ -18,7 +18,7 @@ model UserSiteAssignment {
   expiresAt  DateTime? @map("expires_at") @db.Timestamptz
 
   // Relaciones
-  user     User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user     User             @relation("UserSiteAssignments", fields: [userId], references: [id], onDelete: Cascade)
   site     OrganizationSite @relation(fields: [siteId], references: [id], onDelete: Cascade)
   grantor  User?            @relation("UserSiteAssignmentsGrantedBy", fields: [grantedBy], references: [id], onDelete: SetNull)
 

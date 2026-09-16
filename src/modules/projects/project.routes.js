@@ -71,7 +71,8 @@ router.delete(
 );
 
 // ── REVISIÓN ADMINISTRATIVA (APROBAR / RECHAZAR) ────────────────────
-// ELECTORAL_COMMISSION deliberadamente NO gestiona proyectos.
+// La revisión administrativa de proyectos la realiza exclusivamente ADMIN (no se
+// concede a roles electorales: STUDENT/TEACHER/JURY).
 router.post(
   '/:id/review',
   authorize(REVIEWERS),

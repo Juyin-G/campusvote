@@ -1,7 +1,7 @@
 -- objections/001_candidacy_objections.sql
 -- Tachas (fase SCHEDULED) e impugnaciones (fase CLOSED/CERTIFIED).
 -- El tránsito de una elección a OPEN exige 0 tachas pendientes (service).
--- La resolución la realiza ELECTORAL_COMMISSION/ADMIN (SECURITY DEFINER).
+-- La resolución la realiza ADMIN/SUPERADMIN (SECURITY DEFINER).
 -- Toda resolución queda registrada en audit_logs (service).
 
 BEGIN;

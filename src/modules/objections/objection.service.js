@@ -1,7 +1,7 @@
 // src/modules/objections/objection.service.js
 // Lógica de tachas (SCHEDULED) e impugnaciones (CLOSED/CERTIFIED):
 // - Una sola objeción PENDING por lista y por candidato (UNIQUE parcial en BD).
-// - La resolución pertenece a ELECTORAL_COMMISSION/ADMIN; FOUNDED queda
+// - La resolución pertenece a ADMIN (tenant) / SUPERADMIN (plataforma); FOUNDED queda
 //   registrada con revisión y puede desactivar la candidatura cuestionada.
 // - El tránsito a OPEN exige 0 tachas pendientes (election.service).
 // La ventana y la máquina de estados se refuerzan en el trigger
@@ -100,12 +100,12 @@ export const fileObjection = async ({
   return objection;
 };
 
-/** Resuelve una objeción (solo ELECTORAL_COMMISSION/ADMIN). */
+/** Resuelve una objeción (solo ADMIN tenant o SUPERADMIN plataforma). */
 export const resolveObjection = async ({ electionId, objectionId, status, resolution_notes, actor }) => {
-  const isSuperUser =
-    actor.role === ROLES.ADMIN || actor.role === ROLES.ELECTORAL_COMMISSION || isSuperAdmin(actor);
-  if (!isSuperUser) {
-    throw ApiError.forbidden('Solo la comisión electoral o el administrador pueden resolver objeciones');
+  const canResolve =
+    actor.role === ROLES.ADMIN || isSuperAdmin(actor);
+  if (!canResolve) {
+    throw ApiError.forbidden('Solo el administrador o el superusuario pueden resolver objeciones');
   }
 
   const objection = await objectionRepository.findObjectionInElection(electionId, objectionId);

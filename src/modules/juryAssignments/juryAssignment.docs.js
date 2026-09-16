@@ -42,7 +42,7 @@
  *               type: string
  *             role:
  *               type: string
- *               enum: [STUDENT, TEACHER, ADMIN, SUPERADMIN, ELECTORAL_COMMISSION, JURY]
+ *               enum: [STUDENT, TEACHER, ADMIN, SUPERADMIN, JURY]
  *             status:
  *               type: string
  *               enum: [PENDING, ACTIVE, SUSPENDED, DELETED]

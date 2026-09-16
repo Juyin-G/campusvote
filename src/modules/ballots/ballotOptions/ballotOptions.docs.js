@@ -167,7 +167,7 @@
  *       401:
  *         description: No autenticado
  *       403:
- *         description: Requiere rol ADMIN o ELECTORAL_COMMISSION
+ *         description: requiere rol ADMIN
  *       404:
  *         description: Posición de boleta o lista candidata no encontrada
  *       409:
@@ -300,7 +300,7 @@
  *       401:
  *         description: No autenticado
  *       403:
- *         description: Requiere rol ADMIN o ELECTORAL_COMMISSION
+ *         description: requiere rol ADMIN
  *       404:
  *         description: La opción no existe o no pertenece a la posición
  *       409:
@@ -359,7 +359,7 @@
  *       401:
  *         description: No autenticado
  *       403:
- *         description: Requiere rol ADMIN o ELECTORAL_COMMISSION
+ *         description: requiere rol ADMIN
  *       404:
  *         description: Opción no encontrada en la posición indicada
  */

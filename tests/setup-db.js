@@ -81,10 +81,12 @@ export default async function setupTestDB() {
     await executeFile('user/014_remove_external_auth.sql');
     await executeFile('user/015_activation_constraint.sql');
     // CAMBIO: scope multi-sede (region/site) + eliminación de ELECTORAL_COMMISSION.
+    // Estas migraciones se cargan AQUÍ solo para los pasos que no dependen
+    // todavía de organization_sites. La carga completa (018_regions → 006_sites
+    // → 019_site_region → 020_user_scope → 021_user_site_assignments) se
+    // reaplica más abajo, después de 006_organization_sites.sql, para que la
+    // FK users.region_id → regions y los índices tengan sentido.
     await executeFile('organizations/018_regions.sql');
-    await executeFile('organizations/019_site_region.sql');
-    await executeFile('user/020_user_scope.sql');
-    await executeFile('user/021_user_site_assignments.sql');
 
     console.log('7. Creando solicitudes de organizaciones...');
 
@@ -153,6 +155,13 @@ export default async function setupTestDB() {
     await executeFile('organizations/004_approval_functions.sql');
 
     await executeFile('organizations/006_organization_sites.sql');
+
+    // Re-ordenado: ahora que organization_sites existe, aplicamos el resto
+    // del scope multi-sede (regiones + asignaciones SITE).
+    await executeFile('organizations/019_site_region.sql');
+    await executeFile('user/020a_user_scope_enum.sql');
+    await executeFile('user/020b_user_scope_columns.sql');
+    await executeFile('user/021_user_site_assignments.sql');
 
     await executeFile('reports/001_election_report_history.sql');
     await executeFile('claims/001_voter_registry_claims.sql');

@@ -9,6 +9,7 @@ import {
   AuthProviderType,
   PrismaClient,
   UserRole,
+  UserScopeLevel,
   UserStatus,
 } from '@prisma/client';
 import bcrypt from 'bcryptjs';
@@ -19,7 +20,7 @@ import bcrypt from 'bcryptjs';
 export const DEV_PASSWORD = '';
 
 // Lista de usuarios a sembrar. `password` se ignora — todos usan DEV_PASSWORD.
-// Los roles ADMIN/SUPERADMIN/ELECTORAL_COMMISSION/JURY aceptan cualquier email
+// Los roles ADMIN/SUPERADMIN/JURY aceptan cualquier email
 // (chk_users_institutional_email); TEACHER/STUDENT requieren .edu / .edu.pe.
 const DEV_USERS = [
   // SUPERADMIN (mismo email que el seed previo — debe mantener compat).
@@ -71,15 +72,16 @@ const DEV_USERS = [
     programCode: 'DEV-PROG-SIS-A',
     currentCycle: 4,
   },
-  // ORG A — Comisión electoral + JURY.
+  // ORG A — ADMIN con scope ORG (complemento del primer ADMIN).
   {
-    email: 'comision.a@dev-a.campusvote.edu',
-    username: 'dev.comision.a',
+    email: 'admin.org.a@dev-a.campusvote.edu',
+    username: 'dev.admin.org.a',
     firstName: 'Carla',
-    lastName: 'Comision Dev A',
-    institutionalId: 'DEV-CA-001',
-    role: UserRole.ELECTORAL_COMMISSION,
+    lastName: 'Admin Org Dev A',
+    institutionalId: 'DEV-AO-001',
+    role: UserRole.ADMIN,
     organizationCode: 'DEV-UNIV-A',
+    scopeLevel: 'ORG',
   },
   {
     email: 'jury.a@dev-a.campusvote.edu',
@@ -204,6 +206,10 @@ export async function seedDevUsers(prisma, ctx) {
       currentCycle: u.currentCycle ?? null,
       specialty: u.specialty ?? null,
       department: u.department ?? null,
+      scopeLevel: u.scopeLevel
+        ? UserScopeLevel[u.scopeLevel]
+        : null,
+      regionId: u.regionCode && ctx.regions ? ctx.regions[u.regionCode] : null,
     };
 
     // Upsert por email (es unique no-DELETED). El hash se reemplaza cada

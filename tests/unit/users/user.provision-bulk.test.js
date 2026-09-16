@@ -54,6 +54,13 @@ jest.unstable_mockModule('../../../src/shared/utils/emailDomain.js', () => ({
   isDomainAllowed: jest.fn(() => true),
 }));
 
+jest.unstable_mockModule('../../../src/shared/services/email.service.js', () => ({
+  default: {
+    hasEmailConfigured: jest.fn(() => false),
+  },
+  hasEmailConfigured: jest.fn(() => false),
+}));
+
 const userService = await import('../../../src/modules/users/user.service.js');
 const { ApiError } = await import('../../../src/shared/errors/ApiError.js');
 

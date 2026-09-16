@@ -7,7 +7,10 @@ import { Router } from 'express';
 
 import authRoutes from '../modules/auth/routes/auth.routes.js';
 import otpRoutes from '../modules/auth/routes/otp.routes.js';
-import userRoutes from '../modules/users/user.routes.js';
+import {
+  default as userRoutes,
+  platformUsersRouter,
+} from '../modules/users/user.routes.js';
 import healthRoutes from '../modules/health/health.routes.js';
 import organizationRoutes from '../modules/organizations/organization/organization.routes.js';
 import academicRoutes from '../modules/academic/academic.routes.js';
@@ -54,10 +57,11 @@ router.use('/health', healthRoutes);
 router.use('/auth', authRoutes);
 router.use('/auth/otp', otpRoutes);
 
-// CAMBIO: /users se considera TENANT ROUTE (gestión de personas), pero las
-// rutas internas de /users/admin/provision* se protegen con authorize([SUPERADMIN])
-// dentro del propio router.
-router.use('/users', userRoutes);
+// CAMBIO: el CRUD de usuarios académicos vive en el TENANT ROUTER (protegido
+// por blockSuperAdminFromTenantRoutes). Las rutas de PROVISION (PLATFORM:
+// crean organización + admin) viven como platformUsersRouter y son accesibles
+// SOLO a SUPERADMIN.
+router.use('/users', platformUsersRouter);
 
 // ────────────────────────────────────────────────────────────────────────
 // PLATFORM ROUTES (exclusivo SUPERADMIN)
@@ -92,6 +96,11 @@ tenantRouter.use(blockSuperAdminFromTenantRoutes);
 // Dominio Académico e Institucional (catálogos operativos del tenant).
 tenantRouter.use('/academic', academicRoutes);
 
+// CRUD de usuarios académicos (STUDENT/TEACHER/JURY) y de admins del tenant.
+// mount('/users') aplica blockSuperAdminFromTenantRoutes ANTES que
+// cualquier authorize/requireActorCanActOnUser.
+tenantRouter.use('/users', userRoutes);
+
 // Proceso Electoral.
 tenantRouter.use('/elections', electionRoutes);
 tenantRouter.use('/ballots', ballotRoutes);
@@ -122,6 +131,10 @@ tenantRouter.use('/fairs', fairRoutes);
 // internos de una organización; sigue pudiendo registrar acciones de
 // plataforma vía auditService (sin ruta HTTP).
 tenantRouter.use('/audit', auditRoutes);
+
+// Multi-sede: gestión de ADMIN ORG / ADMIN REGION / ADMIN SITE.
+import adminScopeRoutes from '../modules/adminScope/adminScope.routes.js';
+tenantRouter.use('/admin', adminScopeRoutes);
 
 router.use(tenantRouter);
 

@@ -171,7 +171,7 @@
  *       401:
  *         description: No autenticado
  *       403:
- *         description: Requiere rol ADMIN o ELECTORAL_COMMISSION
+ *         description: requiere rol ADMIN
  */
 
 /**
@@ -267,7 +267,7 @@
  *       401:
  *         description: No autenticado
  *       403:
- *         description: Requiere rol ADMIN o ELECTORAL_COMMISSION
+ *         description: requiere rol ADMIN
  *       404:
  *         description: Boleta no encontrada
  *
@@ -314,7 +314,7 @@
  *       401:
  *         description: No autenticado
  *       403:
- *         description: Requiere rol ADMIN o ELECTORAL_COMMISSION
+ *         description: requiere rol ADMIN
  *       404:
  *         description: Boleta no encontrada
  */
@@ -405,7 +405,7 @@
  *       401:
  *         description: No autenticado
  *       403:
- *         description: Requiere rol ADMIN o ELECTORAL_COMMISSION
+ *         description: requiere rol ADMIN
  *       404:
  *         description: Elección no encontrada
  */

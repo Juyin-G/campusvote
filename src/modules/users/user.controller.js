@@ -10,9 +10,15 @@ import MESSAGES from '../../constants/messages.js';
 
 const actorId = (user) => user?.userId ?? user?.id;
 
-// Listar usuarios paginados
+// Listar usuarios paginados.
+// El sub-router aplica attachScopeUserFilter(req) → req.scope.userWhere;
+// el service lo consume a través del actor.
 export const listUsers = asyncHandler(async (req, res) => {
-  const { users, pagination } = await userService.listUsers(req.query, req.user);
+  const actor = req.user || {};
+  if (req.scope && req.scope.userWhere) {
+    actor._scopeWhere = req.scope.userWhere;
+  }
+  const { users, pagination } = await userService.listUsers(req.query, actor);
 
   return sendPaginated(res, users, pagination, 'Consulta exitosa');
 });
@@ -64,7 +70,7 @@ export const provisionExistingAdmin = asyncHandler(async (req, res) => {
 
 // ADMIN: crear jurados/usuarios en lote (bulk)
 export const createUsersBulk = asyncHandler(async (req, res) => {
-  const result = await userService.createUsersBulk(req.body.users, req.user);
+  const result = await userService.createUsersBulk(req.body, req.user);
   return sendSuccess(res, result, 'Usuarios procesados', { requestId: req.requestId }, HTTP_STATUS.CREATED);
 });
 

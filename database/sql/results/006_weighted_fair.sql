@@ -111,7 +111,7 @@ DECLARE
 BEGIN
     -- Autorización explícita
     SELECT role INTO v_role FROM users WHERE id = p_certifier_user_id AND status = 'ACTIVE';
-    IF v_role IS NULL OR v_role NOT IN ('ADMIN', 'ELECTORAL_COMMISSION') THEN
+    IF v_role IS NULL OR v_role NOT IN ('ADMIN', 'SUPERADMIN') THEN
         RAISE EXCEPTION 'Usuario no autorizado para certificar la elección.';
     END IF;
 

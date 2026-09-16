@@ -73,7 +73,7 @@ describe('User Controller', () => {
 
       await userController.listUsers(req, res, next);
 
-      expect(mockListUsers).toHaveBeenCalledWith(req.query);
+      expect(mockListUsers).toHaveBeenCalledWith(req.query, req.user);
       expect(res.status).toHaveBeenCalledWith(200);
       expect(res.json).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -149,7 +149,7 @@ describe('User Controller', () => {
 
       await userController.updateUser(req, res, next);
 
-      expect(mockUpdateUser).toHaveBeenCalledWith('user-uuid-2', req.body);
+      expect(mockUpdateUser).toHaveBeenCalledWith('user-uuid-2', req.body, req.user);
       expect(res.status).toHaveBeenCalledWith(200);
     });
   });
@@ -191,7 +191,7 @@ describe('User Controller', () => {
 
       await userController.unlockUser(req, res, next);
 
-      expect(mockUnlockUser).toHaveBeenCalledWith('user-uuid-2');
+      expect(mockUnlockUser).toHaveBeenCalledWith('user-uuid-2', req.user);
       expect(res.status).toHaveBeenCalledWith(200);
     });
   });

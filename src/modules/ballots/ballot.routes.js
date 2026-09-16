@@ -48,7 +48,7 @@ router.get(
 /**
  * @route POST /api/ballots/election/:electionId/version
  * @desc Crear una nueva versión de boleta para una elección
- * @access ADMIN, ELECTORAL_COMMISSION
+ * @access ADMIN
  */
 router.post(
   '/election/:electionId/version',
@@ -111,7 +111,7 @@ router.get(
 /**
  * @route POST /api/ballots
  * @desc Crear una nueva boleta
- * @access ADMIN, ELECTORAL_COMMISSION
+ * @access ADMIN
  */
 router.post(
   '/',
@@ -125,7 +125,7 @@ router.post(
 /**
  * @route PUT /api/ballots/:id
  * @desc Actualizar metadatos o estado de una boleta
- * @access ADMIN, ELECTORAL_COMMISSION
+ * @access ADMIN
  */
 router.put(
   '/:id',
@@ -138,7 +138,7 @@ router.put(
 /**
  * @route DELETE /api/ballots/:id
  * @desc Eliminar una boleta
- * @access ADMIN, ELECTORAL_COMMISSION
+ * @access ADMIN
  */
 router.delete(
   '/:id',

@@ -45,7 +45,7 @@ export const getElectionById = asyncHandler(async (req, res) => {
 /**
  * Crear una nueva elección (nace en estado DRAFT)
  * @route POST /api/elections
- * @access ADMIN, ELECTORAL_COMMISSION
+ * @access ADMIN
  */
 export const createElection = asyncHandler(async (req, res) => {
   const election = await electionService.createElection(
@@ -66,7 +66,7 @@ export const createElection = asyncHandler(async (req, res) => {
 /**
  * Actualizar una elección parcialmente (solo en estado DRAFT/SCHEDULED)
  * @route PATCH /api/elections/:id
- * @access ADMIN, ELECTORAL_COMMISSION
+ * @access ADMIN
  */
 export const updateElection = asyncHandler(async (req, res) => {
   const election = await electionService.updateElection(
@@ -86,7 +86,7 @@ export const updateElection = asyncHandler(async (req, res) => {
 /**
  * Eliminar una elección (solo en estado DRAFT/SCHEDULED)
  * @route DELETE /api/elections/:id
- * @access ADMIN, ELECTORAL_COMMISSION
+ * @access ADMIN
  */
 export const deleteElection = asyncHandler(async (req, res) => {
   const result = await electionService.deleteElection(req.params.id);
@@ -103,7 +103,7 @@ export const deleteElection = asyncHandler(async (req, res) => {
 /**
  * Avanzar la elección al siguiente estado del workflow
  * @route PATCH /api/elections/:id/status
- * @access ADMIN, ELECTORAL_COMMISSION
+ * @access ADMIN
  */
 export const changeStatus = asyncHandler(async (req, res) => {
   const { status } = req.body;

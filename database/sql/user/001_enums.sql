@@ -10,7 +10,6 @@ BEGIN
         'TEACHER',
         'ADMIN',
         'SUPERADMIN',
-        'ELECTORAL_COMMISSION',
         'JURY'
     );
 EXCEPTION

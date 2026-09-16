@@ -61,7 +61,7 @@ let adminBToken;
 let superToken;
 let studentToken;
 let teacherToken;
-let electoralCommissionToken;
+let studentExtraToken;
 let juryToken;
 let juryCToken;
 
@@ -128,7 +128,7 @@ describe('FairResults Integration (HTTP + DB)', () => {
     const superAdmin = await createUser({ role: 'SUPERADMIN', organizationId: null, suffix: 'Sup' });
     const student = await createUser({ role: 'STUDENT', organizationId: orgA.id, suffix: 'Std' });
     const teacher = await createUser({ role: 'TEACHER', organizationId: orgA.id, suffix: 'Tch' });
-    const ec = await createUser({ role: 'ELECTORAL_COMMISSION', organizationId: orgA.id, suffix: 'Ec' });
+    const studentExtra = await createUser({ role: 'STUDENT', organizationId: orgA.id, suffix: 'Std2' });
     const juryA = await createUser({ role: 'JURY', organizationId: orgA.id, suffix: 'JuryA', id: JURY_A });
     const juryC = await createUser({ role: 'JURY', organizationId: orgA.id, suffix: 'JuryC', id: JURY_C });
 
@@ -264,7 +264,7 @@ describe('FairResults Integration (HTTP + DB)', () => {
     superToken = await login(superAdmin.email);
     studentToken = await login(student.email);
     teacherToken = await login(teacher.email);
-    electoralCommissionToken = await login(ec.email);
+    studentExtraToken = await login(studentExtra.email);
     juryToken = await login(juryA.email);
     juryCToken = await login(juryC.email);
   });
@@ -293,7 +293,7 @@ describe('FairResults Integration (HTTP + DB)', () => {
     it('GET. STUDENT / TEACHER / ELECTORAL_COMMISSION → 403', async () => {
       expect((await getResults(studentToken, fairClosedId)).status).toBe(403);
       expect((await getResults(teacherToken, fairClosedId)).status).toBe(403);
-      expect((await getResults(electoralCommissionToken, fairClosedId)).status).toBe(403);
+      expect((await getResults(studentExtraToken, fairClosedId)).status).toBe(403);
     });
 
     it('18. JURY NO obtiene acceso a resultados por ser jurado (sigue 403)', async () => {
@@ -455,10 +455,10 @@ describe('FairResults Integration (HTTP + DB)', () => {
       expect(res.status).toBe(403);
     });
 
-    it('6-8. STUDENT / TEACHER / ELECTORAL_COMMISSION no pueden publicar → 403', async () => {
+    it('6-8. STUDENT / TEACHER no pueden publicar → 403', async () => {
       expect((await publishResults(studentToken, fairClosedId)).status).toBe(403);
       expect((await publishResults(teacherToken, fairClosedId)).status).toBe(403);
-      expect((await publishResults(electoralCommissionToken, fairClosedId)).status).toBe(403);
+      expect((await publishResults(studentExtraToken, fairClosedId)).status).toBe(403);
     });
 
     it('9. SUPERADMIN publica con bypass de tenant (feria de orgB) → 201', async () => {

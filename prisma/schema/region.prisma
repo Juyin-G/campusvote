@@ -23,7 +23,7 @@ model Region {
   // Relaciones
   organization Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   sites       OrganizationSite[]
-  users       User[]
+  users       User[]              @relation("UserRegion")
 
   @@unique([organizationId, code])
   @@index([organizationId], map: "idx_regions_organization")

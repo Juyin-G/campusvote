@@ -114,7 +114,7 @@
  *       position=1. Incluye publicado/cuándo/quién. ADMIN solo consulta
  *       ferias de su organización. SUPERADMIN NO tiene acceso operativo
  *       (403 desde este router; sin bypass aunque tenga organizationId).
- *       JURY/STUDENT/TEACHER/ELECTORAL_COMMISSION no tienen acceso.
+ *       JURY/STUDENT/TEACHER no tienen acceso administrativo a resultados.
  *     security:
  *       - bearerAuth: []
  *     parameters:

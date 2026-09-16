@@ -116,9 +116,9 @@ describe('authorize([ADMIN]) — guard de los routers de feria', () => {
     assert.equal(nextErr?.statusCode, 403);
   });
 
-  it('ELECTORAL_COMMISSION → 403', () => {
+  it('STUDENT (rol no autorizado) → 403', () => {
     let nextErr = null;
-    authorize([ROLES.ADMIN])(fakeReq(ROLES.ELECTORAL_COMMISSION), fakeRes(), (err) => {
+    authorize([ROLES.ADMIN])(fakeReq(ROLES.STUDENT), fakeRes(), (err) => {
       nextErr = err;
     });
     assert.equal(nextErr?.statusCode, 403);

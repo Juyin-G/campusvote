@@ -9,7 +9,7 @@
 //   - SUPERADMIN NO tiene acceso operativo a resultados organizacionales
 //     (403 desde este router; sin bypass aunque tenga organizationId).
 //   - JURY NO obtiene acceso global a resultados por ser jurado.
-//   - STUDENT/TEACHER/ELECTORAL_COMMISSION sin acceso administrativo.
+//   - STUDENT/TEACHER sin acceso administrativo a resultados.
 //
 // El ranking, el promedio y el ganador se derivan del backend (evaluaciones en
 // BD); al publicar solo se persiste el evento (fair + published_by + fecha).

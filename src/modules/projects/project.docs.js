@@ -21,7 +21,7 @@
  *           nullable: true
  *         role:
  *           type: string
- *           enum: [STUDENT, TEACHER, ADMIN, SUPERADMIN, ELECTORAL_COMMISSION, JURY]
+ *           enum: [STUDENT, TEACHER, ADMIN, SUPERADMIN, JURY]
  *     ProjectMember:
  *       type: object
  *       properties:

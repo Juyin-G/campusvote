@@ -6,8 +6,8 @@
 //   - SUPERADMIN es administrador de plataforma y NO pertenece operacionalmente
 //     a ninguna organización: 403 desde el router (sin bypass aunque tenga
 //     organizationId).
-//   - ELECTORAL_COMMISSION, JURY, STUDENT y TEACHER NO tienen acceso (rutas
-//     protegidas con authorize([ADMIN]); sin permisos nuevos).
+//   - JURY, STUDENT y TEACHER NO tienen acceso administrativo (rutas protegidas
+//     con authorize([ADMIN]); sin permisos nuevos).
 
 import * as fairRepository from './fair.repository.js';
 import { prisma } from '../../database/prisma.js';
