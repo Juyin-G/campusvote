@@ -89,7 +89,7 @@
  * /api/fairs/{id}/rubric:
  *   get:
  *     tags: [Fair Evaluations]
- *     summary: Obtener la rúbrica de una feria (ADMIN/SUPERADMIN o JURY asignado)
+ *     summary: Obtener la rúbrica de una feria (ADMIN o JURY asignado)
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -264,8 +264,9 @@
  *     tags: [Fair Evaluations]
  *     summary: Listar proyectos evaluables (APPROVED) de una feria
  *     description: >
- *       ADMIN/SUPERADMIN ve los proyectos de su feria; JURY SOLO si está
- *       formalmente asignado a esa feria.
+ *       ADMIN de la organización dueña ve los proyectos de su feria; JURY
+ *       SOLO si está formalmente asignado a esa feria. SUPERADMIN NO tiene
+ *       acceso operativo (403).
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -292,12 +293,13 @@
  *     tags: [Fair Evaluations]
  *     summary: Detalle de un proyecto para revisión del JURY asignado
  *     description: >
- *       Endpoint EXCLUSIVO del JURY (ADMIN/SUPERADMIN no obtienen acceso aquí).
- *       El jurado debe estar formalmente asignado a la feria y el proyecto debe
- *       ser APPROVED y pertenecer a ESA feria (si no, 404 para no revelar
- *       proyectos de otras ferias). Consulta DERIVADA de Project/ProjectMember:
- *       devuelve información ya existente (nombre, descripción, logo_url,
- *       cover_url, project_url, integrantes); NO persiste ProjectReview ni
+ *       Endpoint EXCLUSIVO del JURY (ADMIN y SUPERADMIN no obtienen acceso
+ *       aquí). El jurado debe estar formalmente asignado a la feria y el
+ *       proyecto debe ser APPROVED y pertenecer a ESA feria (si no, 404 para
+ *       no revelar proyectos de otras ferias). Consulta DERIVADA de
+ *       Project/ProjectMember: devuelve información ya existente (nombre,
+ *       descripción, logo_url, cover_url, project_url, integrantes); NO
+ *       persiste ProjectReview ni
  *       puntuaciones. Se devuelven solo datos seguros (sin email/documento).
  *     security:
  *       - bearerAuth: []
@@ -344,8 +346,9 @@
  *     tags: [Fair Evaluations]
  *     summary: Listar evaluaciones de una feria
  *     description: >
- *       ADMIN/SUPERADMIN ve todas las evaluaciones (+ filtros por project_id y
- *       jury_user_id). JURY ve SOLO las suyas mientras esté asignado.
+ *       ADMIN de la organización dueña ve todas las evaluaciones (+ filtros
+ *       por project_id y jury_user_id). JURY ve SOLO las suyas mientras esté
+ *       asignado. SUPERADMIN NO tiene acceso operativo (403).
  *     security:
  *       - bearerAuth: []
  *     parameters:

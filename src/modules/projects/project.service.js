@@ -16,14 +16,11 @@ import { ApiError } from '../../shared/errors/ApiError.js';
 import { ROLES } from '../../constants/roles.js';
 import { parsePagination } from '../../shared/utils/pagination.js';
 
-const REVIEWER_ROLES = [ROLES.ADMIN, ROLES.SUPERADMIN];
+const REVIEWER_ROLES = [ROLES.ADMIN];
 const EDITABLE_STATUSES = ['DRAFT', 'REJECTED'];
 
 // Estados de la feria en los que se permite registrar/modificar proyectos.
 const FAIR_REGISTRATION_STATUSES = ['DRAFT', 'OPEN'];
-
-const isSuperAdmin = (actor) =>
-  actor.role === ROLES.SUPERADMIN || actor.isSuperAdmin || actor.isSuperuser;
 
 const isOrgAdmin = (actor) => actor.role === ROLES.ADMIN;
 
@@ -116,7 +113,6 @@ const loadProject = async (projectId) => {
 
 /** Tenant check: el actor pertenece a la organización del proyecto. */
 const assertTenantMatch = ({ project, actor }) => {
-  if (isSuperAdmin(actor)) return;
   if (!actor.organizationId) {
     throw ApiError.forbidden('Tu cuenta no está vinculada a ninguna organización');
   }
@@ -139,8 +135,6 @@ const assertEditable = (project) => {
 
 /** Filtro de visibilidad para listar proyectos según el actor. */
 const buildVisibilityWhere = (actor) => {
-  if (isSuperAdmin(actor)) return {};
-
   if (!actor.organizationId) {
     throw ApiError.forbidden('Tu cuenta no está vinculada a ninguna organización');
   }
@@ -187,7 +181,7 @@ export const getProjectById = async ({ projectId, actor }) => {
 
   assertTenantMatch({ project, actor });
 
-  if (!isSuperAdmin(actor) && !isOrgAdmin(actor) && project.createdById !== actor.id) {
+  if (!isOrgAdmin(actor) && project.createdById !== actor.id) {
     if (project.status !== 'APPROVED') {
       throw ApiError.forbidden('No tienes permiso para ver este proyecto');
     }
@@ -326,7 +320,6 @@ export const listMembers = async ({ projectId, actor }) => {
   assertTenantMatch({ project, actor });
 
   if (
-    !isSuperAdmin(actor) &&
     !isOrgAdmin(actor) &&
     project.createdById !== actor.id &&
     project.status !== 'APPROVED'

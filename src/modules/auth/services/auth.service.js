@@ -5,7 +5,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import * as authRepository from '../repositories/auth.repository.js';
 import { ApiError } from '../../../shared/errors/ApiError.js';
-import { sendReset } from '../../../shared/services/email.service.js';
+import { sendReset, sendVerification } from '../../../shared/services/email.service.js';
 import { generateJwt, formatUserResponse, generateRefreshToken, hashToken } from './auth.helpers.js';
 import MESSAGES from '../../../constants/messages.js';
 import env from '../../../config/env.js';

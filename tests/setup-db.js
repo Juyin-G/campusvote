@@ -80,6 +80,11 @@ export default async function setupTestDB() {
     await executeFile('user/013_activation.sql');
     await executeFile('user/014_remove_external_auth.sql');
     await executeFile('user/015_activation_constraint.sql');
+    // CAMBIO: scope multi-sede (region/site) + eliminación de ELECTORAL_COMMISSION.
+    await executeFile('organizations/018_regions.sql');
+    await executeFile('organizations/019_site_region.sql');
+    await executeFile('user/020_user_scope.sql');
+    await executeFile('user/021_user_site_assignments.sql');
 
     console.log('7. Creando solicitudes de organizaciones...');
 
@@ -189,6 +194,7 @@ export default async function setupTestDB() {
     await executeFile('projects/003_projects_category_stand.sql');
     await executeFile('fairs/009_fair_jury_declarations.sql');
     await executeFile('fairs/010_jury_assignment_integrity.sql');
+    await executeFile('fairs/011_certificates.sql');
 
     console.log('17. Cargando foreign keys finales...');
 

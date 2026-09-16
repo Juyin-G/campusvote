@@ -1,16 +1,41 @@
 import crypto from 'crypto';
 import auditRepository from './audit.repository.js';
 import { AUDIT_ACTIONS } from './audit.schema.js';
+import { ApiError } from '../../shared/errors/ApiError.js';
 
 class AuditService {
   /**
    * AUDIT LOGS - SERVICIOS
    */
 
-  async getAuditLogs(filters) {
+  // CAMBIO: la firma ahora recibe el actor. El filtro server-side garantiza
+  // que solo ADMIN del propio tenant vean logs cuyo actor pertenece a su
+  // misma organización. Cualquier intento de pasar organizationId desde el
+  // cliente es IGNORADO.
+  async getAuditLogs(filters, actor) {
+    if (!actor) {
+      throw new Error('Actor requerido para consultar auditoría');
+    }
+
+    const organizationId = actor.organizationId;
+
+    if (!organizationId) {
+      throw new Error('El administrador de plataforma no tiene acceso a logs de tenant');
+    }
+
+    const safeFilters = { ...filters, organizationId };
+    delete safeFilters.actorOrganizationId;
+    delete safeFilters.scope;
+
     try {
-      return await auditRepository.findAuditLogs(filters);
+      return await auditRepository.findAuditLogs(safeFilters, organizationId);
     } catch (error) {
+      // CAMBIO: si el repository rechaza por falta de organizationId
+      // (statusCode 403), se traduce a ApiError para que el controller
+      // devuelva 403 explícito en lugar de 500.
+      if (error?.statusCode === 403) {
+        throw ApiError.forbidden('El administrador de plataforma no tiene acceso a logs de tenant');
+      }
       console.error('Error al consultar audit logs:', error);
       throw new Error('No se pudieron recuperar los registros de auditoría');
     }

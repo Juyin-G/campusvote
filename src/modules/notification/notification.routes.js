@@ -12,8 +12,8 @@ import {
 
 const router = Router();
 
-// Solo gestores pueden crear notificaciones (no existe un rol SYSTEM en el enum)
-const NOTIFICATION_CREATORS = [ROLES.ADMIN, ROLES.ELECTORAL_COMMISSION];
+// Solo ADMIN puede crear notificaciones (no existe un rol SYSTEM en el enum)
+const NOTIFICATION_CREATORS = [ROLES.ADMIN];
 
 
 

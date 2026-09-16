@@ -1,20 +1,20 @@
 // src/modules/fairEvaluations/fairEvaluation.routes.js
 // Rúbricas y evaluaciones de proyectos de FERIAS (dominio exclusivo de ferias).
 //
-// Rúbrica (ADMIN / SUPERADMIN de la organización; configuración SOLO en DRAFT):
+// Rúbrica (ADMIN de la organización; configuración SOLO en DRAFT):
 //   POST   /api/fairs/:id/rubric                    → crear rúbrica
 //   PUT    /api/fairs/:id/rubric                    → actualizar rúbrica
 //   POST   /api/fairs/:id/rubric/criteria           → agregar criterio
 //   PUT    /api/fairs/:id/rubric/criteria/:criterionId → actualizar criterio
 //   DELETE /api/fairs/:id/rubric/criteria/:criterionId → eliminar criterio
 //
-// Consulta compartida (ADMIN/SUPERADMIN o JURY asignado):
+// Consulta compartida (ADMIN con org dueña o JURY asignado):
 //   GET    /api/fairs/:id/rubric                    → rúbrica (planificada por la feria)
 //   GET    /api/fairs/:id/projects                  → proyectos APPROVED evaluables
 //   GET    /api/fairs/:id/evaluations               → ADMIN: todas; JURY: solo las suyas
 //
-// Revisión/detalle de proyectos (JURY asignado para revisar; ADMIN/SUPERADMIN
-// para consultar la información de un proyecto también desde resultados; sin
+// Revisión/detalle de proyectos (JURY asignado para revisar; ADMIN con org
+// dueña para consultar la información de un proyecto desde resultados; sin
 // ProjectReview ni ProjectDetail):
 //   GET    /api/fairs/:id/projects/:projectId       → detalle existente del
 //          proyecto (nombre, descripción, logo_url, cover_url, project_url,
@@ -45,6 +45,11 @@
 //   - UNA evaluación por (feria, proyecto, jurado); el jurado actualiza la suya.
 //   - El backend resuelve la rúbrica vía FAIR; el cliente nunca envía rúbricas
 //     o criterios arbitrarios, y cada score se valida contra el rango del criterio.
+//
+// Autorización:
+//   - SUPERADMIN NO tiene acceso operativo a rúbricas/evaluaciones administrativas
+//     (403 desde este router; sin bypass aunque tenga organizationId). Solo ADMIN
+//     de la organización dueña de la feria accede a la gestión/consulta admin.
 
 import { Router } from 'express';
 import { authenticate, authorize } from '../../middlewares/auth.middleware.js';
@@ -55,8 +60,8 @@ import * as fairEvalSchema from './fairEvaluation.schema.js';
 
 const router = Router();
 
-const MANAGERS = [ROLES.ADMIN, ROLES.SUPERADMIN];
-const READERS = [ROLES.ADMIN, ROLES.SUPERADMIN, ROLES.JURY];
+const MANAGERS = [ROLES.ADMIN];
+const READERS = [ROLES.ADMIN, ROLES.JURY];
 const JURY = [ROLES.JURY];
 
 // ── JURY: solo sus propias evaluaciones (path estático ANTES de /:id) ──
@@ -77,7 +82,7 @@ router.get(
   fairEvalController.getMyProgress
 );
 
-// ── Rúbrica (ADMIN/SUPERADMIN: gestión; lectura también JURY asignado) ──
+// ── Rúbrica (ADMIN: gestión; lectura también JURY asignado) ──
 router.post(
   '/:id/rubric',
   authenticate,
@@ -126,7 +131,7 @@ router.delete(
   fairEvalController.removeCriterion
 );
 
-// ── Proyectos evaluables (consulta ADMIN/SUPERADMIN o JURY asignado) ──
+// ── Proyectos evaluables (consulta ADMIN o JURY asignado) ──
 router.get(
   '/:id/projects',
   authenticate,
@@ -135,11 +140,12 @@ router.get(
   fairEvalController.listApprovedProjects
 );
 
-// ── Detalle de proyecto (consulta compartida JURY asignado + ADMIN/SUPERADMIN) ──
+// ── Detalle de proyecto (consulta compartida JURY asignado + ADMIN) ──
 // /:id/projects/:projectId no colisiona con /:id/projects (paths exactos).
 // El JURY revisa la información existente del proyecto ANTES de evaluar; el
-// ADMIN/SUPERADMIN consume el mismo detalle desde la vista de resultados.
-// Sin ProjectReview ni ProjectDetail: se deriva de Project + ProjectMember.
+// ADMIN de la organización dueña consume el mismo detalle desde la vista
+// de resultados. Sin ProjectReview ni ProjectDetail: se deriva de Project +
+// ProjectMember.
 router.get(
   '/:id/projects/:projectId',
   authenticate,

@@ -1,11 +1,15 @@
 // src/modules/juryAssignments/juryAssignment.routes.js
 // Rutas de asignación de jurados a ferias (dominio de FERIAS).
 //
-// ADMIN / SUPERADMIN (gestión):
+// ADMIN (gestión, sobre ferias de su organización):
 //   GET    /api/fairs/:id/juries            → jurados de una feria
 //   POST   /api/fairs/:id/juries            → asignar usuario JURY
 //   GET    /api/fairs/:id/juries/:userId    → consultar si un JURY está asignado
 //   DELETE /api/fairs/:id/juries/:userId    → quitar un jurado
+//
+// SUPERADMIN NO tiene acceso operativo (403 desde este router; sin bypass
+// aunque tenga organizationId). El service exige que el actor sea ADMIN
+// de la organización dueña de la feria.
 //
 // JURY (solo consulta de sus propias asignaciones):
 //   GET    /api/fairs/my-assignments        → ferias a las que está asignado
@@ -23,9 +27,9 @@ import * as jurySchema from './juryAssignment.schema.js';
 
 const router = Router();
 
-const MANAGERS = [ROLES.ADMIN, ROLES.SUPERADMIN];
+const MANAGERS = [ROLES.ADMIN];
 
-// ── ADMIN / SUPERADMIN ─────────────────────────────────────────────
+// ── ADMIN ─────────────────────────────────────────────────────────
 router.get(
   '/:id/juries',
   authenticate,

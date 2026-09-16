@@ -3,20 +3,17 @@
 //
 // Autorización:
 //   - ADMIN gestiona las ferias de SU organización (aislamiento por tenant).
+//   - SUPERADMIN es administrador de plataforma y NO pertenece operacionalmente
+//     a ninguna organización: 403 desde el router (sin bypass aunque tenga
+//     organizationId).
 //   - ELECTORAL_COMMISSION, JURY, STUDENT y TEACHER NO tienen acceso (rutas
-//     protegidas con authorize([ADMIN, SUPERADMIN]); sin permisos nuevos).
-//   - SUPERADMIN conserva, como en el resto del sistema (patrón
-//     assertTenantAccess de rating/objection), el bypass de tenant para lectura
-//     global: NO se le agregan capacidades nuevas de gestión.
+//     protegidas con authorize([ADMIN]); sin permisos nuevos).
 
 import * as fairRepository from './fair.repository.js';
 import { prisma } from '../../database/prisma.js';
 import { ApiError } from '../../shared/errors/ApiError.js';
 import { ROLES } from '../../constants/roles.js';
 import { parsePagination } from '../../shared/utils/pagination.js';
-
-const isSuperAdmin = (actor) =>
-  actor.role === ROLES.SUPERADMIN || actor.isSuperAdmin || actor.isSuperuser;
 
 // Ciclo de vida de la feria: DRAFT (configuración) -> OPEN (abierta/activa)
 // -> CLOSED (finalizada). CLOSED es terminal; OPEN puede volver a DRAFT.
@@ -27,7 +24,6 @@ const STATUS_TRANSITIONS = {
 };
 
 const assertTenantMatch = ({ fair, actor }) => {
-  if (isSuperAdmin(actor)) return;
   if (!actor.organizationId) {
     throw ApiError.forbidden('Tu cuenta no está vinculada a ninguna organización');
   }
@@ -87,11 +83,11 @@ const mapFair = (fair) => ({
 });
 
 export const listFairs = async ({ actor, filters = {} }) => {
-  const where = isSuperAdmin(actor) ? {} : { organizationId: actor.organizationId };
-
-  if (!isSuperAdmin(actor) && !actor.organizationId) {
+  if (!actor.organizationId) {
     throw ApiError.forbidden('Tu cuenta no está vinculada a ninguna organización');
   }
+
+  const where = { organizationId: actor.organizationId };
   if (filters.status) where.status = filters.status;
 
   const { page, limit, offset } = parsePagination(filters || {});

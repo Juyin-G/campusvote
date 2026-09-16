@@ -105,15 +105,16 @@
  * /api/fairs/{id}/results:
  *   get:
  *     tags: [Fair Results]
- *     summary: Ranking/resultados de proyectos de una feria (ADMIN/SUPERADMIN)
+ *     summary: Ranking/resultados de proyectos de una feria (ADMIN)
  *     description: >
  *       Ranking determinista derivado de las evaluaciones en BD (nunca de datos
  *       del cliente): promedio DESC, cantidad de evaluaciones DESC y, si el
  *       empate persiste, project.id ASC. El ganador (winner=true) SOLO existe
  *       con fair.status=CLOSED, resultados publicados (published=true) y
  *       position=1. Incluye publicado/cuándo/quién. ADMIN solo consulta
- *       ferias de su organización; SUPERADMIN mantiene el bypass de tenant
- *       existente. JURY/STUDENT/TEACHER/ELECTORAL_COMMISSION no tienen acceso.
+ *       ferias de su organización. SUPERADMIN NO tiene acceso operativo
+ *       (403 desde este router; sin bypass aunque tenga organizationId).
+ *       JURY/STUDENT/TEACHER/ELECTORAL_COMMISSION no tienen acceso.
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -138,14 +139,15 @@
  * /api/fairs/{id}/results/publish:
  *   post:
  *     tags: [Fair Results]
- *     summary: Publicar oficialmente los resultados de una feria (ADMIN/SUPERADMIN)
+ *     summary: Publicar oficialmente los resultados de una feria (ADMIN)
  *     description: >
  *       Persistencia MÍNIMA del evento de publicación (fair_result_publications):
  *       máximo UNA publicación por feria. El ranking/ganador/promedio NO se
  *       envían ni se persisten: el backend vuelve a derivarlos de las
  *       evaluaciones. Solo permite publicar una feria cerrada (CLOSED); si ya
  *       fue publicada responde 409 (no crea duplicados). ADMIN solo publica
- *       ferias de su organización; SUPERADMIN conserva el bypass de tenant.
+ *       ferias de su organización. SUPERADMIN NO tiene acceso operativo
+ *       (403 desde este router; sin bypass aunque tenga organizationId).
  *     security:
  *       - bearerAuth: []
  *     parameters:

@@ -31,18 +31,18 @@ const preventSelfRoleChange = (req, res, next) => {
   next();
 };
 
-// Guard 2: Exige privilegios de superusuario para gestión de roles privilegiados
-// (ADMIN / ELECTORAL_COMMISSION). Los roles electorales regulares
-// (STUDENT/TEACHER) pueden ser gestionados por cualquier administrador.
+// Guard 2: Exige privilegios de superusuario para gestión del rol ADMIN.
+// Los roles no privilegiados (STUDENT/TEACHER/JURY) pueden ser gestionados
+// por cualquier administrador de la organización.
 const requireSuperUserForRole = (req, res, next) => {
   const target = req.body?.role;
-  if (target && !ADMIN_ROLES.includes(target)) {
+  if (target && target !== ROLES.ADMIN) {
     // Cambiar a un rol no privilegiado no exige superusuario.
     return next();
   }
   const isSuperUser = req.user?.isSuperuser || req.user?.isSuperAdmin || req.user?.role === ROLES.SUPERADMIN;
   if (!isSuperUser) {
-    return next(ApiError.forbidden('Solo superusuarios pueden asignar o modificar roles privilegiados'));
+    return next(ApiError.forbidden('Solo superusuarios pueden asignar o modificar el rol ADMIN'));
   }
   next();
 };
@@ -50,7 +50,7 @@ const requireSuperUserForRole = (req, res, next) => {
 router.get(
   '/',
   authenticate,
-  authorize(ROLES.SUPERADMIN, ROLES.ADMIN, ROLES.ELECTORAL_COMMISSION),
+  authorize(ROLES.SUPERADMIN, ROLES.ADMIN),
   validate(listUserSchema),
   userController.listUsers
 );
@@ -68,7 +68,9 @@ router.get(
   userController.getUserById
 );
 
-// Creación de usuario: Si asigna un rol privilegiado (ADMIN/COMISIÓN), requiere superusuario
+// Creación de usuario: Si asigna rol ADMIN, requiere superusuario.
+// Roles no privilegiados (STUDENT/TEACHER/JURY) los puede crear cualquier
+// ADMIN de la organización.
 router.post(
   '/',
   authenticate,
@@ -76,8 +78,8 @@ router.post(
   validate(createUserSchema),
   (req, res, next) => {
     const isSuperUser = req.user?.isSuperuser || req.user?.isSuperAdmin || req.user?.role === ROLES.SUPERADMIN;
-    if (req.body.role && ADMIN_ROLES.includes(req.body.role) && !isSuperUser) {
-      return next(ApiError.forbidden('Solo superusuarios pueden crear usuarios con roles administrativos o de comisión'));
+    if (req.body.role === ROLES.ADMIN && !isSuperUser) {
+      return next(ApiError.forbidden('Solo superusuarios pueden crear usuarios con rol ADMIN'));
     }
     next();
   },
@@ -105,7 +107,7 @@ router.post(
 router.post(
   '/bulk',
   authenticate,
-  authorize(ROLES.ADMIN, ROLES.ELECTORAL_COMMISSION, ROLES.SUPERADMIN),
+  authorize(ROLES.ADMIN, ROLES.SUPERADMIN),
   validate(createUsersBulkSchema),
   userController.createUsersBulk
 );
@@ -120,7 +122,7 @@ router.put(
 router.put(
   '/:id',
   authenticate,
-  authorize(ROLES.ADMIN),
+  authorize(ROLES.ADMIN, ROLES.SUPERADMIN),
   validate(updateUserSchema),
   userController.updateUser
 );
@@ -129,7 +131,7 @@ router.put(
 router.patch(
   '/:id/role',
   authenticate,
-  authorize(ROLES.ADMIN),
+  authorize(ROLES.ADMIN, ROLES.SUPERADMIN),
   preventSelfRoleChange,
   requireSuperUserForRole,
   validate(changeRoleSchema),
@@ -139,7 +141,7 @@ router.patch(
 router.patch(
   '/:id/status',
   authenticate,
-  authorize(ROLES.ADMIN),
+  authorize(ROLES.ADMIN, ROLES.SUPERADMIN),
   validate(setActiveSchema),
   userController.setActive
 );
@@ -147,7 +149,7 @@ router.patch(
 router.patch(
   '/:id/unlock',
   authenticate,
-  authorize(ROLES.ADMIN),
+  authorize(ROLES.ADMIN, ROLES.SUPERADMIN),
   validate(userParamsSchema),
   userController.unlockUser
 );

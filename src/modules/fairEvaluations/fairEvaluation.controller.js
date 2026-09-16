@@ -18,7 +18,7 @@ const getActor = (user) => ({
   isSuperuser: user?.isSuperuser || false,
 });
 
-// ── Rúbrica (ADMIN/SUPERADMIN) ─────────────────────────────────────
+// ── Rúbrica (ADMIN) ────────────────────────────────────────────────
 
 // POST /api/fairs/:id/rubric
 export const createRubric = asyncHandler(async (req, res) => {
@@ -30,7 +30,7 @@ export const createRubric = asyncHandler(async (req, res) => {
   return sendCreated(res, rubric, 'Rúbrica creada correctamente');
 });
 
-// GET /api/fairs/:id/rubric (ADMIN/SUPERADMIN/JURY con asignación)
+// GET /api/fairs/:id/rubric (ADMIN/JURY con asignación)
 export const getRubric = asyncHandler(async (req, res) => {
   const rubric = await fairEvalService.getRubric({
     fairId: req.params.id,

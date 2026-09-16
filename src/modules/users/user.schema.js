@@ -6,8 +6,8 @@ const uuid = (label) => z.string().uuid(`${label} inválido`);
 const roleEnum = z.enum(ALL_ROLES);
 
 // Identidad nacional peruana (DNI 8 dígitos / Carné de Extranjería 9-12).
-// Obligatorio para JURY / ELECTORAL_COMMISSION / ADMIN y docentes; opcional
-// para estudiantes. La verificación externa la hace el IdentityProvider.
+// Obligatorio para JURY / ADMIN y docentes; opcional para estudiantes.
+// La verificación externa la hace el IdentityProvider.
 export const documentIdentitySchema = z
   .object({
     document_type: z.enum(['DNI', 'CE']).optional(),

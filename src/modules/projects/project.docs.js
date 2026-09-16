@@ -124,7 +124,8 @@
  *     description: >
  *       El scope se resuelve por organización. No-admin ve sus propios
  *       proyectos y los APPROVED de su organización; ADMIN ve todos los de su
- *       organización; SUPERADMIN ve todos.
+ *       organización. SUPERADMIN NO tiene acceso operativo a proyectos
+ *       (403 desde este router; sin bypass aunque tenga organizationId).
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -289,7 +290,11 @@
  * /api/projects/{id}/review:
  *   post:
  *     tags: [Projects]
- *     summary: Aprobar o rechazar proyecto (ADMIN/SUPERADMIN)
+ *     summary: Aprobar o rechazar proyecto (ADMIN de la organización dueña)
+ *     description: >
+ *       ADMIN de la organización dueña del proyecto aprueba o rechaza.
+ *       SUPERADMIN NO tiene acceso operativo (403 desde este router; sin
+ *       bypass aunque tenga organizationId).
  *     security:
  *       - bearerAuth: []
  *     parameters:

@@ -39,14 +39,11 @@ const MIGRATION_FILES = [
   'user/009_cleanup_tokens.sql',
   'user/010_media_files.sql',
   'user/011_document_identity.sql',
-<<<<<<< HEAD
   'user/012_drop_observer_role.sql',
-=======
   'user/012_activation_enum.sql',
   'user/013_activation.sql',
   'user/014_remove_external_auth.sql',
   'user/015_activation_constraint.sql',
->>>>>>> 808dfb1f3b2bb1a7abdcec0c7d1706741d4ed99c
   'organizations/003_organization_requests.sql',
   'organizations/005_organization_member_limit.sql',
   'organizations/005_category_catalog.sql',
@@ -125,6 +122,7 @@ const MIGRATION_FILES = [
   'projects/003_projects_category_stand.sql',
   'fairs/009_fair_jury_declarations.sql',
   'fairs/010_jury_assignment_integrity.sql',
+  'fairs/011_certificates.sql',
   '999_foreign_keys.sql',
 ];
 

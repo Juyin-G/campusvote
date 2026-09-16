@@ -31,6 +31,30 @@ import { HTTP_STATUS } from '../../../constants/httpStatus.js';
 import MESSAGES from '../../../constants/messages.js';
 import { authenticate, authorize } from '../../../middlewares/auth.middleware.js';
 import { validate } from '../../../middlewares/validate.middleware.js';
+import jwt from 'jsonwebtoken';
+import env from '../../../config/env.js';
+
+/**
+ * Autenticación opcional: si hay un Bearer token válido, lo decodifica y lo
+ * expone en req.user; si no hay token o es inválido, continúa sin rechazar.
+ * Pensado para endpoints públicos que personalizan la respuesta cuando el
+ * visitante está autenticado (p. ej., catálogos de organizaciones).
+ */
+const optionalAuthenticate = (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return next();
+  }
+  const token = authHeader.substring(7);
+  try {
+    const decoded = jwt.verify(token, env.JWT_SECRET, { algorithms: ['HS256'] });
+    req.user = decoded;
+  } catch {
+    // Token inválido o expirado: tratamos como visitante anónimo (no rompemos
+    // la lectura pública de un catálogo).
+  }
+  return next();
+};
 
 // 5. Schemas de Organizaciones (mismo directorio)
 import {
@@ -50,7 +74,6 @@ import {
 
 const router = Router();
 
-const optionalAuthenticate = (req, res, next) => next();
 const getUserId = (req) => req.user?.id || req.user?.userId;
 
 // ==========================================
@@ -154,6 +177,9 @@ router.get(
   getOrganizationById
 );
 
+// CAMBIO: PATCH bifurcado en service. SUPERADMIN solo edita platform fields
+// (isActive, memberLimit, defaultLocale). ADMIN edita el resto (branding,
+// países, contacto, onboardingCompleted). Ver organization.service.js.
 router.patch(
   '/:id',
   authenticate,
@@ -172,8 +198,12 @@ router.delete(
 );
 
 // ==========================================
-// --- ONBOARDING ---
+// --- ONBOARDING (TENANT: solo ADMIN) ---
 // ==========================================
+// CAMBIO: estas rutas cuelgan de /api/organizations/:id/onboarding que
+// está montado en el sub-router PLATFORM (no en tenantRouter), pero el
+// authorize('ADMIN') impide que el SUPERADMIN entre aquí. El SUPERADMIN
+// gestiona la EXISTENCIA de la organización; el onboarding es interno.
 
 router.patch(
   '/:id/onboarding',

@@ -47,9 +47,6 @@ import * as fairRepository from '../fairs/fair.repository.js';
 import { ApiError } from '../../shared/errors/ApiError.js';
 import { ROLES } from '../../constants/roles.js';
 
-const isSuperAdmin = (actor) =>
-  actor.role === ROLES.SUPERADMIN || actor.isSuperAdmin || actor.isSuperuser;
-
 const loadFair = async (fairId) => {
   const fair = await fairRepository.findById(fairId);
   if (!fair) {
@@ -58,9 +55,12 @@ const loadFair = async (fairId) => {
   return fair;
 };
 
-/** Tenant: ADMIN solo consulta ferias de su organización; SUPERADMIN bypass. */
+/**
+ * Tenant: ADMIN de la organización dueña de la feria es el único autorizado
+ * a consultar/publicar sus resultados. El router ya bloquea a SUPERADMIN
+ * antes de llegar al service (sin bypass aunque tenga organizationId).
+ */
 const assertTenantMatch = ({ fair, actor }) => {
-  if (isSuperAdmin(actor)) return;
   if (!actor.organizationId) {
     throw ApiError.forbidden('Tu cuenta no está vinculada a ninguna organización');
   }
@@ -179,7 +179,7 @@ const mapPublishedBy = (publication) =>
     : null;
 
 /**
- * GET /api/fairs/:id/results — Resultados de una feria (ADMIN/SUPERADMIN).
+ * GET /api/fairs/:id/results — Resultados de una feria (ADMIN).
  * Ranking derivado de las evaluaciones reales; winner solo si la feria está
  * CLOSED Y publicada (published). Incluye publicado/cuándo/quién.
  */
@@ -220,7 +220,7 @@ export const getFairResults = async ({ fairId, actor }) => {
 
 /**
  * POST /api/fairs/:id/results/publish — Publica oficialmente los resultados
- * (ADMIN/SUPERADMIN). Persistencia MÍNIMA (fair_result_publications): el
+ * (ADMIN). Persistencia MÍNIMA (fair_result_publications): el
  * ranking/ganador/promedio se siguen derivando en el backend. Solo ferias
  * CLOSED; máximo una publicación por feria (409 si ya fue publicada).
  */

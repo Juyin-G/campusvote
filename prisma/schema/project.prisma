@@ -68,6 +68,7 @@ model Project {
   evaluations  FairEvaluation[]
   category     FairCategory?   @relation(fields: [categoryId], references: [id], onDelete: Restrict)
   stand        FairStand?      @relation(fields: [standId], references: [id], onDelete: Restrict)
+  certificates Certificate[]
 
   // Índices
   @@index([organizationId], map: "idx_projects_organization")

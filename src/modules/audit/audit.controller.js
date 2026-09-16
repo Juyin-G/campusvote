@@ -27,10 +27,12 @@ class AuditController {
   }
 
   // GET /audit/logs - Consultar logs con filtros
+  // CAMBIO: ahora se pasa req.user al service para que el filtro por
+  // organizationId se aplique server-side y no se pueda evadir.
   async getAuditLogs(req, res, next) {
     try {
       const { error, value } = auditLogsQuerySchema.validate(req.query);
-      
+
       if (error) {
         return res.status(400).json({
           success: false,
@@ -41,7 +43,7 @@ class AuditController {
         });
       }
 
-      const result = await auditService.getAuditLogs(value);
+      const result = await auditService.getAuditLogs(value, req.user);
 
       return res.status(200).json({
         success: true,

@@ -27,7 +27,6 @@ const router = Router({
 
 const GESTORES = [
   ROLES.ADMIN,
-  ROLES.ELECTORAL_COMMISSION,
 ];
 
 // ==========================================

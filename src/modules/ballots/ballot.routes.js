@@ -28,10 +28,7 @@ import {
 
 const router = Router();
 
-const GESTORES = [
-  ROLES.ADMIN,
-  ROLES.ELECTORAL_COMMISSION,
-];
+const GESTORES = [ROLES.ADMIN];
 
 // Funciones Especiales y Diagnóstico
 

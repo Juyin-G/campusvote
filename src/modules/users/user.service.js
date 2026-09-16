@@ -15,21 +15,18 @@ import { isDomainAllowed } from '../../shared/utils/emailDomain.js';
 import { identityProvider } from '../../shared/providers/index.js';
 
 // Roles que SIEMPRE deben registrar su DNI/CE (decisión F1):
-// jurados, comisión electoral, administradores y docentes.
+// jurados, administradores y docentes.
 const REQUIRED_IDENTITY_ROLES = [
   ROLES.ADMIN,
-  ROLES.ELECTORAL_COMMISSION,
   ROLES.JURY,
   ROLES.TEACHER,
 ];
 
 const ORGANIZATION_ROLES = [
   ROLES.ADMIN,
-  ROLES.ELECTORAL_COMMISSION,
   ROLES.STUDENT,
   ROLES.TEACHER,
   ROLES.JURY,
-  ROLES.OBSERVER,
 ];
 
 /**
@@ -149,12 +146,12 @@ export const createUser = async (body = {}, actor = {}) => {
     document_number,
   } = body;
 
-  // Defensa S2: Solo superusuarios pueden crear usuarios con roles privilegiados
-  // (ADMIN / ELECTORAL_COMMISSION). Los roles electorales regulares pueden
-  // ser creados por cualquier administrador de la organización.
+  // Defensa S2: Solo superusuarios pueden crear usuarios con rol ADMIN.
+  // Otros roles (STUDENT/TEACHER/JURY) pueden ser creados por cualquier
+  // administrador de la organización.
   const isSuperUser = actor.isSuperuser || actor.isSuperAdmin || actor.role === ROLES.SUPERADMIN;
   if (role && ADMIN_ROLES.includes(role) && !isSuperUser) {
-    throw ApiError.forbidden('Solo superusuarios pueden crear usuarios con roles privilegiados');
+    throw ApiError.forbidden('Solo superusuarios pueden crear usuarios con rol ADMIN');
   }
 
   if (!role || !isValidRole(role)) {
@@ -315,6 +312,109 @@ export const provisionAdmin = async (body = {}, actor = {}) => {
 };
 
 /**
+ * SUPERADMIN: crea un ADMIN para una organización EXISTENTE.
+ * Reutiliza el patrón de provisionAdmin (mismo bootstrap de 2FA con OTP/QR/backup codes)
+ * pero omite la creación de la organización porque la recibe por params.
+ *
+ * @param {string} organizationId - UUID de la organización destino (ya existente)
+ * @param {Object} body - { username, email, password, first_name, last_name, document_type, document_number }
+ * @param {Object} actor - usuario autenticado (debe ser SUPERADMIN)
+ */
+export const provisionExistingAdmin = async (organizationId, body = {}, actor = {}) => {
+  const isSuperUser =
+    actor.isSuperuser || actor.isSuperAdmin || actor.role === ROLES.SUPERADMIN;
+
+  if (!isSuperUser) {
+    throw ApiError.forbidden('Solo el superadmin puede crear administradores');
+  }
+
+  const targetOrg = await prisma.organization.findUnique({
+    where: { id: organizationId },
+    select: {
+      id: true,
+      name: true,
+      code: true,
+      allowedEmailDomains: true,
+    },
+  });
+
+  if (!targetOrg) {
+    throw ApiError.notFound('Organización no encontrada');
+  }
+
+  const {
+    username,
+    email,
+    password,
+    first_name,
+    last_name,
+    document_type,
+    document_number,
+  } = body;
+
+  if (!email) {
+    throw ApiError.badRequest('El email es obligatorio');
+  }
+
+  const cleanEmail = email.toLowerCase().trim();
+  const cleanUsername = (username || cleanEmail.split('@')[0]).toLowerCase().trim();
+
+  await assertValidEmailDomain(cleanEmail, targetOrg.id);
+
+  const existingEmail = await userRepository.findByEmail(cleanEmail);
+  if (existingEmail) {
+    throw ApiError.conflict(MESSAGES.USER.ALREADY_EXISTS);
+  }
+
+  const existingUsername = await userRepository.findByUsername(cleanUsername);
+  if (existingUsername) {
+    throw ApiError.conflict(MESSAGES.USER.USERNAME_TAKEN);
+  }
+
+  const identity = await normalizeDocumentIdentity({
+    document_type,
+    document_number,
+    role: ROLES.ADMIN,
+  });
+
+  const finalPassword = password || crypto.randomBytes(18).toString('base64url');
+  const hashedPassword = await bcrypt.hash(finalPassword, 12);
+
+  const newUser = await userRepository.create({
+    username: cleanUsername,
+    email: cleanEmail,
+    password: hashedPassword,
+    firstName: first_name || cleanUsername,
+    lastName: last_name || '',
+    institutionalId: cleanUsername,
+    role: ROLES.ADMIN,
+    organizationId: targetOrg.id,
+    mustChangePassword: true,
+    isVerified: true,
+    ...(identity || {}),
+  });
+
+  const secret = otpUtil.generateTotpSecret();
+  const uri = otpUtil.generateTotpUri(secret, cleanEmail, newUser.username);
+  const plainBackupCodes = otpUtil.generateBackupCodes();
+  const hashedBackupCodes = plainBackupCodes.map((code) => otpUtil.hashBackupCode(code));
+
+  await otpRepository.saveTotpSecret(newUser.id, secret);
+  await otpRepository.enableTwoFactor(newUser.id, hashedBackupCodes);
+
+  const qrCode = await otpUtil.generateQrCode(uri);
+
+  return {
+    organization: { id: targetOrg.id, name: targetOrg.name, code: targetOrg.code },
+    user: formatUserResponse(newUser),
+    qrCode,
+    secret,
+    backupCodes: plainBackupCodes,
+    mustChangePassword: true,
+  };
+};
+
+/**
  * Obtiene la organización y valida que el email del jurado pertenezca a un
  * dominio permitido (si la organización define allowed_email_domains).
  */
@@ -417,20 +517,30 @@ export const createUsersBulk = async (items = [], actor = {}) => {
 
   return { created, errors, totalOk: created.length, totalFailed: errors.length };
 };
-export const updateUser = async (id, body = {}) => {
+export const updateUser = async (id, body = {}, actor = {}) => {
+  const target = await userRepository.findById(id);
+  if (!target) throw ApiError.notFound(MESSAGES.USER.NOT_FOUND);
+
+  const isSuperUser =
+    actor.isSuperuser || actor.isSuperAdmin || actor.role === ROLES.SUPERADMIN;
+  if (!isSuperUser && target.organizationId !== actor.organizationId) {
+    throw ApiError.forbidden('No puedes modificar usuarios fuera de tu organización');
+  }
+
   const data = {};
   if (body.first_name !== undefined) data.firstName = body.first_name;
   if (body.last_name !== undefined) data.lastName = body.last_name;
-  if (body.organization_id !== undefined) data.organizationId = body.organization_id;
+  if (body.organization_id !== undefined) {
+    if (!isSuperUser && body.organization_id !== actor.organizationId) {
+      throw ApiError.forbidden('No puedes reasignar usuarios fuera de tu organización');
+    }
+    data.organizationId = body.organization_id;
+  }
   if (body.document_type !== undefined || body.document_number !== undefined) {
-    const existing = await prisma.user.findUnique({
-      where: { id },
-      select: { role: true, documentType: true, documentNumber: true },
-    });
     const identity = await normalizeDocumentIdentity({
-      document_type: body.document_type ?? existing?.documentType,
-      document_number: body.document_number ?? existing?.documentNumber,
-      role: existing?.role,
+      document_type: body.document_type ?? target?.documentType,
+      document_number: body.document_number ?? target?.documentNumber,
+      role: target?.role,
     });
     if (identity) {
       data.documentType = identity.documentType;
@@ -618,6 +728,7 @@ export default {
   getUserById,
   createUser,
   provisionAdmin,
+  provisionExistingAdmin,
   createUsersBulk,
   updateUser,
   setActiveStatus,

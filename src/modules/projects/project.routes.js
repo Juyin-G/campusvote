@@ -1,9 +1,9 @@
 // src/modules/projects/project.routes.js
 // Rutas de proyectos de feria académica.
 // Creación/edición/integrantes: propietario (STUDENT/TEACHER).
-// Revisión administrativa: ADMIN/SUPERADMIN.
+// Revisión administrativa: ADMIN de la organización dueña del proyecto.
 // Lectura: cualquier rol autenticado (el scope por organización se resuelve
-// en el service, siguiendo el patrón assertTenantAccess de rating/objection).
+// en el service; SUPERADMIN NO tiene acceso operativo a proyectos — 403).
 
 import { Router } from 'express';
 import { authenticate, authorize } from '../../middlewares/auth.middleware.js';
@@ -15,7 +15,7 @@ import * as projectSchema from './project.schema.js';
 const router = Router();
 
 const CREATORS = [ROLES.STUDENT, ROLES.TEACHER];
-const REVIEWERS = [ROLES.ADMIN, ROLES.SUPERADMIN];
+const REVIEWERS = [ROLES.ADMIN];
 
 router.use(authenticate);
 

@@ -5,10 +5,19 @@ enum UserRole {
   TEACHER
   ADMIN
   SUPERADMIN
-  ELECTORAL_COMMISSION
   JURY
 
   @@map("user_role")
+}
+
+// Alcance administrativo del usuario (solo aplica a rol = ADMIN).
+// STUDENT/TEACHER/JURY/SUPERADMIN deben mantener scope_level = NULL.
+enum UserScopeLevel {
+  ORG
+  REGION
+  SITE
+
+  @@map("user_scope_level")
 }
 
 enum UserStatus {
@@ -82,11 +91,22 @@ model User {
 
   // ------------------------------------------------------
   // IDENTIDAD NACIONAL (PERÚ)
-  // Opcional para estudiantes; obligatorio para JURY / ELECTORAL_COMMISSION /
-  // ADMIN y docentes (validado por el IdentityProvider RENIEC/PIDE en service).
+  // Opcional para estudiantes; obligatorio para JURY / ADMIN y docentes
+  // (validado por el IdentityProvider RENIEC/PIDE en service).
   // ------------------------------------------------------
   documentType   DocumentType? @map("document_type")
   documentNumber String?       @map("document_number") @db.VarChar(20)
+
+  // ------------------------------------------------------
+  // SCOPE ADMINISTRATIVO (multi-sede). Solo aplica a rol = ADMIN.
+  //   * ORG:     cubre toda la organización. region_id NULL.
+  //   * REGION:  cubre todas las sedes de region_id. siteIds derivados
+  //             por JOIN contra organization_sites.region_id.
+  //   * SITE:    cubre N sedes concretas listadas en user_site_assignments.
+  // Para STUDENT/TEACHER/JURY/SUPERADMIN: scope_level = NULL.
+  // ------------------------------------------------------
+  scopeLevel UserScopeLevel? @map("scope_level")
+  regionId   String?         @map("region_id") @db.Uuid
 
   // ------------------------------------------------------
   // TENANT Y CONTEXTO ACADÉMICO
@@ -142,6 +162,7 @@ model User {
   program         Program?        @relation(fields: [programId], references: [id], onDelete: SetNull)
   admissionPeriod AcademicPeriod? @relation(fields: [admissionPeriodId], references: [id], onDelete: SetNull)
   career          Career?         @relation(fields: [careerId], references: [id], onDelete: SetNull)
+  region          Region?         @relation("UserRegion", fields: [regionId], references: [id], onDelete: SetNull)
 
   // Auto-relaciones de auditoría
   lastRoleChangeBy   User?  @relation("RoleChangeAudit", fields: [lastRoleChangeById], references: [id], onDelete: SetNull)
@@ -184,6 +205,9 @@ model User {
   reviewedProjects        Project[]                @relation("ReviewedProjects")
   projectMemberships      ProjectMember[]          @relation("ProjectMemberships")
 
+  // Multi-sede: asignaciones de scope SITE (N:M con OrganizationSite)
+  siteAssignments        UserSiteAssignment[]     @relation("UserSiteAssignments")
+  siteAssignmentsGranted UserSiteAssignment[]     @relation("UserSiteAssignmentsGrantedBy")
   // Jurados de FERIAS (rol global JURY; participación formal en una feria).
   // Relación exclusiva del dominio de ferias — no se mezcla con
   // juryAssignments (dominio electoral de elections/candidacies).
@@ -199,6 +223,9 @@ model User {
   // Declaraciones de imparcialidad firmadas por este usuario como JURY de ferias.
   fairJuryDeclarations FairJuryDeclaration[] @relation("FairJuryDeclarations")
 
+  // Certificados oficiales emitidos a este usuario (participación / ganador).
+  certificates         Certificate[]
+
   // ------------------------------------------------------
   // ÍNDICES
   // ------------------------------------------------------
@@ -207,6 +234,8 @@ model User {
   @@index([status], map: "idx_users_status")
   @@index([institutionalId], map: "idx_users_institutional_id")
   @@index([documentNumber], map: "idx_users_document_number")
+  @@index([scopeLevel], map: "idx_users_scope_level")
+  @@index([regionId], map: "idx_users_region")
   @@unique([organizationId, documentNumber], map: "uq_users_organization_document")
   @@map("users")
 }

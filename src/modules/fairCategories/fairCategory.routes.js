@@ -1,15 +1,17 @@
 // src/modules/fairCategories/fairCategory.routes.js
 // Rutas de CATEGORÍAS de ferias (dominio exclusivo de FERIAS).
 //
-// Lectura compartida (ADMIN/SUPERADMIN o JURY con asignación en la feria):
+// Lectura compartida (ADMIN con org dueña o JURY asignado):
 //   GET    /api/fairs/:id/categories
 //
-// Gestión (ADMIN/SUPERADMIN de la organización; SOLO en DRAFT):
+// Gestión (ADMIN de la organización; SOLO en DRAFT):
 //   POST   /api/fairs/:id/categories
 //   PUT    /api/fairs/:id/categories/:categoryId
 //   DELETE /api/fairs/:id/categories/:categoryId
 //
 // El scope por tenant y la configuración solo en DRAFT los resuelve el service.
+// SUPERADMIN NO tiene acceso operativo (403 desde este router; sin bypass
+// aunque tenga organizationId).
 
 import { Router } from 'express';
 import { authenticate, authorize } from '../../middlewares/auth.middleware.js';
@@ -20,8 +22,8 @@ import * as categorySchema from './fairCategory.schema.js';
 
 const router = Router();
 
-const MANAGERS = [ROLES.ADMIN, ROLES.SUPERADMIN];
-const READERS = [ROLES.ADMIN, ROLES.SUPERADMIN, ROLES.JURY];
+const MANAGERS = [ROLES.ADMIN];
+const READERS = [ROLES.ADMIN, ROLES.JURY];
 
 router.get(
   '/:id/categories',

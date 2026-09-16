@@ -59,15 +59,13 @@ model Organization {
   users                 User[]
   elections       Election[]
   careers               Career[]
-<<<<<<< HEAD
   projects              Project[]
   fairs                 Fair[]
   sites                 OrganizationSite[]
-=======
+  regions               Region[]
   courses               Course[]
   teachingAssignments   TeachingAssignment[]
   teacherEvaluations    TeacherEvaluation[]
->>>>>>> 808dfb1f3b2bb1a7abdcec0c7d1706741d4ed99c
 
   @@map("organizations")
 }

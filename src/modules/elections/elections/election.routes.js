@@ -21,7 +21,7 @@ import {
 
 const router = Router();
 
-const GESTORES = [ROLES.ADMIN, ROLES.ELECTORAL_COMMISSION];
+const GESTORES = [ROLES.ADMIN];
 
 router.use('/:electionId/positions', positionRoutes);
 router.use('/:electionId/candidate-lists', candidateListRoutes);

@@ -11,8 +11,10 @@
 //   - Solo proyectos APPROVED y de la MISMA feria son evaluables.
 //
 // Autorización:
-//   - ADMIN/SUPERADMIN gestionan la rúbrica y consultan evaluaciones de SUS
-//     ferias (SUPERADMIN conserva el bypass de tenant del sistema).
+//   - ADMIN gestiona la rúbrica y consulta evaluaciones de SUS ferias
+//     (aislamiento por tenant en service).
+//   - SUPERADMIN NO tiene acceso operativo: 403 desde el router (sin bypass
+//     aunque tenga organizationId).
 //   - JURY: consulta la rúbrica y proyectos APPROVED SOLO de ferias donde está
 //     formalmente asignado; crea/actualiza SU PROPIA evaluación mientras la
 //     feria está OPEN y sigue asignado. NO elimina, NO toca evaluaciones ajenas.
@@ -31,9 +33,6 @@ const EVALUATION_ALLOWED_STATUS = ['OPEN'];
 const DECLARATION_ALLOWED_STATUSES = ['DRAFT', 'OPEN'];
 const EVALUABLE_PROJECT_STATUS = ['APPROVED'];
 
-const isSuperAdmin = (actor) =>
-  actor.role === ROLES.SUPERADMIN || actor.isSuperAdmin || actor.isSuperuser;
-
 // ── Helpers de acceso ──────────────────────────────────────────────
 
 const loadFair = async (fairId) => {
@@ -44,9 +43,12 @@ const loadFair = async (fairId) => {
   return fair;
 };
 
-/** Tenant: ADMIN gestiona solo ferias de su organización (SUPERADMIN bypass). */
+/**
+ * Tenant: ADMIN de la organización dueña de la feria. El router ya bloquea
+ * a SUPERADMIN antes de llegar al service (sin bypass aunque tenga
+ * organizationId).
+ */
 const assertTenantMatch = ({ fair, actor }) => {
-  if (isSuperAdmin(actor)) return;
   if (!actor.organizationId) {
     throw ApiError.forbidden('Tu cuenta no está vinculada a ninguna organización');
   }
@@ -249,7 +251,7 @@ const mapProjectReview = (p) => ({
 });
 
 // =====================================================================
-// RÚBRICA (ADMIN/SUPERADMIN)
+// RÚBRICA (ADMIN)
 // =====================================================================
 
 export const createRubric = async ({ fairId, data, actor }) => {
@@ -295,7 +297,7 @@ export const updateRubric = async ({ fairId, data, actor }) => {
 export const getRubric = async ({ fairId, actor }) => {
   const fair = await loadFair(fairId);
 
-  if (actor.role === ROLES.JURY && !isSuperAdmin(actor)) {
+  if (actor.role === ROLES.JURY) {
     await assertJuryAssignedToFair({ fairId, juryId: actor.id });
   } else {
     assertTenantMatch({ fair, actor });
@@ -396,7 +398,7 @@ export const removeCriterion = async ({ fairId, criterionId, actor }) => {
 export const listApprovedProjects = async ({ fairId, actor, filters = {} }) => {
   const fair = await loadFair(fairId);
 
-  if (actor.role === ROLES.JURY && !isSuperAdmin(actor)) {
+  if (actor.role === ROLES.JURY) {
     await assertJuryAssignedToFair({ fairId, juryId: actor.id });
   } else {
     assertTenantMatch({ fair, actor });
@@ -432,15 +434,15 @@ export const listApprovedProjects = async ({ fairId, actor, filters = {} }) => {
  * GET /api/fairs/:id/projects/:projectId — Detalle de un proyecto de la feria.
  * Consulta COMPARTIDA:
  *   - JURY asignado: revisión previa a su evaluación.
- *   - ADMIN/SUPERADMIN: lectura de la información de UN proyecto (por ejemplo,
- *     desde el ranking/resultados). ADMIN valida tenant; SUPERADMIN bypass.
+ *   - ADMIN de la organización dueña: lectura de la información de UN proyecto
+ *     (por ejemplo, desde el ranking/resultados). Valida tenant en service.
  * Consulta DERIVADA de Project + ProjectMember; no se persiste ningún
  * ProjectReview ni ProjectDetail. Incluye categoría y stand de la feria.
  */
 export const getProjectDetail = async ({ fairId, projectId, actor }) => {
   const fair = await loadFair(fairId);
 
-  if (actor.role === ROLES.JURY && !isSuperAdmin(actor)) {
+  if (actor.role === ROLES.JURY) {
     await assertJuryAssignedToFair({ fairId, juryId: actor.id });
   } else {
     assertTenantMatch({ fair, actor });
@@ -560,7 +562,7 @@ export const updateEvaluation = async ({ fairId, evaluationId, data, actor }) =>
 export const listEvaluations = async ({ fairId, actor, filters = {} }) => {
   const fair = await loadFair(fairId);
 
-  const isJuryReader = actor.role === ROLES.JURY && !isSuperAdmin(actor);
+  const isJuryReader = actor.role === ROLES.JURY;
 
   if (isJuryReader) {
     await assertJuryAssignedToFair({ fairId, juryId: actor.id });
@@ -570,7 +572,7 @@ export const listEvaluations = async ({ fairId, actor, filters = {} }) => {
 
   const where = {
     fairId,
-    // JURY solo ve SUS evaluaciones; ADMIN/SUPERADMIN ve todas (+ filtros).
+    // JURY solo ve SUS evaluaciones; ADMIN ve todas (+ filtros).
     ...(isJuryReader ? { juryUserId: actor.id } : {}),
     ...(!isJuryReader && filters.project_id ? { projectId: filters.project_id } : {}),
     ...(!isJuryReader && filters.jury_user_id ? { juryUserId: filters.jury_user_id } : {}),

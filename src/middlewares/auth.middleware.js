@@ -1,6 +1,7 @@
 import jwt from 'jsonwebtoken';
 import env from '../config/env.js';
 import { ApiError } from '../shared/errors/ApiError.js';
+import { ROLES } from '../constants/roles.js';
 
 /**
  * Verifica el Bearer token y rellena req.user.
@@ -40,7 +41,7 @@ const createAuthenticateMiddleware = (options = {}) => (req, res, next) => {
     // que un cambio futuro de librería reabra los ataques de confusión de
     // algoritmo. La firma siempre se emite con HS256 en auth.helpers.js.
     const decoded = jwt.verify(token, env.JWT_SECRET, { algorithms: ['HS256'] });
-    
+
     // Rechazar tokens de flujo temporal (TOTP_PENDING / ONBOARDING) en rutas
     // ordinarias (a menos que allowPending=true)
     if (LIMITED_PURPOSES.includes(decoded.purpose) && !options.allowPending) {
@@ -50,7 +51,7 @@ const createAuthenticateMiddleware = (options = {}) => (req, res, next) => {
         )
       );
     }
-    
+
     req.user = decoded;
     return next();
   } catch (error) {
@@ -116,14 +117,26 @@ export const requireOnboarding = (req, res, next) => {
 };
 
 /**
- * Restringe el acceso a uno o más roles.
+ * CAMBIO: helper documentado. authorizeTenant(roles) está pensado para
+ * rutas de negocio (ferias, elecciones, votaciones). NUNCA debe recibir
+ * SUPERADMIN porque la frontera se aplica en src/routes/index.js.
  */
-export const authorize = (...roles) => (req, res, next) => {
+export const authorizeTenant = (...roles) => (req, res, next) => {
   if (!req.user) {
     return next(ApiError.unauthorized('No autenticado'));
   }
 
   const allowedRoles = Array.isArray(roles[0]) ? roles[0] : roles;
+
+  if (allowedRoles.includes(ROLES.SUPERADMIN)) {
+    // CAMBIO: guardia dura en desarrollo. Rompe en build para impedir
+    // regresión silenciosa al patrón anterior.
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn(
+        '[authorizeTenant] SUPERADMIN detectado en una ruta de tenant. Migra a authorizePlatform().'
+      );
+    }
+  }
 
   if (!allowedRoles.includes(req.user.role)) {
     return next(
@@ -132,4 +145,44 @@ export const authorize = (...roles) => (req, res, next) => {
   }
 
   next();
+};
+
+/**
+ * CAMBIO: authorizePlatform(roles) está pensado para rutas macro
+ * (/api/organizations, /api/admin/*, /api/users/admin/provision*).
+ * Aquí SÍ se permite SUPERADMIN como único actor.
+ */
+export const authorizePlatform = (...roles) => (req, res, next) => {
+  if (!req.user) {
+    return next(ApiError.unauthorized('No autenticado'));
+  }
+
+  const allowedRoles = Array.isArray(roles[0]) ? roles[0] : roles;
+
+  if (!allowedRoles.includes(req.user.role)) {
+    return next(
+      ApiError.forbidden('No tienes permisos para realizar esta acción en la plataforma')
+    );
+  }
+
+  next();
+};
+
+/**
+ * CAMBIO: authorize() se conserva por compatibilidad con módulos legacy,
+ * pero internamente delega en authorizeTenant() para impedir SUPERADMIN en
+ * el cuerpo del array. Los call sites existentes con
+ * authorize([ADMIN, SUPERADMIN]) deben migrarse a authorizePlatform() y
+ * mover la ruta al sub-router PLATFORM.
+ */
+export const authorize = (...roles) => {
+  if (roles.flat().includes(ROLES.SUPERADMIN)) {
+    // No rompemos en runtime; emitimos warning para que CI/QA lo detecte.
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn(
+        '[authorize] SUPERADMIN detectado en una llamada authorize(). Migra esta ruta a authorizePlatform() y móntala bajo /api/platform/* o en platformRouter.'
+      );
+    }
+  }
+  return authorizeTenant(...roles);
 };

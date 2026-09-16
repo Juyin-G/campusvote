@@ -1,13 +1,16 @@
 /**
  * Roles de usuario del sistema
  * Basados en el ENUM user_role de la base de datos
+ *
+ * Regla: no se usan roles derivados como ADMIN_ORG / ADMIN_REGION /
+ * ADMIN_SITE. El alcance administrativo se modela con `scopeLevel`,
+ * `regionId` y `user_site_assignments`. Ver src/services/adminScope.service.js.
  */
 export const ROLES = Object.freeze({
   STUDENT: 'STUDENT',
   TEACHER: 'TEACHER',
   ADMIN: 'ADMIN',
   SUPERADMIN: 'SUPERADMIN',
-  ELECTORAL_COMMISSION: 'ELECTORAL_COMMISSION',
   JURY: 'JURY',
 });
 
@@ -17,22 +20,22 @@ export const ROLES = Object.freeze({
 export const ALL_ROLES = Object.values(ROLES);
 
 /**
- * Roles que tienen acceso administrativo
+ * Roles con capacidad administrativa sobre la organización.
+ * Incluyen SUPERADMIN (plataforma) y ADMIN (tenant con scope).
  */
 export const ADMIN_ROLES = [
   ROLES.SUPERADMIN,
   ROLES.ADMIN,
-  ROLES.ELECTORAL_COMMISSION,
 ];
 
 /**
- * Roles que pueden participar en elecciones
+ * Roles que pueden participar en procesos electorales.
+ * (No incluye ELECTORAL_COMMISSION; ese rol fue eliminado del modelo.)
  */
 export const ELECTORAL_ROLES = [
   ROLES.STUDENT,
   ROLES.TEACHER,
   ROLES.ADMIN,
-  ROLES.ELECTORAL_COMMISSION,
   ROLES.JURY,
 ];
 
@@ -44,14 +47,14 @@ export const ELECTORAL_ROLES = [
 export const isValidRole = (role) => ALL_ROLES.includes(role);
 
 /**
- * Verifica si un rol tiene permisos administrativos
+ * Verifica si un rol tiene permisos administrativos (incluye plataforma).
  * @param {string} role - Rol a verificar
  * @returns {boolean}
  */
 export const isAdminRole = (role) => ADMIN_ROLES.includes(role);
 
 /**
- * Verifica si un rol puede participar en procesos electorales
+ * Verifica si un rol puede participar en procesos electorales.
  * @param {string} role - Rol a verificar
  * @returns {boolean}
  */

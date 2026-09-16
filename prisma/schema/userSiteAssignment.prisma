@@ -1,0 +1,29 @@
+// ASIGNACIONES DE ADMIN SITE A SEDES (multi-sede).
+//
+// Estructura:
+//   User (rol = ADMIN, scopeLevel = SITE) ── UserSiteAssignment ── OrganizationSite
+//
+// Decisiones:
+//   * UNIQUE (user_id, site_id) — un ADMIN no puede tener la misma sede dos veces.
+//   * granted_by auditable.
+//   * expires_at NULLABLE: una asignación sin expiración es permanente hasta
+//     revocación manual.
+
+model UserSiteAssignment {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId     String    @map("user_id") @db.Uuid
+  siteId     String    @map("site_id") @db.Uuid
+  grantedBy  String?   @map("granted_by") @db.Uuid
+  grantedAt  DateTime  @default(now()) @map("granted_at") @db.Timestamptz
+  expiresAt  DateTime? @map("expires_at") @db.Timestamptz
+
+  // Relaciones
+  user     User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  site     OrganizationSite @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  grantor  User?            @relation("UserSiteAssignmentsGrantedBy", fields: [grantedBy], references: [id], onDelete: SetNull)
+
+  @@unique([userId, siteId])
+  @@index([userId], map: "idx_usa_user")
+  @@index([siteId], map: "idx_usa_site")
+  @@map("user_site_assignments")
+}

@@ -1,12 +1,13 @@
 // src/modules/fairResults/fairResult.routes.js
 // Rutas de RESULTADOS de proyectos de FERIAS (dominio exclusivo de ferias).
 //
-//   GET  /api/fairs/:id/results         → ranking de la feria (ADMIN/SUPERADMIN)
-//   POST /api/fairs/:id/results/publish → publicación oficial (ADMIN/SUPERADMIN)
+//   GET  /api/fairs/:id/results         → ranking de la feria (ADMIN)
+//   POST /api/fairs/:id/results/publish → publicación oficial (ADMIN)
 //
 // Autorización:
 //   - ADMIN opera SOLO sobre ferias de su organización (tenant en service).
-//   - SUPERADMIN mantiene el bypass de tenant ya existente.
+//   - SUPERADMIN NO tiene acceso operativo a resultados organizacionales
+//     (403 desde este router; sin bypass aunque tenga organizationId).
 //   - JURY NO obtiene acceso global a resultados por ser jurado.
 //   - STUDENT/TEACHER/ELECTORAL_COMMISSION sin acceso administrativo.
 //
@@ -24,7 +25,7 @@ import * as fairResultSchema from './fairResult.schema.js';
 
 const router = Router();
 
-const MANAGERS = [ROLES.ADMIN, ROLES.SUPERADMIN];
+const MANAGERS = [ROLES.ADMIN];
 
 router.get(
   '/:id/results',

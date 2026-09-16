@@ -24,7 +24,7 @@ import {
 
 const router = Router();
 
-const GESTORES = [ROLES.ADMIN, ROLES.ELECTORAL_COMMISSION];
+const GESTORES = [ROLES.ADMIN];
 
 // CERTIFY / PUBLISH (S7-03 / S7-04)
 

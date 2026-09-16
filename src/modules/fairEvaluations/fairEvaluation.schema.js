@@ -108,8 +108,8 @@ export const listApprovedProjectsSchema = z.object({
 });
 
 // GET /api/fairs/:id/projects/:projectId — detalle compartido (JURY asignado
-// para revisar; ADMIN/SUPERADMIN para consultar desde resultados). Sin
-// ProjectReview ni ProjectDetail: se deriva de Project + ProjectMember.
+// para revisar; ADMIN de la organización dueña para consultar desde resultados).
+// Sin ProjectReview ni ProjectDetail: se deriva de Project + ProjectMember.
 export const getProjectReviewSchema = z.object({
   params: z.object({
     id: uuid('El ID de la feria'),
