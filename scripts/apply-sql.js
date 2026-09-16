@@ -95,6 +95,7 @@ const MIGRATION_FILES = [
   'user/020b_user_scope_columns.sql',            // <--- MIGRACIÓN AGREGADA (Agrega scope_level a users)
   'organizations/009_admin_scope_in_activation.sql',
   'user/021_user_site_assignments.sql',          // <--- MIGRACIÓN AGREGADA
+  'user/022_drop_orphan_roles.sql',              // <--- Limpia OBSERVER y ELECTORAL_COMMISSION del enum
   'reports/001_election_report_history.sql',
   'claims/001_voter_registry_claims.sql',
   'objections/001_candidacy_objections.sql',
