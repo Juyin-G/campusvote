@@ -48,6 +48,7 @@ const MIGRATION_FILES = [
   'organizations/005_category_catalog.sql',
   'organizations/006_admin_requires_organization.sql',
   'organizations/007_admin_invite.sql',
+  'organizations/018_regions.sql', // <--- MIGRACIÓN AGREGADA
   'organizations/008_deferred_admin_activation.sql',
   'academic/000_prerequisites.sql',
   'academic/001_faculties.sql',
@@ -89,6 +90,10 @@ const MIGRATION_FILES = [
   'ballots/006_functions.sql',
   'organizations/004_approval_functions.sql',
   'organizations/006_organization_sites.sql',
+  'organizations/019_site_region.sql',          // <--- MIGRACIÓN AGREGADA
+  'user/020a_user_scope_enum.sql',               // <--- MIGRACIÓN AGREGADA (Crea scope_level)
+  'user/020b_user_scope_columns.sql',            // <--- MIGRACIÓN AGREGADA (Agrega scope_level a users)
+  'user/021_user_site_assignments.sql',          // <--- MIGRACIÓN AGREGADA
   'reports/001_election_report_history.sql',
   'claims/001_voter_registry_claims.sql',
   'objections/001_candidacy_objections.sql',
