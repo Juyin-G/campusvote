@@ -1,12 +1,16 @@
 import multer from 'multer';
 import path from 'node:path';
+import fs from 'node:fs';
 import crypto from 'node:crypto';
 import env from '../config/env.js';
 import { ApiError } from '../shared/errors/ApiError.js';
 import { isAllowedMimeType } from '../shared/utils/fileSignature.js';
 
-// Directorio destino
+// Directorio destino. Multer NO crea el directorio; lo creamos al cargar el
+// módulo para que Render (donde `public/uploads/` no está commiteado y el FS
+// es efímero) no falle con ENOENT al guardar el primer archivo.
 const UPLOAD_DIR = path.join(process.cwd(), 'public', 'uploads');
+fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 
 // Límites configurables por entorno (env.js): tamaño por archivo y cantidad.
 const MAX_FILE_SIZE = env.UPLOAD_MAX_FILE_SIZE_MB * 1024 * 1024;
