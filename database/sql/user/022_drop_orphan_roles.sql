@@ -11,13 +11,12 @@
 --   4. Recrea los CHECK constraints (sin OBSERVER/ELECTORAL_COMMISSION).
 --   5. Recrea los índices parciales.
 --
--- Los pasos 1-3 deben ejecutarse sin BEGIN explícito: pg los aplica en
--- autocommit. Los pasos 4-5 también. Esta migración es idempotente: si el
--- enum ya está limpio, el DO block no hace nada.
+-- Usa role::text en las guardas para evitar casteo al enum (que fallaría
+-- si OBSERVER/ELECTORAL_COMMISSION ya no existen en el enum).
 
 DO $$
 BEGIN
-    -- No abortar si ya está limpio.
+    -- No abortar si ya está limpio: verificamos contra pg_enum directamente.
     IF NOT EXISTS (
         SELECT 1 FROM pg_enum e
           JOIN pg_type t ON t.oid = e.enumtypid
@@ -30,13 +29,14 @@ BEGIN
 END
 $$;
 
+-- Guardia tolerante: usa role::text para evitar casteo al enum.
 DO $$
 DECLARE
     v_orphan_count INT;
 BEGIN
     SELECT COUNT(*) INTO v_orphan_count
       FROM users
-     WHERE role IN ('OBSERVER', 'ELECTORAL_COMMISSION');
+     WHERE role::text IN ('OBSERVER', 'ELECTORAL_COMMISSION');
 
     IF v_orphan_count > 0 THEN
         RAISE EXCEPTION
