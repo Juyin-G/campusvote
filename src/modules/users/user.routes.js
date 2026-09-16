@@ -260,6 +260,22 @@ router.post(
   }
 );
 
+// PUT /me → actualizar perfil propio (debe ir ANTES de /:id para evitar shadowing).
+router.put(
+  '/me',
+  authenticate,
+  validate(updateMeSchema),
+  userController.updateMe
+);
+
+// POST /me/password → cambiar contraseña propia.
+router.post(
+  '/me/password',
+  authenticate,
+  validate(changePasswordSchema),
+  userController.changePassword
+);
+
 // PUT /:id → editar usuario académico. El guard valida scope por usuario.
 router.put(
   '/:id',
@@ -393,20 +409,6 @@ router.delete(
       next(err);
     }
   }
-);
-
-router.put(
-  '/me',
-  authenticate,
-  validate(updateMeSchema),
-  userController.updateMe
-);
-
-router.post(
-  '/me/password',
-  authenticate,
-  validate(changePasswordSchema),
-  userController.changePassword
 );
 
 export default router;

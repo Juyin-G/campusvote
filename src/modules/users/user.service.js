@@ -204,7 +204,10 @@ export const createUser = async (body = {}, actor = {}) => {
   }
 
   if (ORGANIZATION_ROLES.includes(role) && !organization_id) {
-    throw ApiError.badRequest('Los usuarios institucionales deben pertenecer a una organización');
+    organization_id = actor.organizationId;
+    if (!organization_id) {
+      throw ApiError.badRequest('Los usuarios institucionales deben pertenecer a una organización');
+    }
   }
 
   if (organization_id !== actor.organizationId) {
