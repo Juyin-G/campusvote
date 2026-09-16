@@ -52,7 +52,7 @@ router.post(
         records.push(
           await prisma.media_files.create({
             data: {
-              user_id: req.user.id,
+              user_id: req.user.userId,
               filename: file.filename,
               original_name: file.originalname,
               mime_type: file.mimetype,
@@ -79,6 +79,9 @@ router.post(
       return res.status(500).json({
         success: false,
         message: 'Error al registrar el archivo en la base de datos',
+        ...(process.env.NODE_ENV !== 'production' && {
+          detail: error.message,
+        }),
       });
     }
   }
@@ -132,7 +135,7 @@ router.post(
       const fileUrl = `${env.APP_URL}/uploads/${file.filename}`;
       const record = await prisma.media_files.create({
         data: {
-          user_id: req.user.id,
+          user_id: req.user.userId,
           filename: file.filename,
           original_name: file.originalname,
           mime_type: file.mimetype,
@@ -155,6 +158,9 @@ router.post(
       return res.status(500).json({
         success: false,
         message: 'Error al registrar el logo en la base de datos',
+        ...(process.env.NODE_ENV !== 'production' && {
+          detail: error.message,
+        }),
       });
     }
   }
