@@ -4,7 +4,7 @@ export const createCareerSchema = z.object({
   body: z.object({
     code: z.string().min(1, 'Como mínimo 1 carácter').max(20),
     name: z.string().min(1, 'Como mínimo 1 carácter').max(150),
-    total_cycles: z.coerce.number().int().min(1).max(20).optional().default(6),
+    total_cycles: z.coerce.number().int().min(1).max(20).optional(),
   }),
 });
 

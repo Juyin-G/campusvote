@@ -22,7 +22,7 @@ export const syncSisVotersSchema = z.object({
         z.object({
           institutional_id: z.string().trim().min(1, 'El ID institucional es requerido.'),
           program_id: uuid('El program_id'),
-          cycle: z.number().int().min(1).max(14, 'El ciclo debe estar entre 1 y 14.'),
+          cycle: z.number().int().min(1).max(20, 'El ciclo debe estar entre 1 y 20.'),
         })
       )
       .min(1, 'El array de estudiantes no puede estar vacío.'),
@@ -35,7 +35,7 @@ export const createVoterRegistrySchema = z.object({
     userId: uuid('El userId'),
     programId: uuid('El programId'),
     periodId: uuid('El periodId'),
-    semester: z.number().int().min(1).max(14, 'El semestre/ciclo debe estar entre 1 y 14.'),
+    semester: z.number().int().min(1).max(20, 'El semestre/ciclo debe estar entre 1 y 20.'),
     isEligible: z.boolean().default(true),
     eligibilityReason: z.string().trim().nullable().optional(),
   }),
@@ -45,7 +45,7 @@ export const createVoterRegistrySchema = z.object({
 export const updateVoterRegistrySchema = z.object({
   body: z.object({
     programId: uuid('El programId').optional(),
-    semester: z.number().int().min(1).max(14).optional(),
+    semester: z.number().int().min(1).max(20).optional(),
     isEligible: z.boolean().optional(),
     eligibilityReason: z.string().trim().min(3, 'El motivo debe tener al menos 3 caracteres.').optional(),
   }),
