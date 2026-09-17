@@ -42,9 +42,10 @@ export const getCourseById = async (id, actor = {}) => {
 export const createCourse = async (data, actor = {}) => {
   if (!isAdminActor(actor)) throw new ApiError(HTTP_STATUS.FORBIDDEN, 'Solo administradores');
   if (!actor.organizationId) throw new ApiError(HTTP_STATUS.FORBIDDEN, 'El actor debe pertenecer a una organización');
-  const career = await careerRepository.findById(data.careerId, actor.organizationId);
+  const careerId = data.careerId ?? data.career_id;
+  const career = await careerRepository.findById(careerId, actor.organizationId);
   if (!career) throw new ApiError(HTTP_STATUS.BAD_REQUEST, 'La carrera no pertenece a tu organización');
-  const existing = await courseRepository.findByCode(data.code, actor.organizationId, data.careerId);
+  const existing = await courseRepository.findByCode(data.code, actor.organizationId, careerId);
   if (existing) {
     throw new ApiError(HTTP_STATUS.CONFLICT, `Ya existe un curso con el código ${data.code} en esa carrera`);
   }
@@ -53,7 +54,7 @@ export const createCourse = async (data, actor = {}) => {
     code: data.code,
     name: data.name,
     cycle: data.cycle,
-    careerId: data.career_id,
+    careerId,
   });
 };
 
