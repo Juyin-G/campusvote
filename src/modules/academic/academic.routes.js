@@ -8,7 +8,6 @@ import careerRoutes from './career/career.routes.js';
 import courseRoutes from './course/course.routes.js';
 
 const router = Router();
-router.use('/', teachingEvaluationRoutes);
 
 router.use('/careers', careerRoutes);
 router.use('/courses', courseRoutes);
@@ -16,5 +15,6 @@ router.use('/faculties', facultyRoutes);
 router.use('/programs', programRoutes);
 router.use('/periods', periodRoutes);
 router.use('/voter-registries', voterRegistryRoutes);
+router.use('/', teachingEvaluationRoutes);
 
 export default router;
