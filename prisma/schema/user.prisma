@@ -217,6 +217,9 @@ model User {
   // Evaluaciones de proyectos de feria realizadas por este usuario como JURY.
   fairEvaluations FairEvaluation[] @relation("FairEvaluations")
 
+  // Participación en la votación anónima de ferias (este jurado ya votó).
+  fairVoteParticipations FairVoteParticipation[] @relation("FairVoteParticipations")
+
   // Publicaciones de resultados de ferias realizadas por este usuario (ADMIN).
   fairResultPublications FairResultPublication[] @relation("FairResultPublications")
 

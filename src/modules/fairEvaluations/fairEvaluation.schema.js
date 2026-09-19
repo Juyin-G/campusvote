@@ -1,15 +1,12 @@
 // src/modules/fairEvaluations/fairEvaluation.schema.js
 // Validación (Zod) con envelope { params, query, body } que exige
-// validate.middleware.js. Dominio exclusivo de FERIAS (sin mezclar con
-// ratings electorales).
+// validate.middleware.js. Dominio exclusivo de FERIAS.
 
 import { z } from 'zod';
 
 const uuid = (label = 'ID') => z.string().uuid(`${label} debe ser un UUID válido`);
 
-const fairParam = z.object({
-  id: uuid('El ID de la feria'),
-});
+const fairParam = z.object({ id: uuid('El ID de la feria') });
 
 const nameField = z
   .string()
@@ -22,48 +19,34 @@ const descriptionField = z
   .trim()
   .max(5000, 'La descripción no puede superar los 5000 caracteres');
 
-const scoreField = z.coerce.number().finite('La puntuación debe ser un número válido');
-
-const criterionBody = z
-  .object({
-    name: nameField,
-    description: descriptionField.optional(),
-    min_score: scoreField,
-    max_score: scoreField,
-    position: z.coerce.number().int().min(1).optional(),
-  })
-  .strict();
+// ── Rúbrica ──────────────────────────────────────────────────────
 
 export const createRubricSchema = z.object({
   params: fairParam,
-  body: z
-    .object({
-      name: nameField,
-      description: descriptionField.optional(),
-    })
-    .strict(),
+  body: z.object({ name: nameField, description: descriptionField.optional() }).strict(),
 });
 
 export const updateRubricSchema = z.object({
   params: fairParam,
   body: z
-    .object({
-      name: nameField.optional(),
-      description: descriptionField.optional(),
-    })
+    .object({ name: nameField.optional(), description: descriptionField.optional() })
     .strict()
     .refine((data) => Object.values(data).some((value) => value !== undefined), {
       message: 'Debes proporcionar al menos un campo para actualizar',
     }),
 });
 
-export const getRubricSchema = z.object({
-  params: fairParam,
-});
+export const getRubricSchema = z.object({ params: fairParam });
 
 export const addCriterionSchema = z.object({
   params: fairParam,
-  body: criterionBody,
+  body: z
+    .object({
+      name: nameField,
+      description: descriptionField.optional(),
+      position: z.coerce.number().int().min(1).optional(),
+    })
+    .strict(),
 });
 
 export const updateCriterionSchema = z.object({
@@ -75,9 +58,8 @@ export const updateCriterionSchema = z.object({
     .object({
       name: nameField.optional(),
       description: descriptionField.optional(),
-      min_score: scoreField.optional(),
-      max_score: scoreField.optional(),
       position: z.coerce.number().int().min(1).optional(),
+      is_active: z.coerce.boolean().optional(),
     })
     .strict()
     .refine((data) => Object.values(data).some((value) => value !== undefined), {
@@ -92,29 +74,53 @@ export const deleteCriterionSchema = z.object({
   }),
 });
 
+// ── Respuestas de rúbrica (CHECKLIST) ────────────────────────────
+
+export const upsertChecklistSchema = z.object({
+  params: z.object({
+    id: uuid('El ID de la feria'),
+    projectId: uuid('El ID del proyecto'),
+  }),
+  body: z
+    .object({
+      responses: z
+        .array(
+          z
+            .object({
+              criterion_id: uuid('El ID del criterio'),
+              checked: z.coerce.boolean(),
+            })
+            .strict()
+        )
+        .min(1, 'Debes enviar al menos una respuesta'),
+      finalize: z.coerce.boolean().optional().default(false),
+    })
+    .strict(),
+});
+
+export const getMyChecklistSchema = z.object({
+  params: z.object({
+    id: uuid('El ID de la feria'),
+    projectId: uuid('El ID del proyecto'),
+  }),
+});
+
+// ── Mis evaluaciones / progreso ──────────────────────────────────
+
 const paginationQuery = {
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(20),
 };
 
-export const listApprovedProjectsSchema = z.object({
-  params: fairParam,
+export const myEvaluationsSchema = z.object({
   query: z.object({
     ...paginationQuery,
-    search: z.string().trim().min(1).max(200).optional(),
-    category_id: uuid('El category_id').optional(),
-    stand_id: uuid('El stand_id').optional(),
+    fair_id: uuid('El fair_id').optional(),
   }),
 });
 
-// GET /api/fairs/:id/projects/:projectId — detalle compartido (JURY asignado
-// para revisar; ADMIN de la organización dueña para consultar desde resultados).
-// Sin ProjectReview ni ProjectDetail: se deriva de Project + ProjectMember.
-export const getProjectReviewSchema = z.object({
-  params: z.object({
-    id: uuid('El ID de la feria'),
-    projectId: uuid('El ID del proyecto'),
-  }),
+export const myProgressSchema = z.object({
+  params: z.object({ fairId: uuid('El ID de la feria') }),
 });
 
 export const listEvaluationsSchema = z.object({
@@ -126,64 +132,9 @@ export const listEvaluationsSchema = z.object({
   }),
 });
 
-export const createEvaluationSchema = z.object({
-  params: fairParam,
-  body: z
-    .object({
-      project_id: uuid('El project_id'),
-      comment: z.string().trim().max(5000, 'El comentario no puede superar los 5000 caracteres').optional(),
-      scores: z
-        .array(
-          z
-            .object({
-              criterion_id: uuid('El criterion_id'),
-              score: scoreField,
-            })
-            .strict()
-        )
-        .min(1, 'Debes enviar al menos una puntuación'),
-    })
-    .strict(),
-});
+// ── Declaración de jurado ────────────────────────────────────────
 
-export const updateEvaluationSchema = z.object({
-  params: z.object({
-    id: uuid('El ID de la feria'),
-    evaluationId: uuid('El ID de la evaluación'),
-  }),
-  body: z
-    .object({
-      comment: z.string().trim().max(5000, 'El comentario no puede superar los 5000 caracteres').optional(),
-      scores: z
-        .array(
-          z
-            .object({
-              criterion_id: uuid('El criterion_id'),
-              score: scoreField,
-            })
-            .strict()
-        )
-        .min(1, 'Debes enviar al menos una puntuación')
-        .optional(),
-    })
-    .strict()
-    .refine((data) => Object.values(data).some((value) => value !== undefined), {
-      message: 'Debes proporcionar al menos un campo para actualizar',
-    }),
-});
-
-export const myEvaluationsSchema = z.object({
-  query: z.object({
-    ...paginationQuery,
-    fair_id: uuid('El fair_id').optional(),
-  }),
-});
-
-// ── Declaración de jurado (JURY; feria DRAFT u OPEN) ───────────────
-
-export const declarationGetSchema = z.object({
-  params: fairParam,
-});
+export const declarationGetSchema = z.object({ params: fairParam });
 
 export const createDeclarationSchema = z.object({
   params: fairParam,
@@ -198,11 +149,22 @@ export const createDeclarationSchema = z.object({
     .strict(),
 });
 
-// ── Mi avance (JURY) ────────────────────────────────────────────────
+// ── Proyectos / detalle compartido ───────────────────────────────
 
-export const myProgressSchema = z.object({
+export const listApprovedProjectsSchema = z.object({
+  params: fairParam,
+  query: z.object({
+    ...paginationQuery,
+    search: z.string().trim().min(1).max(200).optional(),
+    category_id: uuid('El category_id').optional(),
+    stand_id: uuid('El stand_id').optional(),
+  }),
+});
+
+export const getProjectReviewSchema = z.object({
   params: z.object({
-    fairId: uuid('El ID de la feria'),
+    id: uuid('El ID de la feria'),
+    projectId: uuid('El ID del proyecto'),
   }),
 });
 
@@ -213,13 +175,13 @@ export default {
   addCriterionSchema,
   updateCriterionSchema,
   deleteCriterionSchema,
-  listApprovedProjectsSchema,
-  getProjectReviewSchema,
-  listEvaluationsSchema,
-  createEvaluationSchema,
-  updateEvaluationSchema,
+  upsertChecklistSchema,
+  getMyChecklistSchema,
   myEvaluationsSchema,
+  myProgressSchema,
+  listEvaluationsSchema,
   declarationGetSchema,
   createDeclarationSchema,
-  myProgressSchema,
+  listApprovedProjectsSchema,
+  getProjectReviewSchema,
 };

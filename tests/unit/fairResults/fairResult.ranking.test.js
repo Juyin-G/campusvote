@@ -1,232 +1,139 @@
 // tests/unit/fairResults/fairResult.ranking.test.js
-// Pruebas de la LÓGICA PURA de cálculo de resultados de ferias.
-// Se ejecutan con `node --test` (sin PostgreSQL): solo importan la lógica
-// derivada (computeProjectStats / buildFairRanking) desde el service.
-//
-// Las reglas que dependen de la BD (404, tenant, filtro "solo APPROVED",
-// persistencia) se cubren en tests/integration/fairResults.integration.test.js
-// y requieren PostgreSQL real (jest + setup-db).
+// Pruebas de la LÓGICA PURA de cálculo de resultados de ferias (modelo VOTOS).
+// Se ejecutan con `node --test` (sin PostgreSQL).
 
+import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 
-import {
-  computeProjectStats,
-  buildFairRanking,
-} from '../../../src/modules/fairResults/fairResult.service.js';
+import { buildVoteRanking } from '../../../src/modules/fairResults/fairResult.service.js';
 
 const projects = (entries) => entries.map(([id, name]) => ({ id, name }));
 
-const project = (id, name = `P-${id}`) => ({ id, name });
+const totalsByProject = (entries) => new Map(entries.map(([id, total]) => [id, total]));
 
-// evaluate: Map projectId -> totals
-const totalsByProject = (entries) => new Map(entries.map(([id, totals]) => [id, totals]));
-
-describe('computeProjectStats', () => {
-  it('sin evaluaciones → average_score null y evaluation_count 0 (no inventa 0)', () => {
-    assert.deepEqual(computeProjectStats([]), {
-      evaluationCount: 0,
-      averageScore: null,
-      averageHundredths: null,
-    });
-  });
-
-  it('promedio exacto (18 + 19 + 17 → 18)', () => {
-    const stats = computeProjectStats([18, 19, 17]);
-    assert.equal(stats.evaluationCount, 3);
-    assert.equal(stats.averageScore, 18);
-  });
-
-  it('redondea a 2 decimales (18.75 y 17.90)', () => {
-    assert.equal(computeProjectStats([18.75, 18.75]).averageScore, 18.75);
-    assert.equal(computeProjectStats([17.9, 17.9]).averageScore, 17.9);
-  });
-
-  it('round-half-up en el promedio (937.5 centésimas → 9.38)', () => {
-    const stats = computeProjectStats([9.4, 9.35]);
-    assert.equal(stats.averageScore, 9.38);
-  });
-
-  it('serializa como Number legible (JSON no muestra Decimal)', () => {
-    assert.equal(JSON.stringify(computeProjectStats([18.75]).averageScore), '18.75');
-    assert.equal(JSON.stringify(computeProjectStats([18.0]).averageScore), '18');
-  });
-});
-
-describe('buildFairRanking — orden', () => {
-  it('ordena por average_score DESC (A 18.50 > C 17.80)', () => {
-    const ranking = buildFairRanking({
-      status: 'CLOSED',
-      projects: projects([['A', 'A'], ['C', 'C']]),
-      evaluationsByProject: totalsByProject([
-        ['A', [18.5, 18.5, 18.5]],
-        ['C', [17.8, 17.8, 17.8, 17.8]],
-      ]),
-    });
-    assert.equal(ranking[0].project_id, 'A');
-    assert.equal(ranking[1].project_id, 'C');
-  });
-
-  it('empate de promedio → evaluation_count DESC (A con 3 > B con 2)', () => {
-    const ranking = buildFairRanking({
-      status: 'CLOSED',
+describe('buildVoteRanking — orden por votos', () => {
+  it('ordena por votes DESC (A con 8 > B con 7)', () => {
+    const r = buildVoteRanking({
+      status: 'OPEN',
       projects: projects([['A', 'A'], ['B', 'B']]),
-      evaluationsByProject: totalsByProject([
-        ['A', [18.5, 18.5, 18.5]],
-        ['B', [18.5, 18.5]],
-      ]),
+      votesByProject: totalsByProject([['A', 8], ['B', 7]]),
     });
-    assert.equal(ranking[0].project_id, 'A');
-    assert.equal(ranking[1].project_id, 'B');
+    assert.equal(r[0].project_id, 'A');
+    assert.equal(r[1].project_id, 'B');
   });
 
-  it('empate completo → project.id ASC (determinista)', () => {
-    const ranking = buildFairRanking({
-      status: 'CLOSED',
-      projects: projects([['B', 'B'], ['A', 'A'], ['C', 'C']]),
-      evaluationsByProject: totalsByProject([
-        ['B', [10, 10]],
-        ['A', [10, 10]],
-        ['C', [10, 10]],
-      ]),
+  it('empate de votos → project_id ASC', () => {
+    const r = buildVoteRanking({
+      status: 'OPEN',
+      projects: projects([['B', 'B'], ['A', 'A']]),
+      votesByProject: totalsByProject([['A', 5], ['B', 5]]),
     });
     assert.deepEqual(
-      ranking.map((r) => r.project_id),
-      ['A', 'B', 'C']
+      r.map((x) => x.project_id),
+      ['A', 'B']
     );
   });
 
-  it('es determinista ante la misma entrada (mismo orden siempre)', () => {
+  it('es determinista', () => {
     const input = {
-      status: 'CLOSED',
+      status: 'OPEN',
       projects: projects([['Z', 'Z'], ['M', 'M'], ['A', 'A']]),
-      evaluationsByProject: totalsByProject([
-        ['Z', [15, 15]],
-        ['M', [12, 12]],
-        ['A', [15, 15]],
-      ]),
+      votesByProject: totalsByProject([['Z', 3], ['M', 2], ['A', 3]]),
     };
-    const a = buildFairRanking(input).map((r) => r.project_id);
-    const b = buildFairRanking(input).map((r) => r.project_id);
+    const a = buildVoteRanking(input).map((x) => x.project_id);
+    const b = buildVoteRanking(input).map((x) => x.project_id);
     assert.deepEqual(a, b);
   });
 });
 
-describe('buildFairRanking — ganador', () => {
-  it('CLOSED publicado → winner=true solo en position 1', () => {
-    const ranking = buildFairRanking({
+describe('buildVoteRanking — ganador', () => {
+  it('CLOSED + published → winner=true solo en position 1', () => {
+    const r = buildVoteRanking({
       status: 'CLOSED',
       published: true,
       projects: projects([['A', 'A'], ['B', 'B']]),
-      evaluationsByProject: totalsByProject([
-        ['A', [18]],
-        ['B', [16]],
-      ]),
+      votesByProject: totalsByProject([['A', 18], ['B', 16]]),
     });
-    assert.equal(ranking[0].winner, true);
-    assert.equal(ranking[1].winner, false);
+    assert.equal(r[0].winner, true);
+    assert.equal(r[1].winner, false);
   });
 
-  it('CLOSED SIN publicar → winner=false incluso en position 1 (no hay ganador oficial)', () => {
-    const ranking = buildFairRanking({
+  it('CLOSED SIN publicar → winner=false en position 1 (no hay ganador oficial)', () => {
+    const r = buildVoteRanking({
       status: 'CLOSED',
       published: false,
       projects: projects([['A', 'A'], ['B', 'B']]),
-      evaluationsByProject: totalsByProject([
-        ['A', [18]],
-        ['B', [16]],
-      ]),
+      votesByProject: totalsByProject([['A', 18], ['B', 16]]),
     });
-    assert.equal(ranking[0].position, 1);
-    assert.equal(ranking[0].winner, false);
-    assert.equal(ranking[1].winner, false);
+    assert.equal(r[0].position, 1);
+    assert.equal(r[0].winner, false);
   });
 
-  it('CLOSED publicado → winner aplica SOLO a position 1 (resto false)', () => {
-    const ranking = buildFairRanking({
-      status: 'CLOSED',
-      published: true,
-      projects: projects([['A', 'A'], ['B', 'B'], ['C', 'C']]),
-      evaluationsByProject: totalsByProject([
-        ['A', [18]],
-        ['B', [16]],
-        ['C', [15]],
-      ]),
-    });
-    assert.equal(ranking[0].winner, true);
-    assert.equal(ranking.slice(1).every((r) => r.winner === false), true);
-  });
-
-  it('OPEN → nunca winner=true (no existe ganador definitivo)', () => {
-    const ranking = buildFairRanking({
+  it('OPEN → nunca winner=true', () => {
+    const r = buildVoteRanking({
       status: 'OPEN',
       projects: projects([['A', 'A'], ['B', 'B']]),
-      evaluationsByProject: totalsByProject([
-        ['A', [18]],
-        ['B', [16]],
-      ]),
+      votesByProject: totalsByProject([['A', 18], ['B', 16]]),
     });
-    assert.ok(ranking.every((r) => r.winner === false));
-    assert.equal(ranking[0].position, 1);
-    assert.equal(ranking[0].winner, false);
+    assert.ok(r.every((x) => x.winner === false));
   });
 
   it('DRAFT → nunca winner=true', () => {
-    const ranking = buildFairRanking({
+    const r = buildVoteRanking({
       status: 'DRAFT',
       projects: projects([['A', 'A']]),
-      evaluationsByProject: totalsByProject([['A', [18]]]),
+      votesByProject: totalsByProject([['A', 18]]),
     });
-    assert.equal(ranking[0].winner, false);
-  });
-
-  it('proyecto SIN evaluaciones nunca gana en CLOSED publicado', () => {
-    const ranking = buildFairRanking({
-      status: 'CLOSED',
-      published: true,
-      projects: projects([['A', 'A'], ['B', 'B']]),
-      evaluationsByProject: totalsByProject([['A', [18]]]),
-    });
-    const b = ranking.find((r) => r.project_id === 'B');
-    assert.equal(b.position, null);
-    assert.equal(b.winner, false);
-    assert.equal(b.average_score, null);
-    assert.equal(b.evaluation_count, 0);
+    assert.equal(r[0].winner, false);
   });
 });
 
-describe('buildFairRanking — estructura', () => {
-  it('asigna positions 1..n solo a proyectos EVALUADOS', () => {
-    const ranking = buildFairRanking({
+describe('buildVoteRanking — votes=0', () => {
+  it('proyectos sin votos quedan al final con position=null', () => {
+    const r = buildVoteRanking({
       status: 'CLOSED',
-      projects: projects([['A', 'A'], ['B', 'B'], ['C', 'C']]),
-      evaluationsByProject: totalsByProject([
-        ['A', [18]],
-        ['C', [16]],
-      ]),
+      published: true,
+      projects: projects([['NONE', 'N'], ['OK', 'OK']]),
+      votesByProject: totalsByProject([['OK', 2]]),
     });
-    assert.deepEqual(
-      ranking.filter((r) => r.position !== null).map((r) => r.position),
-      [1, 2]
-    );
-    assert.equal(ranking.find((r) => r.project_id === 'B').position, null);
+    assert.equal(r[0].project_id, 'OK');
+    assert.equal(r[1].project_id, 'NONE');
+    assert.equal(r[1].position, null);
+    assert.equal(r[1].votes, 0);
   });
 
-  it('proyectos sin evaluaciones van al final del listado', () => {
-    const ranking = buildFairRanking({
+  it('votes=0 nunca gana en CLOSED publicado', () => {
+    const r = buildVoteRanking({
       status: 'CLOSED',
-      projects: projects([['NONE1', 'N1'], ['RANKED', 'Rd'], ['NONE2', 'N2']]),
-      evaluationsByProject: totalsByProject([['RANKED', [20]]]),
+      published: true,
+      projects: projects([['A', 'A'], ['B', 'B']]),
+      votesByProject: totalsByProject([['A', 18]]),
     });
-    assert.equal(ranking[0].project_id, 'RANKED');
-    assert.ok(ranking.slice(1).every((r) => r.position === null));
+    const b = r.find((x) => x.project_id === 'B');
+    assert.equal(b.position, null);
+    assert.equal(b.winner, false);
+    assert.equal(b.votes, 0);
+  });
+});
+
+describe('buildVoteRanking — estructura', () => {
+  it('asigna positions 1..n solo a proyectos con votes > 0', () => {
+    const r = buildVoteRanking({
+      status: 'CLOSED',
+      projects: projects([['A', 'A'], ['B', 'B'], ['C', 'C']]),
+      votesByProject: totalsByProject([['A', 1], ['C', 1]]),
+    });
+    const evaluated = r.filter((x) => x.position !== null).map((x) => x.position);
+    assert.deepEqual(evaluated, [1, 2]);
+    assert.equal(r.find((x) => x.project_id === 'B').position, null);
   });
 
   it('expone winner boolean siempre', () => {
-    const ranking = buildFairRanking({
+    const r = buildVoteRanking({
       status: 'OPEN',
       projects: projects([['A', 'A']]),
-      evaluationsByProject: totalsByProject([['A', [10]]]),
+      votesByProject: totalsByProject([['A', 10]]),
     });
-    assert.equal(typeof ranking[0].winner, 'boolean');
+    assert.equal(typeof r[0].winner, 'boolean');
   });
 });

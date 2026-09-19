@@ -66,6 +66,7 @@ model Project {
   reviewedBy   User?           @relation("ReviewedProjects", fields: [reviewedById], references: [id], onDelete: SetNull)
   members      ProjectMember[]
   evaluations  FairEvaluation[]
+  votes        FairVote[]
   category     FairCategory?   @relation(fields: [categoryId], references: [id], onDelete: Restrict)
   stand        FairStand?      @relation(fields: [standId], references: [id], onDelete: Restrict)
   certificates Certificate[]

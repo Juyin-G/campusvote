@@ -11,6 +11,7 @@ import {
   default as userRoutes,
   platformUsersRouter,
 } from '../modules/users/user.routes.js';
+import userRoutesExtra from '../modules/users/user.routes.extra.js';
 import healthRoutes from '../modules/health/health.routes.js';
 import organizationRoutes from '../modules/organizations/organization/organization.routes.js';
 import academicRoutes from '../modules/academic/academic.routes.js';
@@ -32,6 +33,7 @@ import projectRoutes from '../modules/projects/project.routes.js';
 import fairRoutes from '../modules/fairs/fair.routes.js';
 import juryAssignmentRoutes from '../modules/juryAssignments/juryAssignment.routes.js';
 import fairEvaluationRoutes from '../modules/fairEvaluations/fairEvaluation.routes.js';
+import fairVotingRoutes from '../modules/fairVoting/fairVoting.routes.js';
 import fairResultRoutes from '../modules/fairResults/fairResult.routes.js';
 import fairCategoryRoutes from '../modules/fairCategories/fairCategory.routes.js';
 import fairStandRoutes from '../modules/fairStands/fairStand.routes.js';
@@ -109,6 +111,7 @@ tenantRouter.use('/academic', academicRoutes);
 // mount('/users') aplica blockSuperAdminFromTenantRoutes ANTES que
 // cualquier authorize/requireActorCanActOnUser.
 tenantRouter.use('/users', userRoutes);
+tenantRouter.use('/users', userRoutesExtra);
 
 // Proceso Electoral.
 tenantRouter.use('/elections', electionRoutes);
@@ -130,6 +133,7 @@ tenantRouter.use('/projects', projectRoutes);
 tenantRouter.use('/certificates', certificatesRouter);
 tenantRouter.use('/fairs', juryAssignmentRoutes);
 tenantRouter.use('/fairs', fairEvaluationRoutes);
+tenantRouter.use('/fairs', fairVotingRoutes);
 tenantRouter.use('/fairs', fairResultRoutes);
 tenantRouter.use('/fairs', fairCertificatesRouter);
 tenantRouter.use('/fairs', fairCategoryRoutes);

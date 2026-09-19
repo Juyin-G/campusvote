@@ -36,6 +36,8 @@ model Fair {
   juryAssignments FairJuryAssignment[]
   rubric         FairRubric?
   evaluations    FairEvaluation[]
+  voteParticipations FairVoteParticipation[]
+  votes          FairVote[]
   resultPublication FairResultPublication?
   categories     FairCategory[]
   stands         FairStand[]

@@ -46,28 +46,28 @@ router.get(
   '/verify',
   authenticate,
   authorize([ROLES.ADMIN]),
-  asyncHandler(auditController.verifyAuditChain.bind(auditController))
+  asyncHandler(auditController.verifyAuditChain)
 );
 
 router.get(
   '/logs',
   authenticate,
   authorize(VIEWERS),
-  asyncHandler(auditController.getAuditLogs.bind(auditController))
+  asyncHandler(auditController.getAuditLogs)
 );
 
 router.get(
   '/logs/:id',
   authenticate,
   authorize(VIEWERS),
-  asyncHandler(auditController.getAuditLogById.bind(auditController))
+  asyncHandler(auditController.getAuditLogById)
 );
 
 router.post(
   '/logs',
   authenticate,
   authorize(GESTORES),
-  asyncHandler(auditController.createAuditLog.bind(auditController))
+  asyncHandler(auditController.createAuditLog)
 );
 
 /**
@@ -79,21 +79,21 @@ router.post(
   '/tokens',
   authenticate,
   authorize(GESTORES),
-  asyncHandler(auditController.createOneTimeToken.bind(auditController))
+  asyncHandler(auditController.createOneTimeToken)
 );
 
 // Consumir token en cabina/proceso de votación (protegido por Rate Limit)
 router.post(
   '/tokens/consume',
   tokenRateLimiter,
-  asyncHandler(auditController.consumeOneTimeToken.bind(auditController))
+  asyncHandler(auditController.consumeOneTimeToken)
 );
 
 // Consultar validez de token sin consumirlo
 router.get(
   '/tokens/status',
   tokenRateLimiter,
-  asyncHandler(auditController.checkTokenStatus.bind(auditController))
+  asyncHandler(auditController.checkTokenStatus)
 );
 
 // Mantenimiento y depuración de tokens vencidos (Solo administradores)
@@ -101,7 +101,7 @@ router.delete(
   '/tokens/cleanup',
   authenticate,
   authorize([ROLES.ADMIN]),
-  asyncHandler(auditController.cleanupExpiredTokens.bind(auditController))
+  asyncHandler(auditController.cleanupExpiredTokens)
 );
 
 export default router;

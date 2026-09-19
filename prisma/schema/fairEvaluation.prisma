@@ -1,20 +1,32 @@
 // ============================================================
-// RÚBRICAS Y EVALUACIONES DE FERIAS (dominio exclusivo de FERIAS)
+// RÚBRICAS DE EXPOSICIÓN Y VOTACIÓN DE JURADO EN FERIAS
 // ============================================================
-// No se mezcla con el dominio electoral (rating.prisma: ratings/feria_criteria
-// están ligados a election/candidacy con rúbrica ponderada vigesimal).
-// En FERIAS:
-//   Organization ── Fair ── FairRubric ── RubricCriterion
-//   Fair ── FairEvaluation (fair + project + jury JURY) ── FairEvaluationDetail
+// Modelo refactorizado (PASO 8 — ver migration 012):
+//
+//   A) RÚBRICA DE EXPOSICIÓN (CHECKLIST) — registrada en fairEvaluations:
+//        Fair ── FairRubric ── RubricCriterion (booleano, sin score num.)
+//        Fair ── FairEvaluation (hoja 1 por feria+proyecto+jurado)
+//                    ── FairEvaluationDetail (checked true/false por criterio)
+//        submitted_at: NULL = pendiente, NOT NULL = finalizada.
+//
+//   B) VOTACIÓN ANÓNIMA (módulo fairVoting) — registrada acá para reusar
+//      la FK compuesta (fair_id) y (fair_id, project_id) ya disponibles:
+//        Fair ── FairVoteParticipation (UNIQUE fair_id, jury_user_id)
+//        Fair ── FairVote (sin jury_user_id en la fila → anonimato real)
+//
+//   La rúbrica NO decide ganadores. La VOTACIÓN (FairVote) sí.
+//
 // Reglas:
-//   - UNA rúbrica activa por feria (@unique(fairId)): sin versionado.
-//   - La rúbrica solo se configura en DRAFT (se congela en OPEN; solo lectura
-//     en CLOSED) para que todos los jurados evalúen con las mismas reglas.
-//   - Las evaluaciones solo en fair.status = OPEN y sobre proyectos APPROVED
-//     de esa misma feria; UNIQUE (fair_id, project_id, jury_user_id) evita que
-//     el mismo jurado puntúe dos veces el mismo proyecto.
-//   - Cada puntuación respeta el [min_score, max_score] de su criterio
-//     (reforzado en PostgreSQL con trigger; aquí se recalcula en service).
+//   - UNA rúbrica por feria (UNIQUE fair_id). Configurable solo en DRAFT.
+//   - El JURY (no el expositor) responde. Los criterios NO marcados son
+//     respuestas válidas (se persiste una fila por criterio con checked=false).
+//   - UNIQUE (fair_id, project_id, jury_user_id) en fair_evaluations: una
+//     hoja por (feria, proyecto, jurado).
+//   - UNIQUE (evaluation_id, criterion_id) en fair_evaluation_details.
+//   - UNIQUE (fair_id, jury_user_id) en fair_vote_participation: un voto
+//     por jurado y feria (anti doble-voto concurrente).
+//   - fair_votes NO tiene FK a users → anonimato. Se enlaza al jurado
+//     únicamente vía fair_vote_participation (separación conceptual).
 // ============================================================
 
 model FairRubric {
@@ -29,21 +41,20 @@ model FairRubric {
   fair     Fair               @relation(fields: [fairId], references: [id], onDelete: Restrict)
   criteria RubricCriterion[]
   evaluations FairEvaluation[]
-  evaluationDetails FairEvaluationDetail[]
 
   @@map("fair_rubrics")
 }
 
-// Criterio de la rúbrica de una feria. El orden explícito (position) define
-// la estructura que verán los jurados al evaluar.
+// Criterio de la rúbrica de exposición de una feria.
+// CHECKLIST: NO score numérico. Solo boolean (checked en la respuesta).
+// is_active permite desactivar un criterio sin perder el histórico de respuestas.
 model RubricCriterion {
   id          String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   rubricId    String  @map("rubric_id") @db.Uuid
   name        String  @db.VarChar(200)
   description String? @db.Text
-  minScore    Decimal @map("min_score") @db.Decimal(5, 2) // 1.00
-  maxScore    Decimal @map("max_score") @db.Decimal(5, 2) // 5.00
-  position    Int     @db.SmallInt // 1, 2, 3...
+  position    Int     @db.SmallInt
+  isActive    Boolean @default(true) @map("is_active")
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
@@ -56,16 +67,17 @@ model RubricCriterion {
   @@map("rubric_criteria")
 }
 
-// Evaluación de un proyecto APPROVED por un JURY formalmente asignado a la
-// feria. UNA evaluación por combinación fair + project + jury.
+// HOJA de respuestas de un JURY a un proyecto APPROVED de una feria.
+// UNA hoja por (feria, proyecto, jurado).
+// submitted_at: NULL = pendiente, NOT NULL = finalizada (inmutable).
+// NO almacena scores: el "resultado" es el conjunto de FairEvaluationDetail.
 model FairEvaluation {
-  id          String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  fairId      String  @map("fair_id") @db.Uuid
-  projectId   String  @map("project_id") @db.Uuid
-  juryUserId  String  @map("jury_user_id") @db.Uuid
-  rubricId    String  @map("rubric_id") @db.Uuid
-  totalScore  Decimal @map("total_score") @db.Decimal(10, 2) // Σ puntuaciones (servidor)
-  comment     String? @db.Text
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  fairId      String   @map("fair_id") @db.Uuid
+  projectId   String   @map("project_id") @db.Uuid
+  juryUserId  String   @map("jury_user_id") @db.Uuid
+  rubricId    String   @map("rubric_id") @db.Uuid
+  submittedAt DateTime? @map("submitted_at") @db.Timestamptz
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
@@ -79,26 +91,72 @@ model FairEvaluation {
   @@unique([fairId, projectId, juryUserId], map: "uq_fair_evaluations_fair_project_jury")
   @@index([juryUserId], map: "idx_fair_evaluations_jury")
   @@index([projectId], map: "idx_fair_evaluations_project")
+  @@index([rubricId], map: "idx_fair_evaluations_rubric")
   @@map("fair_evaluations")
 }
 
-// Puntuación parcial por criterio. La rúbrica es la de la feria; criterion,
-// score y total_score los valida el backend y PostgreSQL (trigger rango).
+// Respuesta individual de un criterio: CHECKLIST puro (booleano).
+// NO score numérico: el JURY marca o desmarca cada criterio de exposición.
 model FairEvaluationDetail {
-  id          String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  evaluationId String @map("evaluation_id") @db.Uuid
-  criterionId String  @map("criterion_id") @db.Uuid
-  rubricId    String  @map("rubric_id") @db.Uuid // espejo: = rubric de la evaluación
-  score       Decimal @db.Decimal(5, 2)
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  evaluationId String   @map("evaluation_id") @db.Uuid
+  criterionId  String   @map("criterion_id") @db.Uuid
+  rubricId     String   @map("rubric_id") @db.Uuid
+  checked      Boolean  @default(false)
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
   evaluation FairEvaluation @relation(fields: [evaluationId], references: [id], onDelete: Cascade)
   criterion  RubricCriterion @relation(fields: [criterionId], references: [id], onDelete: Restrict)
-  rubric     FairRubric       @relation(fields: [rubricId], references: [id], onDelete: Restrict)
 
   @@unique([evaluationId, criterionId], map: "uq_fair_evaluation_details_eval_criterion")
   @@index([criterionId], map: "idx_fair_evaluation_details_criterion")
   @@map("fair_evaluation_details")
+}
+
+// =====================================================================
+// VOTACIÓN ANÓNIMA DE JURADO EN FERIAS (módulo fairVoting)
+// =====================================================================
+
+// Participación: indica "este jurado ya votó en esta feria".
+// NO guarda el proyecto votado (eso vive solo en fair_votes).
+// Inmutable: no se puede UPDATE ni DELETE (voto definitivo).
+model FairVoteParticipation {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  fairId      String   @map("fair_id") @db.Uuid
+  juryUserId  String   @map("jury_user_id") @db.Uuid
+  votedAt     DateTime @default(now()) @map("voted_at") @db.Timestamptz
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  fair Fair @relation(fields: [fairId], references: [id], onDelete: Restrict)
+  jury User @relation("FairVoteParticipations", fields: [juryUserId], references: [id], onDelete: Restrict)
+
+  @@unique([fairId, juryUserId], map: "uq_fair_vote_participation_fair_jury")
+  @@index([juryUserId], map: "idx_fair_vote_participation_jury")
+  @@index([fairId], map: "idx_fair_vote_participation_fair")
+  @@map("fair_vote_participation")
+}
+
+// Voto anónimo. SIN FK directa al jurado → anonimato real.
+// El comprobante técnico (receipt_code) lo genera el service con
+// crypto.randomBytes. Sirve para verificación pública futura.
+model FairVote {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  fairId      String   @map("fair_id") @db.Uuid
+  projectId   String   @map("project_id") @db.Uuid
+  receiptCode String   @unique @map("receipt_code") @db.VarChar(64)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  fair    Fair    @relation(fields: [fairId], references: [id], onDelete: Restrict)
+  project Project @relation(fields: [projectId], references: [id], onDelete: Restrict)
+
+  @@unique([fairId, receiptCode], map: "uq_fair_votes_receipt")
+  @@index([fairId], map: "idx_fair_votes_fair")
+  @@index([projectId], map: "idx_fair_votes_project")
+  @@map("fair_votes")
 }

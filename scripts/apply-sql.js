@@ -129,6 +129,8 @@ const MIGRATION_FILES = [
   'fairs/009_fair_jury_declarations.sql',
   'fairs/010_jury_assignment_integrity.sql',
   'fairs/011_certificates.sql',
+  'fairs/012a_fair_rubric_to_checklist.sql',
+  'fairs/012b_fair_anonymous_voting.sql',
   '999_foreign_keys.sql',
 ];
 
