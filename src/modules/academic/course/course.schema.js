@@ -1,12 +1,22 @@
 import { z } from 'zod';
 
 export const createCourseSchema = z.object({
-  body: z.object({
-    code: z.string().min(1, 'Como mínimo 1 carácter').max(30),
-    name: z.string().min(1, 'Como mínimo 1 carácter').max(150),
-    cycle: z.number().int().min(1).max(20),
-    careerId: z.string().uuid('ID de carrera inválido'),
-  }),
+  body: z
+    .object({
+      code: z.string().min(1, 'Como mínimo 1 carácter').max(30),
+      name: z.string().min(1, 'Como mínimo 1 carácter').max(150),
+      cycle: z.number().int().min(1).max(20),
+      career_id: z.string().uuid('ID de carrera inválido').optional(),
+      careerId: z.string().uuid('ID de carrera inválido').optional(),
+    })
+    .refine((data) => data.career_id || data.careerId, {
+      message: 'ID de carrera requerido',
+      path: ['career_id'],
+    })
+    .transform((data) => ({
+      ...data,
+      careerId: data.careerId ?? data.career_id,
+    })),
 });
 
 export const updateCourseSchema = z.object({

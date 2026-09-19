@@ -53,7 +53,7 @@ const emailDomainsSchema = z
       .trim()
       .min(2, 'Un dominio debe tener al menos 2 caracteres')
       .max(255, 'El dominio no puede exceder los 255 caracteres')
-      .regex(/^@?[a-zA-Z0-9.-]+$/, 'Dominio de correo inválido')
+      .regex(/^@?[a-zA-Z0-9._-]+$/, 'Dominio de correo inválido')
       .transform((d) => d.replace(/^@/, '')),
   )
   .max(100, 'No puedes configurar más de 100 dominios')

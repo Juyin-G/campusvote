@@ -186,7 +186,7 @@ export const provisionAdminSchema = z.object({
             .trim()
             .min(2, 'Dominio muy corto')
             .max(255)
-            .regex(/^@?[a-zA-Z0-9.-]+$/, 'Dominio inválido')
+            .regex(/^@?[a-zA-Z0-9._-]+$/, 'Dominio inválido')
             .transform((d) => d.replace(/^@/, ''))
         )
         .optional(),

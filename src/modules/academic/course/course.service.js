@@ -39,12 +39,24 @@ export const getCourseById = async (id, actor = {}) => {
   return course;
 };
 
+const assertCycleWithinCareer = (cycle, career) => {
+  if (cycle == null || !career?.cycle) return;
+  if (cycle > career.cycle) {
+    throw new ApiError(
+      HTTP_STATUS.BAD_REQUEST,
+      `El ciclo ${cycle} excede los ${career.cycle} ciclos totales de la carrera`,
+    );
+  }
+};
+
 export const createCourse = async (data, actor = {}) => {
   if (!isAdminActor(actor)) throw new ApiError(HTTP_STATUS.FORBIDDEN, 'Solo administradores');
   if (!actor.organizationId) throw new ApiError(HTTP_STATUS.FORBIDDEN, 'El actor debe pertenecer a una organización');
-  const career = await careerRepository.findById(data.careerId, actor.organizationId);
+  const careerId = data.careerId ?? data.career_id;
+  const career = await careerRepository.findById(careerId, actor.organizationId);
   if (!career) throw new ApiError(HTTP_STATUS.BAD_REQUEST, 'La carrera no pertenece a tu organización');
-  const existing = await courseRepository.findByCode(data.code, actor.organizationId, data.careerId);
+  assertCycleWithinCareer(data.cycle, career);
+  const existing = await courseRepository.findByCode(data.code, actor.organizationId, careerId);
   if (existing) {
     throw new ApiError(HTTP_STATUS.CONFLICT, `Ya existe un curso con el código ${data.code} en esa carrera`);
   }
@@ -53,14 +65,14 @@ export const createCourse = async (data, actor = {}) => {
     code: data.code,
     name: data.name,
     cycle: data.cycle,
-    careerId: data.career_id,
+    careerId,
   });
 };
 
 export const updateCourse = async (id, data, actor = {}) => {
   if (!isAdminActor(actor)) throw new ApiError(HTTP_STATUS.FORBIDDEN, 'Solo administradores');
   const organizationId = actor.role === 'SUPERADMIN' ? undefined : actor.organizationId;
-  await getCourseById(id, actor);
+  const course = await getCourseById(id, actor);
   if (data.code) {
     const existing = await courseRepository.findByCode(data.code, organizationId, data.career_id);
     if (existing && existing.id !== id) {
@@ -70,6 +82,9 @@ export const updateCourse = async (id, data, actor = {}) => {
   if (data.career_id) {
     const career = await careerRepository.findById(data.career_id, organizationId);
     if (!career) throw new ApiError(HTTP_STATUS.BAD_REQUEST, 'La carrera destino no pertenece a tu organización');
+    assertCycleWithinCareer(data.cycle, career);
+  } else {
+    assertCycleWithinCareer(data.cycle, course.career);
   }
   const updateData = { ...data }
   if (updateData.is_active !== undefined) {

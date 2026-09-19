@@ -45,13 +45,12 @@ export const findByCode = async (code, organizationId) =>
   });
 
 export const create = async ({ organizationId, code, name, total_cycles }) => {
-  const cycleValue = total_cycles ?? 6
   return prisma.career.create({
     data: {
       organizationId,
       code: code.trim().toUpperCase(),
       name: name.trim(),
-      cycle: cycleValue,
+      cycle: total_cycles,
       isActive: true,
     },
     select: { id: true, code: true, name: true, cycle: true, isActive: true },
@@ -79,6 +78,14 @@ export const hasAssociatedCourses = async (careerId) => {
   return count > 0;
 };
 
+export const maxCourseCycle = async (careerId) => {
+  const result = await prisma.course.aggregate({
+    where: { careerId },
+    _max: { cycle: true },
+  });
+  return result._max?.cycle ?? 0;
+};
+
 export default {
   list,
   count,
@@ -88,4 +95,5 @@ export default {
   update,
   deleteById,
   hasAssociatedCourses,
+  maxCourseCycle,
 };

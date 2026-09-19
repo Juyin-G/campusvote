@@ -25,11 +25,14 @@ export const list = ({ skip = 0, take = 50 } = {}) =>
 export const count = () => prisma.academicPeriod.count();
 
 export const checkOverlap = async (startDate, endDate, excludeId = null) => {
+  const from = startDate instanceof Date ? startDate : new Date(startDate);
+  const to = endDate instanceof Date ? endDate : new Date(endDate);
+
   const where = {
     isActive: true,
     AND: [
-      { startDate: { lte: endDate } },
-      { endDate: { gte: startDate } },
+      { startDate: { lte: to } },
+      { endDate: { gte: from } },
     ],
   };
 

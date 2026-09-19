@@ -24,7 +24,7 @@ const evaluationSchema = z.object({ body: z.object({
 
 const orgScope = (user) => (user?.role === ROLES.SUPERADMIN ? {} : { organizationId: user?.organizationId });
 
-router.get('/careers', authenticate, authorize(ROLES.ADMIN, ROLES.SUPERADMIN), asyncHandler(async (req, res) => {
+router.get('/evaluation-careers', authenticate, authorize(ROLES.ADMIN, ROLES.SUPERADMIN), asyncHandler(async (req, res) => {
   const careers = await prisma.career.findMany({
     where: { ...orgScope(req.user), isActive: true },
     orderBy: [{ code: 'asc' }],
@@ -33,7 +33,7 @@ router.get('/careers', authenticate, authorize(ROLES.ADMIN, ROLES.SUPERADMIN), a
   res.json({ success: true, data: careers });
 }));
 
-router.get('/courses', authenticate, authorize(ROLES.ADMIN, ROLES.SUPERADMIN), asyncHandler(async (req, res) => {
+router.get('/evaluation-courses', authenticate, authorize(ROLES.ADMIN, ROLES.SUPERADMIN), asyncHandler(async (req, res) => {
   const where = {
     ...orgScope(req.user),
     isActive: true,
