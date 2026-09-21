@@ -21,15 +21,15 @@
 
 // ── "Me gusta" del jurado a un proyecto ─────────────────────────────
 model FairProjectLike {
-  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  fairId       String   @map("fair_id") @db.Uuid
-  projectId    String   @map("project_id") @db.Uuid
-  juryUserId   String   @map("jury_user_id") @db.Uuid
-  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  fairId     String   @map("fair_id") @db.Uuid
+  projectId  String   @map("project_id") @db.Uuid
+  juryUserId String   @map("jury_user_id") @db.Uuid
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
 
-  fair     Fair    @relation(fields: [fairId], references: [id], onDelete: Restrict)
-  project  Project @relation(fields: [projectId], references: [id], onDelete: Restrict)
-  jury     User    @relation("FairProjectLikes", fields: [juryUserId], references: [id], onDelete: Restrict)
+  fair    Fair    @relation(fields: [fairId], references: [id], onDelete: Restrict)
+  project Project @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  jury    User    @relation("FairProjectLikes", fields: [juryUserId], references: [id], onDelete: Restrict)
 
   @@unique([projectId, juryUserId], map: "uq_fair_project_likes_project_jury")
   @@index([fairId], map: "idx_fair_project_likes_fair")
@@ -40,18 +40,18 @@ model FairProjectLike {
 
 // ── Comentarios / retroalimentación del jurado ──────────────────────
 model FairProjectComment {
-  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  fairId       String   @map("fair_id") @db.Uuid
-  projectId    String   @map("project_id") @db.Uuid
-  juryUserId   String   @map("jury_user_id") @db.Uuid
-  comment      String   @db.Text
-  isAnonymous  Boolean  @default(true) @map("is_anonymous")
-  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  fairId      String   @map("fair_id") @db.Uuid
+  projectId   String   @map("project_id") @db.Uuid
+  juryUserId  String   @map("jury_user_id") @db.Uuid
+  comment     String   @db.Text
+  isAnonymous Boolean  @default(true) @map("is_anonymous")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
-  fair     Fair    @relation(fields: [fairId], references: [id], onDelete: Restrict)
-  project  Project @relation(fields: [projectId], references: [id], onDelete: Restrict)
-  jury     User    @relation("FairProjectComments", fields: [juryUserId], references: [id], onDelete: Restrict)
+  fair    Fair    @relation(fields: [fairId], references: [id], onDelete: Restrict)
+  project Project @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  jury    User    @relation("FairProjectComments", fields: [juryUserId], references: [id], onDelete: Restrict)
 
   @@index([fairId], map: "idx_fair_project_comments_fair")
   @@index([projectId], map: "idx_fair_project_comments_project")
@@ -64,10 +64,10 @@ model FairProjectComment {
 // se duplican notificaciones: si el proyecto pasa de 10 a 11 likes,
 // el servicio consulta aquí si el milestone=10 ya está marcado.
 model FairProjectLikeMilestone {
-  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  projectId   String   @map("project_id") @db.Uuid
-  milestone   Int      @db.SmallInt
-  notifiedAt  DateTime @default(now()) @map("notified_at") @db.Timestamptz
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  projectId  String   @map("project_id") @db.Uuid
+  milestone  Int      @db.SmallInt
+  notifiedAt DateTime @default(now()) @map("notified_at") @db.Timestamptz
 
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 

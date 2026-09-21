@@ -30,9 +30,9 @@ model OrganizationSite {
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
   // Relaciones
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  region       Region?       @relation(fields: [regionId], references: [id], onDelete: SetNull)
-  fairs        Fair[]
+  organization    Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  region          Region?              @relation(fields: [regionId], references: [id], onDelete: SetNull)
+  fairs           Fair[]
   userAssignments UserSiteAssignment[]
 
   // Índices

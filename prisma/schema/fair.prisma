@@ -19,32 +19,32 @@ model Fair {
   id             String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   organizationId String @map("organization_id") @db.Uuid
 
-  name        String  @db.VarChar(200)
-  description String? @db.Text
-  siteId      String? @map("site_id") @db.Uuid
+  name        String     @db.VarChar(200)
+  description String?    @db.Text
+  siteId      String?    @map("site_id") @db.Uuid
   status      FairStatus @default(DRAFT)
-  startsAt    DateTime? @map("starts_at") @db.Timestamptz
-  endsAt      DateTime? @map("ends_at") @db.Timestamptz
+  startsAt    DateTime?  @map("starts_at") @db.Timestamptz
+  endsAt      DateTime?  @map("ends_at") @db.Timestamptz
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
   // Relaciones
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  site           OrganizationSite? @relation(fields: [siteId], references: [id], onDelete: SetNull)
-  projects       Project[]
-  juryAssignments FairJuryAssignment[]
-  rubric         FairRubric?
-  evaluations    FairEvaluation[]
+  organization       Organization            @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  site               OrganizationSite?       @relation(fields: [siteId], references: [id], onDelete: SetNull)
+  projects           Project[]
+  juryAssignments    FairJuryAssignment[]
+  rubric             FairRubric?
+  evaluations        FairEvaluation[]
   voteParticipations FairVoteParticipation[]
-  votes          FairVote[]
-  projectLikes   FairProjectLike[]
-  projectComments FairProjectComment[]
-  resultPublication FairResultPublication?
-  categories     FairCategory[]
-  stands         FairStand[]
-  juryDeclarations FairJuryDeclaration[]
-  certificates      Certificate[]
+  votes              FairVote[]
+  projectLikes       FairProjectLike[]
+  projectComments    FairProjectComment[]
+  resultPublication  FairResultPublication?
+  categories         FairCategory[]
+  stands             FairStand[]
+  juryDeclarations   FairJuryDeclaration[]
+  certificates       Certificate[]
 
   // Índices
   @@index([organizationId], map: "idx_fairs_organization")

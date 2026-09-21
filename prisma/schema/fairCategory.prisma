@@ -15,17 +15,17 @@
 //   * El backend impide eliminar una categoría en uso (409 antes que el FK).
 
 model FairCategory {
-  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  fairId      String   @map("fair_id") @db.Uuid
-  name        String   @db.VarChar(200)
-  description String?  @db.Text
+  id          String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  fairId      String  @map("fair_id") @db.Uuid
+  name        String  @db.VarChar(200)
+  description String? @db.Text
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
   // Relaciones
-  fair     Fair                        @relation(fields: [fairId], references: [id], onDelete: Cascade)
-  projects Project[]
+  fair            Fair                         @relation(fields: [fairId], references: [id], onDelete: Cascade)
+  projects        Project[]
   juryAssignments FairJuryCategoryAssignment[]
 
   // Índices / unicidad

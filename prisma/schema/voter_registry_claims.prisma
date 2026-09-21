@@ -28,17 +28,17 @@ model VoterRegistryClaim {
   status                VoterClaimStatus @default(PENDING)
 
   // Auditoría y Revisión
-  reviewedBy            String?          @map("reviewed_by") @db.Uuid
-  reviewedAt            DateTime?        @map("reviewed_at") @db.Timestamptz
-  resolutionNotes       String?          @map("resolution_notes") @db.Text
+  reviewedBy      String?   @map("reviewed_by") @db.Uuid
+  reviewedAt      DateTime? @map("reviewed_at") @db.Timestamptz
+  resolutionNotes String?   @map("resolution_notes") @db.Text
 
-  createdAt             DateTime         @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt             DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
   // Relaciones
-  user                  User             @relation("UserClaims", fields: [userId], references: [id], onDelete: Cascade)
-  academicPeriod        AcademicPeriod   @relation(fields: [periodId], references: [id], onDelete: Restrict)
-  reviewer              User?            @relation("ReviewerClaims", fields: [reviewedBy], references: [id], onDelete: SetNull)
+  user           User           @relation("UserClaims", fields: [userId], references: [id], onDelete: Cascade)
+  academicPeriod AcademicPeriod @relation(fields: [periodId], references: [id], onDelete: Restrict)
+  reviewer       User?          @relation("ReviewerClaims", fields: [reviewedBy], references: [id], onDelete: SetNull)
 
   // Índices
   @@index([periodId, status], map: "idx_voter_claims_period_status")

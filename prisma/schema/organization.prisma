@@ -22,76 +22,77 @@ enum OrganizationRequestStatus {
 // MODELOS
 
 model Organization {
-  id                    String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name                  String           @db.VarChar(200)
-  code                  String           @unique @db.VarChar(30)
-  orgType               OrganizationType @default(UNIVERSITY) @map("org_type")
-  isActive              Boolean          @default(true) @map("is_active")
-  createdAt             DateTime         @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt             DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  id        String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name      String           @db.VarChar(200)
+  code      String           @unique @db.VarChar(30)
+  orgType   OrganizationType @default(UNIVERSITY) @map("org_type")
+  isActive  Boolean          @default(true) @map("is_active")
+  createdAt DateTime         @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
-  logo                  String?          @db.VarChar(500)
-  primaryColor          String           @default("#0066CC") @map("primary_color") @db.VarChar(7)
-  secondaryColor        String           @default("#FFD700") @map("secondary_color") @db.VarChar(7)
+  logo           String? @db.VarChar(500)
+  primaryColor   String  @default("#0066CC") @map("primary_color") @db.VarChar(7)
+  secondaryColor String  @default("#FFD700") @map("secondary_color") @db.VarChar(7)
 
-  country               String           @default("Perú") @db.VarChar(100)
-  timezone              String           @default("America/Lima") @db.VarChar(50)
+  country  String @default("Perú") @db.VarChar(100)
+  timezone String @default("America/Lima") @db.VarChar(50)
 
-  onboardingCompleted   Boolean          @default(false) @map("onboarding_completed")
-  onboardingCompletedAt DateTime?        @map("onboarding_completed_at") @db.Timestamptz
+  onboardingCompleted   Boolean   @default(false) @map("onboarding_completed")
+  onboardingCompletedAt DateTime? @map("onboarding_completed_at") @db.Timestamptz
 
-  defaultLocale         String           @default("es-PE") @map("default_locale") @db.VarChar(10)
+  defaultLocale String @default("es-PE") @map("default_locale") @db.VarChar(10)
 
   // Dominios de correo permitidos para jurados/usuarios corporativos.
   // Ejemplo: ["universidad.edu.pe", "gmail.com", "empresa.com"].
-  allowedEmailDomains   Json             @default("[]") @map("allowed_email_domains")
+  allowedEmailDomains Json @default("[]") @map("allowed_email_domains")
 
   // Catálogo de categorías extendido de la org (extiende el catálogo OCDE/CONCYTEC
   // del sistema). Arreglo de strings; la validación del campo category de los
   // proyectos (candidate_lists) usa: catálogo org ∪ catálogo sistema.
-  categoryCatalog       Json             @default("[]") @map("category_catalog")
+  categoryCatalog Json @default("[]") @map("category_catalog")
 
   // Capacidad máxima de miembros de la organización (incluye ADMIN, JURY y
   // perfiles operativos; excluye SUPERADMIN porque es global).
-  memberLimit           Int              @default(100) @map("member_limit")
+  memberLimit Int @default(100) @map("member_limit")
 
   // Relaciones
-  users                 User[]
-  elections       Election[]
-  careers               Career[]
-  projects              Project[]
-  fairs                 Fair[]
-  sites                 OrganizationSite[]
-  regions               Region[]
-  courses               Course[]
-  teachingAssignments   TeachingAssignment[]
-  teacherEvaluations    TeacherEvaluation[]
+  users               User[]
+  elections           Election[]
+  careers             Career[]
+  projects            Project[]
+  fairs               Fair[]
+  sites               OrganizationSite[]
+  regions             Region[]
+  courses             Course[]
+  teachingAssignments TeachingAssignment[]
+  teacherEvaluations  TeacherEvaluation[]
+  evaluationCriteria  EvaluationCriterion[]
 
   @@map("organizations")
 }
 
 model OrganizationRequest {
-  id               String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  institutionName  String                    @map("institution_name") @db.VarChar(200)
-  institutionType  OrganizationType          @map("institution_type")
-  country          String                    @db.VarChar(100)
-  estimatedMembers Int                       @map("estimated_members")
-  contactEmail     String                    @unique @map("contact_email") @db.Citext
-  contactPhone     String?                   @map("contact_phone") @db.VarChar(20)
-  message          String?                   @db.Text
+  id               String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  institutionName  String           @map("institution_name") @db.VarChar(200)
+  institutionType  OrganizationType @map("institution_type")
+  country          String           @db.VarChar(100)
+  estimatedMembers Int              @map("estimated_members")
+  contactEmail     String           @unique @map("contact_email") @db.Citext
+  contactPhone     String?          @map("contact_phone") @db.VarChar(20)
+  message          String?          @db.Text
 
-  status           OrganizationRequestStatus @default(PENDING)
+  status OrganizationRequestStatus @default(PENDING)
 
   // Auditoría y Revisión
-  reviewedById     String?                   @map("reviewed_by") @db.Uuid
-  reviewedAt       DateTime?                 @map("reviewed_at") @db.Timestamptz
-  rejectionReason  String?                   @map("rejection_reason") @db.Text
+  reviewedById    String?   @map("reviewed_by") @db.Uuid
+  reviewedAt      DateTime? @map("reviewed_at") @db.Timestamptz
+  rejectionReason String?   @map("rejection_reason") @db.Text
 
-  createdAt        DateTime                  @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt        DateTime                  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
   // Relaciones
-  reviewer         User?                     @relation("OrgRequestReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  reviewer User? @relation("OrgRequestReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
 
   // Índices
   @@index([status], map: "idx_org_requests_status")

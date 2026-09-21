@@ -11,19 +11,19 @@
 //   * UNIQUE (organization_id, code) para evitar duplicados.
 
 model Region {
-  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  organizationId String   @map("organization_id") @db.Uuid
-  code           String   @db.VarChar(30)
-  name           String   @db.VarChar(150)
-  description    String?  @db.Text
+  id             String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String  @map("organization_id") @db.Uuid
+  code           String  @db.VarChar(30)
+  name           String  @db.VarChar(150)
+  description    String? @db.Text
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
   // Relaciones
-  organization Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  sites       OrganizationSite[]
-  users       User[]              @relation("UserRegion")
+  organization Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  sites        OrganizationSite[]
+  users        User[]             @relation("UserRegion")
 
   @@unique([organizationId, code])
   @@index([organizationId], map: "idx_regions_organization")

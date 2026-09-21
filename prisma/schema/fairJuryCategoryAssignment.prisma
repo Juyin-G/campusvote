@@ -18,9 +18,9 @@
 //     la asignación del jurado.
 
 model FairJuryCategoryAssignment {
-  id              String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  id               String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   juryAssignmentId String @map("jury_assignment_id") @db.Uuid
-  categoryId      String @map("category_id") @db.Uuid
+  categoryId       String @map("category_id") @db.Uuid
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz

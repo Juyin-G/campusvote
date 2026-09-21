@@ -30,16 +30,16 @@
 // ============================================================
 
 model FairRubric {
-  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  fairId      String   @unique(map: "uq_fair_rubrics_fair") @map("fair_id") @db.Uuid
-  name        String   @db.VarChar(200)
-  description String?  @db.Text
+  id          String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  fairId      String  @unique(map: "uq_fair_rubrics_fair") @map("fair_id") @db.Uuid
+  name        String  @db.VarChar(200)
+  description String? @db.Text
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
-  fair     Fair               @relation(fields: [fairId], references: [id], onDelete: Restrict)
-  criteria RubricCriterion[]
+  fair        Fair              @relation(fields: [fairId], references: [id], onDelete: Restrict)
+  criteria    RubricCriterion[]
   evaluations FairEvaluation[]
 
   @@map("fair_rubrics")
@@ -59,7 +59,7 @@ model RubricCriterion {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
-  rubric           FairRubric            @relation(fields: [rubricId], references: [id], onDelete: Cascade)
+  rubric            FairRubric             @relation(fields: [rubricId], references: [id], onDelete: Cascade)
   evaluationDetails FairEvaluationDetail[]
 
   @@unique([rubricId, position], map: "uq_rubric_criteria_rubric_position")
@@ -72,20 +72,20 @@ model RubricCriterion {
 // submitted_at: NULL = pendiente, NOT NULL = finalizada (inmutable).
 // NO almacena scores: el "resultado" es el conjunto de FairEvaluationDetail.
 model FairEvaluation {
-  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  fairId      String   @map("fair_id") @db.Uuid
-  projectId   String   @map("project_id") @db.Uuid
-  juryUserId  String   @map("jury_user_id") @db.Uuid
-  rubricId    String   @map("rubric_id") @db.Uuid
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  fairId      String    @map("fair_id") @db.Uuid
+  projectId   String    @map("project_id") @db.Uuid
+  juryUserId  String    @map("jury_user_id") @db.Uuid
+  rubricId    String    @map("rubric_id") @db.Uuid
   submittedAt DateTime? @map("submitted_at") @db.Timestamptz
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
-  fair    Fair         @relation(fields: [fairId], references: [id], onDelete: Restrict)
-  project Project      @relation(fields: [projectId], references: [id], onDelete: Restrict)
-  jury    User         @relation("FairEvaluations", fields: [juryUserId], references: [id], onDelete: Restrict)
-  rubric  FairRubric   @relation(fields: [rubricId], references: [id], onDelete: Restrict)
+  fair    Fair                   @relation(fields: [fairId], references: [id], onDelete: Restrict)
+  project Project                @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  jury    User                   @relation("FairEvaluations", fields: [juryUserId], references: [id], onDelete: Restrict)
+  rubric  FairRubric             @relation(fields: [rubricId], references: [id], onDelete: Restrict)
   details FairEvaluationDetail[]
 
   @@unique([fairId, projectId, juryUserId], map: "uq_fair_evaluations_fair_project_jury")
@@ -98,16 +98,16 @@ model FairEvaluation {
 // Respuesta individual de un criterio: CHECKLIST puro (booleano).
 // NO score numérico: el JURY marca o desmarca cada criterio de exposición.
 model FairEvaluationDetail {
-  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  evaluationId String   @map("evaluation_id") @db.Uuid
-  criterionId  String   @map("criterion_id") @db.Uuid
-  rubricId     String   @map("rubric_id") @db.Uuid
-  checked      Boolean  @default(false)
+  id           String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  evaluationId String  @map("evaluation_id") @db.Uuid
+  criterionId  String  @map("criterion_id") @db.Uuid
+  rubricId     String  @map("rubric_id") @db.Uuid
+  checked      Boolean @default(false)
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
-  evaluation FairEvaluation @relation(fields: [evaluationId], references: [id], onDelete: Cascade)
+  evaluation FairEvaluation  @relation(fields: [evaluationId], references: [id], onDelete: Cascade)
   criterion  RubricCriterion @relation(fields: [criterionId], references: [id], onDelete: Restrict)
 
   @@unique([evaluationId, criterionId], map: "uq_fair_evaluation_details_eval_criterion")
@@ -123,10 +123,10 @@ model FairEvaluationDetail {
 // NO guarda el proyecto votado (eso vive solo en fair_votes).
 // Inmutable: no se puede UPDATE ni DELETE (voto definitivo).
 model FairVoteParticipation {
-  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  fairId      String   @map("fair_id") @db.Uuid
-  juryUserId  String   @map("jury_user_id") @db.Uuid
-  votedAt     DateTime @default(now()) @map("voted_at") @db.Timestamptz
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  fairId     String   @map("fair_id") @db.Uuid
+  juryUserId String   @map("jury_user_id") @db.Uuid
+  votedAt    DateTime @default(now()) @map("voted_at") @db.Timestamptz
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
@@ -144,10 +144,10 @@ model FairVoteParticipation {
 // El comprobante técnico (receipt_code) lo genera el service con
 // crypto.randomBytes. Sirve para verificación pública futura.
 model FairVote {
-  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  fairId      String   @map("fair_id") @db.Uuid
-  projectId   String   @map("project_id") @db.Uuid
-  receiptCode String   @unique @map("receipt_code") @db.VarChar(64)
+  id          String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  fairId      String @map("fair_id") @db.Uuid
+  projectId   String @map("project_id") @db.Uuid
+  receiptCode String @unique @map("receipt_code") @db.VarChar(64)
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz

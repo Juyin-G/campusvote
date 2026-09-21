@@ -38,11 +38,11 @@ model Project {
   // Propietario/creador: única fuente de verdad del owner del proyecto.
   createdById String @map("created_by") @db.Uuid
 
-  name        String  @db.VarChar(200)
-  description String? @db.Text
-  logoUrl     String? @map("logo_url") @db.VarChar(500)
-  coverUrl    String? @map("cover_url") @db.VarChar(500)
-  projectUrl  String? @map("project_url") @db.VarChar(1000)
+  name        String        @db.VarChar(200)
+  description String?       @db.Text
+  logoUrl     String?       @map("logo_url") @db.VarChar(500)
+  coverUrl    String?       @map("cover_url") @db.VarChar(500)
+  projectUrl  String?       @map("project_url") @db.VarChar(1000)
   status      ProjectStatus @default(DRAFT)
 
   // Categoría y stand de la feria (opcionales; SIEMPRE de la MISMA feria que
@@ -60,20 +60,22 @@ model Project {
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
   // Relaciones
-  fair         Fair            @relation(fields: [fairId], references: [id], onDelete: Restrict)
-  organization Organization    @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  createdBy    User            @relation("CreatedProjects", fields: [createdById], references: [id], onDelete: Restrict)
-  reviewedBy   User?           @relation("ReviewedProjects", fields: [reviewedById], references: [id], onDelete: SetNull)
-  members      ProjectMember[]
-  evaluations  FairEvaluation[]
-  votes        FairVote[]
-  likes        FairProjectLike[]
-  comments     FairProjectComment[]
+  fair           Fair                       @relation(fields: [fairId], references: [id], onDelete: Restrict)
+  organization   Organization               @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  createdBy      User                       @relation("CreatedProjects", fields: [createdById], references: [id], onDelete: Restrict)
+  reviewedBy     User?                      @relation("ReviewedProjects", fields: [reviewedById], references: [id], onDelete: SetNull)
+  members        ProjectMember[]
+  evaluations    FairEvaluation[]
+  votes          FairVote[]
+  likes          FairProjectLike[]
+  comments       FairProjectComment[]
   likeMilestones FairProjectLikeMilestone[]
-  category     FairCategory?   @relation(fields: [categoryId], references: [id], onDelete: Restrict)
-  stand        FairStand?      @relation(fields: [standId], references: [id], onDelete: Restrict)
-  certificates Certificate[]
+  category       FairCategory?              @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  stand          FairStand?                 @relation(fields: [standId], references: [id], onDelete: Restrict)
+  certificates   Certificate[]
 
+  // "1 stand = 1 proyecto": un stand no puede estar asignado a dos proyectos.
+  @@unique([standId], map: "uq_projects_stand")
   // Índices
   @@index([organizationId], map: "idx_projects_organization")
   @@index([fairId], map: "idx_projects_fair")
@@ -82,8 +84,6 @@ model Project {
   @@index([organizationId, status], map: "idx_projects_organization_status")
   @@index([categoryId], map: "idx_projects_category")
   @@index([standId], map: "idx_projects_stand")
-  // "1 stand = 1 proyecto": un stand no puede estar asignado a dos proyectos.
-  @@unique([standId], map: "uq_projects_stand")
   @@map("projects")
 }
 

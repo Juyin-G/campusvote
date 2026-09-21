@@ -7,10 +7,10 @@ enum JuryAssignmentStatus {
 }
 
 model JuryAssignment {
-  id          String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  electionId  String              @map("election_id") @db.Uuid
-  candidacyId String              @map("candidacy_id") @db.Uuid
-  juryId      String              @map("jury_id") @db.Uuid
+  id          String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  electionId  String               @map("election_id") @db.Uuid
+  candidacyId String               @map("candidacy_id") @db.Uuid
+  juryId      String               @map("jury_id") @db.Uuid
   status      JuryAssignmentStatus @default(PENDING) @map("status")
 
   // Voto dirimente del Presidente del Jurado (rompe empates; se registra como
@@ -24,7 +24,7 @@ model JuryAssignment {
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
   // Relaciones
-  election Election  @relation(fields: [electionId], references: [id], onDelete: Cascade)
+  election  Election  @relation(fields: [electionId], references: [id], onDelete: Cascade)
   candidacy Candidacy @relation(fields: [candidacyId], references: [id], onDelete: Cascade)
   jury      User      @relation("JuryAssignments", fields: [juryId], references: [id], onDelete: Restrict)
   assigner  User      @relation("JuryAssignmentsBy", fields: [assignedBy], references: [id], onDelete: Restrict)

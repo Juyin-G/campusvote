@@ -10,17 +10,17 @@
 //     revocación manual.
 
 model UserSiteAssignment {
-  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId     String    @map("user_id") @db.Uuid
-  siteId     String    @map("site_id") @db.Uuid
-  grantedBy  String?   @map("granted_by") @db.Uuid
-  grantedAt  DateTime  @default(now()) @map("granted_at") @db.Timestamptz
-  expiresAt  DateTime? @map("expires_at") @db.Timestamptz
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  siteId    String    @map("site_id") @db.Uuid
+  grantedBy String?   @map("granted_by") @db.Uuid
+  grantedAt DateTime  @default(now()) @map("granted_at") @db.Timestamptz
+  expiresAt DateTime? @map("expires_at") @db.Timestamptz
 
   // Relaciones
-  user     User             @relation("UserSiteAssignments", fields: [userId], references: [id], onDelete: Cascade)
-  site     OrganizationSite @relation(fields: [siteId], references: [id], onDelete: Cascade)
-  grantor  User?            @relation("UserSiteAssignmentsGrantedBy", fields: [grantedBy], references: [id], onDelete: SetNull)
+  user    User             @relation("UserSiteAssignments", fields: [userId], references: [id], onDelete: Cascade)
+  site    OrganizationSite @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  grantor User?            @relation("UserSiteAssignmentsGrantedBy", fields: [grantedBy], references: [id], onDelete: SetNull)
 
   @@unique([userId, siteId])
   @@index([userId], map: "idx_usa_user")

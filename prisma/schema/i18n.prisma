@@ -8,7 +8,6 @@ model PlatformTranslation {
 
   // Índices
   @@index([category], map: "idx_translations_category")
-
   // Nombre de la tabla en la BD
   @@map("platform_translations")
 }

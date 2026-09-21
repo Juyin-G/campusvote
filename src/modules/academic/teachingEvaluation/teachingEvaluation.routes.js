@@ -5,6 +5,25 @@ import { ROLES } from '../../../constants/roles.js';
 import asyncHandler from '../../../shared/utils/asyncHandler.js';
 import { prisma } from '../../../database/prisma.js';
 import * as service from './teachingEvaluation.service.js';
+import * as criteriaService from './evaluationCriteria.service.js';
+import * as responseService from './evaluationResponse.service.js';
+import * as detailService from './evaluationResponseDetail.service.js';
+import {
+  createCriterionSchema,
+  updateCriterionSchema,
+  criterionIdParamSchema,
+} from './evaluationCriteria.schema.js';
+import {
+  createDraftSchema,
+  responseIdParamSchema,
+  updateCommentSchema,
+  submitResponseSchema,
+} from './evaluationResponse.schema.js';
+import {
+  upsertDetailSchema,
+  deleteDetailSchema,
+  getDetailsSchema,
+} from './evaluationResponseDetail.schema.js';
 import { z } from 'zod';
 
 const router = Router();
