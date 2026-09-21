@@ -96,4 +96,188 @@ router.get('/teachers/:teacherId/evaluation-summary', authenticate, authorize(RO
   res.json({ success: true, data: result });
 }));
 
+// ============================================================
+// EVALUACIÓN DOCENTE — NUEVO DOMINIO
+// ============================================================
+
+// --- CRITERIOS DE EVALUACIÓN (ADMIN/SUPERADMIN) ---
+
+router.post(
+  '/evaluation-criteria',
+  authenticate,
+  authorize(ROLES.ADMIN, ROLES.SUPERADMIN),
+  validate(createCriterionSchema),
+  asyncHandler(async (req, res) => {
+    const result = await criteriaService.createCriterion(req.body, req.user);
+    res.status(201).json({ success: true, data: result });
+  })
+);
+
+router.get(
+  '/evaluation-criteria',
+  authenticate,
+  asyncHandler(async (req, res) => {
+    const result = await criteriaService.listCriteria(req.user);
+    res.json({ success: true, data: result });
+  })
+);
+
+router.get(
+  '/evaluation-criteria/:criterionId',
+  authenticate,
+  validate(criterionIdParamSchema),
+  asyncHandler(async (req, res) => {
+    const result = await criteriaService.getCriterion(req.params.criterionId, req.user);
+    res.json({ success: true, data: result });
+  })
+);
+
+router.put(
+  '/evaluation-criteria/:criterionId',
+  authenticate,
+  authorize(ROLES.ADMIN, ROLES.SUPERADMIN),
+  validate(updateCriterionSchema),
+  asyncHandler(async (req, res) => {
+    const result = await criteriaService.updateCriterion(
+      req.params.criterionId,
+      req.body,
+      req.user
+    );
+    res.json({ success: true, data: result });
+  })
+);
+
+router.patch(
+  '/evaluation-criteria/:criterionId/toggle',
+  authenticate,
+  authorize(ROLES.ADMIN, ROLES.SUPERADMIN),
+  validate(criterionIdParamSchema),
+  asyncHandler(async (req, res) => {
+    const result = await criteriaService.toggleCriterion(req.params.criterionId, req.user);
+    res.json({ success: true, data: result });
+  })
+);
+
+router.delete(
+  '/evaluation-criteria/:criterionId',
+  authenticate,
+  authorize(ROLES.ADMIN, ROLES.SUPERADMIN),
+  validate(criterionIdParamSchema),
+  asyncHandler(async (req, res) => {
+    const result = await criteriaService.deleteCriterion(req.params.criterionId, req.user);
+    res.json({ success: true, data: result });
+  })
+);
+
+// --- EVALUACIONES DEL ESTUDIANTE ---
+
+router.post(
+  '/evaluation-responses',
+  authenticate,
+  authorize(ROLES.STUDENT),
+  validate(createDraftSchema),
+  asyncHandler(async (req, res) => {
+    const result = await responseService.createDraft(
+      req.body.teachingAssignmentId,
+      req.user
+    );
+    res.status(201).json({ success: true, data: result });
+  })
+);
+
+router.get(
+  '/evaluation-responses/mine',
+  authenticate,
+  authorize(ROLES.STUDENT),
+  asyncHandler(async (req, res) => {
+    const result = await responseService.listMyResponses(req.user);
+    res.json({ success: true, data: result });
+  })
+);
+
+router.get(
+  '/evaluation-responses/:responseId',
+  authenticate,
+  validate(responseIdParamSchema),
+  asyncHandler(async (req, res) => {
+    const result = await responseService.getResponse(req.params.responseId, req.user);
+    res.json({ success: true, data: result });
+  })
+);
+
+router.patch(
+  '/evaluation-responses/:responseId/comment',
+  authenticate,
+  validate(updateCommentSchema),
+  asyncHandler(async (req, res) => {
+    const result = await responseService.updateComment(
+      req.params.responseId,
+      req.body,
+      req.user
+    );
+    res.json({ success: true, data: result });
+  })
+);
+
+router.delete(
+  '/evaluation-responses/:responseId',
+  authenticate,
+  validate(responseIdParamSchema),
+  asyncHandler(async (req, res) => {
+    const result = await responseService.deleteDraft(req.params.responseId, req.user);
+    res.json({ success: true, data: result });
+  })
+);
+
+router.post(
+  '/evaluation-responses/:responseId/submit',
+  authenticate,
+  validate(submitResponseSchema),
+  asyncHandler(async (req, res) => {
+    const result = await responseService.submitResponse(req.params.responseId, req.user);
+    res.json({ success: true, data: result });
+  })
+);
+
+// --- DETALLES DE EVALUACIÓN (score por criterio) ---
+
+router.put(
+  '/evaluation-responses/:responseId/details/:criterionId',
+  authenticate,
+  validate(upsertDetailSchema),
+  asyncHandler(async (req, res) => {
+    const result = await detailService.upsertDetail(
+      req.params.responseId,
+      req.params.criterionId,
+      req.body.score,
+      req.user
+    );
+    res.json({ success: true, data: result });
+  })
+);
+
+router.delete(
+  '/evaluation-responses/:responseId/details/:criterionId',
+  authenticate,
+  validate(deleteDetailSchema),
+  asyncHandler(async (req, res) => {
+    const result = await detailService.deleteDetail(
+      req.params.responseId,
+      req.params.criterionId,
+      req.user
+    );
+    res.json({ success: true, data: result });
+  })
+);
+
+router.get(
+  '/evaluation-responses/:responseId/details',
+  authenticate,
+  validate(getDetailsSchema),
+  asyncHandler(async (req, res) => {
+    const result = await detailService.getDetails(req.params.responseId, req.user);
+    res.json({ success: true, data: result });
+  })
+);
+
 export default router;
