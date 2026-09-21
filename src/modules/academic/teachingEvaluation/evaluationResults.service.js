@@ -85,9 +85,11 @@ export const getTeacherSummary = async (teacherId, actor, filters = {}) => {
   const responseToAssignment = new Map(responses.map((r) => [r.id, r.teachingAssignmentId]));
   const byAssignmentMap = new Map();
   for (const r of responses) {
-    if (!byAssignmentMap.has(r.teachingAssignmentId)) {
-      byAssignmentMap.set(r.teachingAssignmentId, { totalScore: 0, count: 0 });
+    const aid = r.teachingAssignmentId;
+    if (!byAssignmentMap.has(aid)) {
+      byAssignmentMap.set(aid, { totalScore: 0, detailCount: 0, responseCount: 0 });
     }
+    byAssignmentMap.get(aid).responseCount += 1;
   }
   for (const d of details) {
     const assignmentId = responseToAssignment.get(d.evaluationResponseId);
@@ -95,7 +97,7 @@ export const getTeacherSummary = async (teacherId, actor, filters = {}) => {
     const entry = byAssignmentMap.get(assignmentId);
     if (entry) {
       entry.totalScore += d.score;
-      entry.count += 1;
+      entry.detailCount += 1;
     }
   }
 
@@ -114,14 +116,14 @@ export const getTeacherSummary = async (teacherId, actor, filters = {}) => {
   const assignmentMap = new Map(assignments.map((a) => [a.id, a]));
 
   const byCourse = [...byAssignmentMap.entries()]
-    .map(([assignmentId, { totalScore: ts, count }]) => {
+    .map(([assignmentId, { totalScore: ts, detailCount, responseCount }]) => {
       const assignment = assignmentMap.get(assignmentId);
       return {
         courseId: assignment?.courseId ?? null,
         academicPeriodId: assignment?.academicPeriodId ?? null,
         cycle: assignment?.cycle ?? null,
-        averageScore: count > 0 ? Number((ts / count).toFixed(2)) : 0,
-        totalResponses: count,
+        averageScore: detailCount > 0 ? Number((ts / detailCount).toFixed(2)) : 0,
+        totalResponses: responseCount,
         course: assignment?.course ?? null,
         academicPeriod: assignment?.academicPeriod ?? null,
       };
@@ -394,6 +396,7 @@ export const getScoreEvolution = async (teacherId, actor, filters = {}) => {
   }
 
   const evolution = Array.from(periodMap.values())
+    .filter((p) => p.totalResponses >= MINIMUM_RESPONSES)
     .map((p) => ({
       academicPeriodId: p.academicPeriodId,
       academicPeriod: p.academicPeriod,

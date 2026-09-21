@@ -107,6 +107,31 @@ export default async function setupTestDB() {
     await executeFile('academic/010_voter_stake.sql');
     await executeFile('academic/011_teaching_evaluations.sql');
 
+    // Prisma expects the evaluation_response_status enum type, but 012
+    // uses VARCHAR. Create the enum and alter the column before loading.
+    await pgClient.query(`DO $$
+    BEGIN
+      IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'evaluation_response_status') THEN
+        CREATE TYPE evaluation_response_status AS ENUM ('DRAFT', 'SUBMITTED');
+      END IF;
+    END$$;`);
+    await executeFile('academic/012_evaluation_domain.sql');
+    // After table creation, migrate status column from VARCHAR to enum
+    await pgClient.query(`DO $$
+    BEGIN
+      IF EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'evaluation_responses'
+          AND column_name = 'status'
+          AND data_type = 'character varying'
+      ) THEN
+        ALTER TABLE evaluation_responses
+          ALTER COLUMN status DROP DEFAULT,
+          ALTER COLUMN status TYPE evaluation_response_status USING status::evaluation_response_status,
+          ALTER COLUMN status SET DEFAULT 'DRAFT';
+      END IF;
+    END$$;`);
+
     console.log('9. Creando elecciones...');
 
     await executeFile('elections/002_elections.sql');

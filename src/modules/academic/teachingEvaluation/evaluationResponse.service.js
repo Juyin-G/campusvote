@@ -159,7 +159,7 @@ export const createDraft = async (teachingAssignmentId, actor) => {
   // Verificar que no exista ya una evaluación para esta asignación
   const existing = await prisma.evaluationResponse.findUnique({
     where: {
-      teachingAssignmentId_studentId: {
+      uq_evaluation_responses_assignment_student: {
         teachingAssignmentId,
         studentId: actor.id,
       },

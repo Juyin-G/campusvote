@@ -91,7 +91,7 @@ export const upsertDetail = async (responseId, criterionId, score, actor) => {
   try {
     return await prisma.evaluationResponseDetail.upsert({
       where: {
-        evaluationResponseId_criterionId: {
+        uq_eval_response_details_response_criterion: {
           evaluationResponseId: responseId,
           criterionId,
         },
@@ -121,7 +121,7 @@ export const deleteDetail = async (responseId, criterionId, actor) => {
   // 2. Buscar detalle existente
   const detail = await prisma.evaluationResponseDetail.findUnique({
     where: {
-      evaluationResponseId_criterionId: {
+      uq_eval_response_details_response_criterion: {
         evaluationResponseId: responseId,
         criterionId,
       },
@@ -135,7 +135,7 @@ export const deleteDetail = async (responseId, criterionId, actor) => {
   // 3. Eliminar
   await prisma.evaluationResponseDetail.delete({
     where: {
-      evaluationResponseId_criterionId: {
+      uq_eval_response_details_response_criterion: {
         evaluationResponseId: responseId,
         criterionId,
       },

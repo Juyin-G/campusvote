@@ -34,14 +34,14 @@ async function testGmailAuth() {
     });
 
     if (result?.token) {
-      console.log('\n✅ GMAIL OAUTH FUNCIONA');
+      console.log('\n GMAIL OAUTH FUNCIONA');
       console.log('El refresh token es válido.');
     } else {
-      console.log('\n❌ Google no devolvió access token');
+      console.log('\n Google no devolvió access token');
     }
 
   } catch (error) {
-    console.log('\n❌ GMAIL OAUTH FALLÓ');
+    console.log('\n GMAIL OAUTH FALLÓ');
 
     console.log({
       code: error?.code,

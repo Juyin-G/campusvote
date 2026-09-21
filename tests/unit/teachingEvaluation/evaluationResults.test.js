@@ -353,3 +353,174 @@ describe('multiples details NO cuentan como evaluadores', () => {
     expect(r.meta.total_responses).toBe(1);
   });
 });
+
+// ============================================================
+// BUG 1 fix: 3 evaluadores × 4 criterios
+// ============================================================
+
+describe('BUG1 fix — 3 evaluadores × 4 criterios', () => {
+  it('overallAverage = 3.92, totalResponses = 3, byCourse.totalResponses = 3', async () => {
+    mockResponseAggregate.mockResolvedValue({ _count: { _all: 3 } });
+    mockResponseFindMany.mockResolvedValue([
+      { id: 'r1', teachingAssignmentId: 'as1' },
+      { id: 'r2', teachingAssignmentId: 'as1' },
+      { id: 'r3', teachingAssignmentId: 'as1' },
+    ]);
+    mockDetailFindMany.mockResolvedValue([
+      { evaluationResponseId: 'r1', score: 5 },
+      { evaluationResponseId: 'r1', score: 4 },
+      { evaluationResponseId: 'r1', score: 3 },
+      { evaluationResponseId: 'r1', score: 4 },
+      { evaluationResponseId: 'r2', score: 4 },
+      { evaluationResponseId: 'r2', score: 3 },
+      { evaluationResponseId: 'r2', score: 4 },
+      { evaluationResponseId: 'r2', score: 5 },
+      { evaluationResponseId: 'r3', score: 3 },
+      { evaluationResponseId: 'r3', score: 5 },
+      { evaluationResponseId: 'r3', score: 4 },
+      { evaluationResponseId: 'r3', score: 3 },
+    ]);
+    mockAssignmentFindMany.mockResolvedValue([
+      { id: 'as1', courseId: 'c1', academicPeriodId: 'p1', cycle: 1, course: { id: 'c1', code: 'MAT', name: 'Mates' }, academicPeriod: { id: 'p1', name: '2026-I' } },
+    ]);
+    const r = await svc.getTeacherSummary('t1', T);
+    expect(r.meta.insufficient_data).toBe(false);
+    expect(r.data.totalResponses).toBe(3);
+    expect(r.data.overallAverage).toBe(3.92);
+    expect(r.data.byCourse).toHaveLength(1);
+    expect(r.data.byCourse[0].averageScore).toBe(3.92);
+    expect(r.data.byCourse[0].totalResponses).toBe(3);
+  });
+});
+
+// ============================================================
+// BUG 1 fix: responseCount != detailCount explícito
+// ============================================================
+
+describe('BUG1 fix — responseCount ≠ detailCount', () => {
+  it('3 responses con 4 details cada una → responseCount=3, detailCount=12', async () => {
+    mockResponseAggregate.mockResolvedValue({ _count: { _all: 3 } });
+    mockResponseFindMany.mockResolvedValue([
+      { id: 'r1', teachingAssignmentId: 'as1' },
+      { id: 'r2', teachingAssignmentId: 'as1' },
+      { id: 'r3', teachingAssignmentId: 'as1' },
+    ]);
+    const twelveDetails = [
+      { evaluationResponseId: 'r1', score: 5 },
+      { evaluationResponseId: 'r1', score: 4 },
+      { evaluationResponseId: 'r1', score: 3 },
+      { evaluationResponseId: 'r1', score: 4 },
+      { evaluationResponseId: 'r2', score: 4 },
+      { evaluationResponseId: 'r2', score: 3 },
+      { evaluationResponseId: 'r2', score: 4 },
+      { evaluationResponseId: 'r2', score: 5 },
+      { evaluationResponseId: 'r3', score: 3 },
+      { evaluationResponseId: 'r3', score: 5 },
+      { evaluationResponseId: 'r3', score: 4 },
+      { evaluationResponseId: 'r3', score: 3 },
+    ];
+    mockDetailFindMany.mockResolvedValue(twelveDetails);
+    mockAssignmentFindMany.mockResolvedValue([
+      { id: 'as1', courseId: 'c1', academicPeriodId: 'p1', cycle: 1, course: { id: 'c1', code: 'MAT', name: 'Mates' }, academicPeriod: { id: 'p1', name: '2026-I' } },
+    ]);
+    const r = await svc.getTeacherSummary('t1', T);
+    expect(twelveDetails.length).toBe(12);
+    expect(r.data.totalResponses).toBe(3);
+    expect(r.data.totalResponses).not.toBe(twelveDetails.length);
+    expect(r.data.byCourse[0].totalResponses).toBe(3);
+    expect(r.data.byCourse[0].totalResponses).not.toBe(twelveDetails.length);
+  });
+});
+
+// ============================================================
+// BUG 2 fix: evolución con periodos mixtos
+// ============================================================
+
+describe('BUG2 fix — evolución con periodos mixtos', () => {
+  it('periodo A=3 responses, periodo B=2 responses → solo A aparece', async () => {
+    mockResponseAggregate.mockResolvedValue({ _count: { _all: 5 } });
+    mockResponseFindMany.mockResolvedValue([
+      { id: 'r1', teachingAssignmentId: 'a1' },
+      { id: 'r2', teachingAssignmentId: 'a1' },
+      { id: 'r3', teachingAssignmentId: 'a1' },
+      { id: 'r4', teachingAssignmentId: 'a2' },
+      { id: 'r5', teachingAssignmentId: 'a2' },
+    ]);
+    mockDetailFindMany.mockResolvedValue([
+      { evaluationResponseId: 'r1', score: 4 },
+      { evaluationResponseId: 'r1', score: 4 },
+      { evaluationResponseId: 'r1', score: 4 },
+      { evaluationResponseId: 'r1', score: 4 },
+      { evaluationResponseId: 'r2', score: 3 },
+      { evaluationResponseId: 'r2', score: 3 },
+      { evaluationResponseId: 'r2', score: 3 },
+      { evaluationResponseId: 'r2', score: 3 },
+      { evaluationResponseId: 'r3', score: 5 },
+      { evaluationResponseId: 'r3', score: 5 },
+      { evaluationResponseId: 'r3', score: 5 },
+      { evaluationResponseId: 'r3', score: 5 },
+      { evaluationResponseId: 'r4', score: 4 },
+      { evaluationResponseId: 'r4', score: 4 },
+      { evaluationResponseId: 'r4', score: 4 },
+      { evaluationResponseId: 'r4', score: 4 },
+      { evaluationResponseId: 'r5', score: 2 },
+      { evaluationResponseId: 'r5', score: 2 },
+      { evaluationResponseId: 'r5', score: 2 },
+      { evaluationResponseId: 'r5', score: 2 },
+    ]);
+    mockAssignmentFindMany.mockResolvedValue([
+      { id: 'a1', academicPeriodId: 'p1', academicPeriod: { id: 'p1', name: '2025-II', startDate: '2025-08-01' } },
+      { id: 'a2', academicPeriodId: 'p2', academicPeriod: { id: 'p2', name: '2026-I', startDate: '2026-02-01' } },
+    ]);
+    const r = await svc.getScoreEvolution('t1', T);
+    expect(r.data.evolution).toHaveLength(1);
+    expect(r.data.evolution[0].academicPeriod.name).toBe('2025-II');
+    expect(r.data.evolution[0].totalResponses).toBe(3);
+    expect(r.data.evolution[0].averageScore).toBe(4);
+  });
+});
+
+// ============================================================
+// BUG 2 fix: mínimo por periodo
+// ============================================================
+
+describe('BUG2 fix — mínimo 3 por periodo', () => {
+  it('5 responses totales pero periodo B solo 2 → B excluido', async () => {
+    mockResponseAggregate.mockResolvedValue({ _count: { _all: 5 } });
+    mockResponseFindMany.mockResolvedValue([
+      { id: 'r1', teachingAssignmentId: 'a1' },
+      { id: 'r2', teachingAssignmentId: 'a1' },
+      { id: 'r3', teachingAssignmentId: 'a1' },
+      { id: 'r4', teachingAssignmentId: 'a2' },
+      { id: 'r5', teachingAssignmentId: 'a2' },
+    ]);
+    mockDetailFindMany.mockResolvedValue([
+      { evaluationResponseId: 'r1', score: 4 },
+      { evaluationResponseId: 'r1', score: 4 },
+      { evaluationResponseId: 'r1', score: 4 },
+      { evaluationResponseId: 'r2', score: 3 },
+      { evaluationResponseId: 'r2', score: 3 },
+      { evaluationResponseId: 'r2', score: 3 },
+      { evaluationResponseId: 'r3', score: 5 },
+      { evaluationResponseId: 'r3', score: 5 },
+      { evaluationResponseId: 'r3', score: 5 },
+      { evaluationResponseId: 'r4', score: 4 },
+      { evaluationResponseId: 'r4', score: 4 },
+      { evaluationResponseId: 'r4', score: 4 },
+      { evaluationResponseId: 'r5', score: 2 },
+      { evaluationResponseId: 'r5', score: 2 },
+      { evaluationResponseId: 'r5', score: 2 },
+    ]);
+    mockAssignmentFindMany.mockResolvedValue([
+      { id: 'a1', academicPeriodId: 'p1', academicPeriod: { id: 'p1', name: '2025-II', startDate: '2025-08-01' } },
+      { id: 'a2', academicPeriodId: 'p2', academicPeriod: { id: 'p2', name: '2026-I', startDate: '2026-02-01' } },
+    ]);
+    const r = await svc.getScoreEvolution('t1', T);
+    const p1 = r.data.evolution.find((e) => e.academicPeriod.name === '2025-II');
+    const p2 = r.data.evolution.find((e) => e.academicPeriod.name === '2026-I');
+    expect(p1).toBeDefined();
+    expect(p1.totalResponses).toBe(3);
+    expect(p1.averageScore).toBe(4);
+    expect(p2).toBeUndefined();
+  });
+});

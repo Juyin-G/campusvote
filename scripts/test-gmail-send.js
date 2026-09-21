@@ -57,14 +57,14 @@ async function testGmailSend() {
       },
     });
 
-    console.log('\n✅ CORREO ENVIADO');
+    console.log('\n CORREO ENVIADO');
     console.log({
       messageId: response.data.id,
       threadId: response.data.threadId,
     });
 
   } catch (error) {
-    console.log('\n❌ FALLÓ EL ENVÍO');
+    console.log('\n FALLÓ EL ENVÍO');
 
     console.log({
       code: error?.code,
