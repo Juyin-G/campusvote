@@ -46,7 +46,11 @@ CREATE TABLE IF NOT EXISTS fair_evaluations (
     CONSTRAINT fk_fair_evaluations_jury    FOREIGN KEY (jury_user_id) REFERENCES users(id)                ON DELETE RESTRICT,
     CONSTRAINT fk_fair_evaluations_rubric  FOREIGN KEY (rubric_id)    REFERENCES fair_rubrics(id)         ON DELETE RESTRICT,
     -- Integridad: proyecto y evaluación en la MISMA feria.
-    CONSTRAINT fk_fair_evaluations_fair_project FOREIGN KEY (fair_id, project_id)
+    -- IMPORTANTE: el orden de columnas debe emparejar posición a posición con
+    -- uq_projects_id_fair (id, fair_id): project_id -> projects.id y
+    -- fair_id -> projects.fair_id. (Antes estaba invertido y hacía imposible
+    -- insertar evaluaciones/votos.)
+    CONSTRAINT fk_fair_evaluations_fair_project FOREIGN KEY (project_id, fair_id)
         REFERENCES projects(id, fair_id) ON DELETE RESTRICT,
     -- Integridad: jurado formalmente asignado a la feria (impide evaluar sin asignación).
     CONSTRAINT fk_fair_evaluations_fair_jury FOREIGN KEY (fair_id, jury_user_id)

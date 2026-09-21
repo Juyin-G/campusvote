@@ -10,10 +10,12 @@ import { ApiError } from '../../shared/errors/ApiError.js';
 import { ROLES } from '../../constants/roles.js';
 import { parsePagination } from '../../shared/utils/pagination.js';
 import { mapEvaluation, mapDeclaration } from './fairEvaluation.helpers.js';
+import { getJuryCategoryIds } from '../../shared/helpers/juryCategoryAccess.js';
 
-const RUBRIC_RESPOND_STATUSES = ['DRAFT', 'OPEN'];
+// Parte 3 — Estados de la feria: participación del JURY SOLO en OPEN.
+const RUBRIC_RESPOND_STATUSES = ['OPEN'];
 const EVALUABLE_PROJECT_STATUS = ['APPROVED'];
-const DECLARATION_ALLOWED_STATUSES = ['DRAFT', 'OPEN'];
+const DECLARATION_ALLOWED_STATUSES = ['OPEN'];
 
 const loadFair = async (fairId) => {
   const fair = await fairRepository.findById(fairId);
@@ -38,7 +40,14 @@ const assertJuryAssignedToFair = async ({ fairId, juryId }) => {
 
 const assertRubricOpenForResponse = (fair) => {
   if (!RUBRIC_RESPOND_STATUSES.includes(fair.status)) {
-    throw ApiError.conflict('Solo puedes responder la rúbrica en estado DRAFT u OPEN');
+    throw ApiError.conflict('Solo puedes responder la rúbrica mientras la feria está abierta (OPEN)');
+  }
+};
+
+/** El JURY solo puede VER proyectos evaluables con la feria en OPEN. */
+const assertJuryFairOpen = (fair) => {
+  if (fair.status !== 'OPEN') {
+    throw ApiError.conflict('Solo puedes consultar proyectos mientras la feria está abierta (OPEN)');
   }
 };
 
@@ -78,8 +87,19 @@ const mapProjectReview = (p) => ({
 
 export const listApprovedProjects = async ({ fairId, actor, filters = {} }) => {
   const fair = await loadFair(fairId);
+  let juryCategoryIds = null;
   if (actor.role === ROLES.JURY) {
     await assertJuryAssignedToFair({ fairId, juryId: actor.id });
+    assertJuryFairOpen(fair);
+    juryCategoryIds = await getJuryCategoryIds(fairId, actor.id);
+    if (juryCategoryIds.length === 0) {
+      return {
+        fair_id: fairId,
+        fair_status: fair.status,
+        data: [],
+        pagination: { page: 1, limit: 20, total: 0 },
+      };
+    }
   } else {
     assertTenantMatch({ fair, actor });
   }
@@ -87,6 +107,11 @@ export const listApprovedProjects = async ({ fairId, actor, filters = {} }) => {
   if (filters.search) where.name = { contains: filters.search, mode: 'insensitive' };
   if (filters.category_id) where.categoryId = filters.category_id;
   if (filters.stand_id) where.standId = filters.stand_id;
+
+  // Si es JURY, filtrar solo por sus categorías asignadas.
+  if (juryCategoryIds !== null) {
+    where.categoryId = { in: juryCategoryIds };
+  }
 
   const { page, limit, offset } = parsePagination(filters || {});
   const [data, total] = await Promise.all([
@@ -106,6 +131,10 @@ export const getProjectDetail = async ({ fairId, projectId, actor }) => {
   const fair = await loadFair(fairId);
   if (actor.role === ROLES.JURY) {
     await assertJuryAssignedToFair({ fairId, juryId: actor.id });
+    assertJuryFairOpen(fair);
+    // Verificar categoría del JURY sobre el proyecto.
+    const { assertJuryCanOperateOnProject } = await import('../../shared/helpers/juryCategoryAccess.js');
+    await assertJuryCanOperateOnProject({ fairId, projectId, actor });
   } else {
     assertTenantMatch({ fair, actor });
   }
@@ -166,7 +195,7 @@ export const listMyEvaluations = async ({ actor, filters = {} }) => {
 
 const assertDeclarationPeriod = (fair) => {
   if (!DECLARATION_ALLOWED_STATUSES.includes(fair.status)) {
-    throw ApiError.conflict('La declaración del jurado solo se registra en estado DRAFT u OPEN');
+    throw ApiError.conflict('La declaración del jurado solo se registra mientras la feria está abierta (OPEN)');
   }
 };
 

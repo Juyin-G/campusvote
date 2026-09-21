@@ -46,8 +46,11 @@ CREATE TABLE IF NOT EXISTS fair_votes (
     CONSTRAINT uq_fair_votes_receipt UNIQUE (fair_id, receipt_code),
     CONSTRAINT fk_fair_votes_fair
         FOREIGN KEY (fair_id) REFERENCES fairs(id) ON DELETE RESTRICT,
+    -- IMPORTANTE: las columnas deben emparejar posición a posición con
+    -- uq_projects_id_fair (id, fair_id): project_id -> projects.id y
+    -- fair_id -> projects.fair_id. (Antes estaba invertido.)
     CONSTRAINT fk_fair_votes_fair_project
-        FOREIGN KEY (fair_id, project_id)
+        FOREIGN KEY (project_id, fair_id)
         REFERENCES projects(id, fair_id) ON DELETE RESTRICT
 );
 

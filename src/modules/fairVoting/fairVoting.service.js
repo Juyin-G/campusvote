@@ -19,6 +19,7 @@ import { ROLES } from '../../constants/roles.js';
 import { generateReceiptCode, mapCastReceipt, mapVotingStatus } from './fairVoting.helpers.js';
 import auditService from '../audit/audit.service.js';
 import logger from '../../config/logger.js';
+import { assertJuryCanOperateOnProject } from '../../shared/helpers/juryCategoryAccess.js';
 
 const VOTING_STATUS = ['OPEN'];
 const EVALUABLE_PROJECT_STATUS = ['APPROVED'];
@@ -91,6 +92,9 @@ export const castVote = async ({ fairId, data, actor }) => {
   const fair = await loadFair(fairId);
   assertVotingPeriod(fair);
   await assertJuryAssignedToFair({ fairId, juryId: actor.id });
+
+  // Verificar que el JURY puede operar sobre este proyecto (categoría).
+  await assertJuryCanOperateOnProject({ fairId, projectId: data.project_id, actor });
 
   const project = await projectRepository.findById(data.project_id);
   if (!project) {

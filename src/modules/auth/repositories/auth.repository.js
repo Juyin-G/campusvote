@@ -176,6 +176,25 @@ export const verifyEmailWithToken = async (token) => {
 
 // GESTIÓN DE REFRESH TOKENS (SESIONES)
 
+export const createSession = async ({ userId, tokenHash, ipAddress = null, userAgent = null, ttlSeconds }) => {
+  const expiresAt = new Date(Date.now() + (ttlSeconds || 60 * 60 * 24 * 30) * 1000);
+  return prisma.refreshToken.create({
+    data: {
+      userId,
+      tokenHash,
+      expiresAt,
+      ipAddress,
+      deviceInfo: userAgent ? { userAgent } : undefined,
+    },
+  });
+};
+
+export const revokeSession = async (userId, tokenHash) => {
+  return prisma.refreshToken.deleteMany({
+    where: { userId, tokenHash },
+  });
+};
+
 export const createRefreshToken = async ({ userId, tokenHash, expiresAt, ipAddress = null, userAgent = null }) => {
   return prisma.refreshToken.create({
     data: {

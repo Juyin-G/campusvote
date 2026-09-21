@@ -7,9 +7,13 @@ import * as juryAssignmentRepository from '../juryAssignments/juryAssignment.rep
 import { ApiError } from '../../shared/errors/ApiError.js';
 
 export const RUBRIC_CONFIGURABLE_STATUSES = ['DRAFT'];
-export const RUBRIC_RESPOND_STATUSES = ['DRAFT', 'OPEN'];
+// Parte 3 — Estados de la feria: el JURY solo participa académicamente en OPEN.
+// En DRAFT la feria es preparación administrativa y el jurado, aunque esté
+// asignado, NO puede ver/responder rúbrica, finalizarla, firmar la declaración
+// ni votar. El voto anónimo ya exige OPEN (fairVoting).
+export const RUBRIC_RESPOND_STATUSES = ['OPEN'];
 export const EVALUABLE_PROJECT_STATUS = ['APPROVED'];
-export const DECLARATION_ALLOWED_STATUSES = ['DRAFT', 'OPEN'];
+export const DECLARATION_ALLOWED_STATUSES = ['OPEN'];
 
 export const loadFair = async (fairId) => {
   const fair = await fairRepository.findById(fairId);
@@ -42,6 +46,6 @@ export const assertRubricConfigurable = (fair) => {
 
 export const assertRubricOpenForResponse = (fair) => {
   if (!RUBRIC_RESPOND_STATUSES.includes(fair.status)) {
-    throw ApiError.conflict('Solo puedes responder la rúbrica en estado DRAFT u OPEN');
+    throw ApiError.conflict('Solo puedes responder la rúbrica mientras la feria está abierta (OPEN)');
   }
 };

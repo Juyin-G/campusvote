@@ -19,6 +19,7 @@
 import * as categoryRepository from './fairCategory.repository.js';
 import * as fairRepository from '../fairs/fair.repository.js';
 import * as juryAssignmentRepository from '../juryAssignments/juryAssignment.repository.js';
+import { prisma } from '../../database/prisma.js';
 import { ApiError } from '../../shared/errors/ApiError.js';
 import { ROLES } from '../../constants/roles.js';
 
@@ -144,6 +145,14 @@ export const deleteCategory = async ({ fairId, categoryId, actor }) => {
   const used = await categoryRepository.countProjects(categoryId);
   if (used > 0) {
     throw ApiError.conflict('No se puede eliminar la categoría porque tiene proyectos asignados');
+  }
+
+  // Verificar que no haya jurados asignados a esta categoría.
+  const jurorsWithCategory = await prisma.fairJuryCategoryAssignment.count({
+    where: { categoryId },
+  });
+  if (jurorsWithCategory > 0) {
+    throw ApiError.conflict('No se puede eliminar la categoría porque tiene jurados asignados');
   }
 
   await categoryRepository.remove(categoryId);

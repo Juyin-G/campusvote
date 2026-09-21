@@ -210,6 +210,12 @@ export default async function setupTestDB() {
     await executeFile('fairs/011_certificates.sql');
     await executeFile('fairs/012a_fair_rubric_to_checklist.sql');
     await executeFile('fairs/012b_fair_anonymous_voting.sql');
+    await executeFile('fairs/013_fair_engagement.sql');
+    await executeFile('fairs/014_fair_status_transition.sql');
+    await executeFile('fairs/015_fair_project_fk_repair.sql');
+    await executeFile('fairs/016_fair_jury_category_assignments.sql');
+    await executeFile('fairs/017_jury_category_integrity.sql');
+    await executeFile('fairs/018_fair_open_validation.sql');
 
     console.log('17. Cargando foreign keys finales...');
 

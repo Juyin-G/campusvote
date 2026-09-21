@@ -131,6 +131,9 @@ const MIGRATION_FILES = [
   'fairs/011_certificates.sql',
   'fairs/012a_fair_rubric_to_checklist.sql',
   'fairs/012b_fair_anonymous_voting.sql',
+  'fairs/013_fair_engagement.sql',
+  'fairs/014_fair_status_transition.sql',        // <--- Parte 3: máquina de estados de feria
+  'fairs/015_fair_project_fk_repair.sql',        // <--- Reparación FK compuesta proyecto↔feria
   '999_foreign_keys.sql',
 ];
 

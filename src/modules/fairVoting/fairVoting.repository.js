@@ -51,7 +51,14 @@ export const findVoteByReceipt = (fairId, receiptCode) =>
 export const listApprovedProjects = (fairId) =>
   prisma.project.findMany({
     where: { fairId, status: 'APPROVED' },
-    select: { id: true, fairId: true, name: true, status: true },
+    select: {
+      id: true,
+      fairId: true,
+      name: true,
+      status: true,
+      categoryId: true,
+      category: { select: { id: true, name: true } },
+    },
     orderBy: { createdAt: 'asc' },
   });
 

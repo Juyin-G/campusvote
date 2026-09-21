@@ -3,6 +3,7 @@
 
 import * as projectRepository from './project.repository.js';
 import * as fairRepository from '../fairs/fair.repository.js';
+import { prisma } from '../../database/prisma.js';
 import { ApiError } from '../../shared/errors/ApiError.js';
 import { parsePagination } from '../../shared/utils/pagination.js';
 import {
@@ -87,6 +88,19 @@ export const createProject = async ({ data, actor }) => {
   }
   assertFairAcceptsProjectChanges(fair);
 
+  // Validar categoría si se proporciona.
+  let categoryId = null;
+  if (data.category_id) {
+    const category = await prisma.fairCategory.findFirst({
+      where: { id: data.category_id, fairId: data.fair_id },
+      select: { id: true },
+    });
+    if (!category) {
+      throw ApiError.badRequest('La categoría no pertenece a esta feria');
+    }
+    categoryId = data.category_id;
+  }
+
   const project = await projectRepository.create({
     organizationId: actor.organizationId,
     fairId: data.fair_id,
@@ -96,6 +110,7 @@ export const createProject = async ({ data, actor }) => {
     logoUrl: data.logo_url ?? null,
     coverUrl: data.cover_url ?? null,
     projectUrl: data.project_url ?? null,
+    categoryId,
     status: 'DRAFT',
   });
   return mapProject(project, actor);
@@ -109,6 +124,7 @@ export const updateProject = async ({ projectId, data, actor }) => {
 
   // Cambiar la feria solo si pertenece a la misma organización.
   let nextOrganizationId = project.organizationId;
+  let nextFairId = project.fairId;
   if (data.fair_id !== undefined && data.fair_id !== project.fairId) {
     const fair = await fairRepository.findById(data.fair_id);
     if (!fair) throw ApiError.notFound('Feria no encontrada');
@@ -117,6 +133,27 @@ export const updateProject = async ({ projectId, data, actor }) => {
     }
     assertFairAcceptsProjectChanges(fair);
     nextOrganizationId = fair.organizationId;
+    nextFairId = data.fair_id;
+  }
+
+  // Validar cambio de categoría.
+  let nextCategoryId = project.categoryId;
+  if (data.category_id !== undefined && data.category_id !== project.categoryId) {
+    // Verificar que la feria permite cambios de categoría (solo DRAFT).
+    const currentFair = await fairRepository.findById(nextFairId);
+    if (currentFair && currentFair.status !== 'DRAFT') {
+      throw ApiError.conflict('No se puede cambiar la categoría de un proyecto cuando la feria no está en preparación (DRAFT)');
+    }
+    if (data.category_id !== null) {
+      const category = await prisma.fairCategory.findFirst({
+        where: { id: data.category_id, fairId: nextFairId },
+        select: { id: true },
+      });
+      if (!category) {
+        throw ApiError.badRequest('La categoría no pertenece a esta feria');
+      }
+    }
+    nextCategoryId = data.category_id;
   }
 
   // Editar un proyecto REJECTED lo devuelve a DRAFT.
@@ -124,6 +161,7 @@ export const updateProject = async ({ projectId, data, actor }) => {
 
   const updated = await projectRepository.update(projectId, {
     ...(data.fair_id !== undefined ? { fairId: data.fair_id, organizationId: nextOrganizationId } : {}),
+    ...(data.category_id !== undefined ? { categoryId: nextCategoryId } : {}),
     ...(data.name !== undefined ? { name: data.name } : {}),
     ...(data.description !== undefined ? { description: data.description || null } : {}),
     ...(data.logo_url !== undefined ? { logoUrl: data.logo_url || null } : {}),
@@ -146,6 +184,11 @@ export const submitProject = async ({ projectId, actor }) => {
   }
   if (project.status === 'APPROVED') {
     throw ApiError.conflict('El proyecto ya fue aprobado y no puede reenviarse');
+  }
+
+  // Un proyecto debe tener categoría para ser enviado a revisión.
+  if (!project.categoryId) {
+    throw ApiError.badRequest('El proyecto debe tener una categoría asignada para poder enviarse a revisión');
   }
 
   assertFairAcceptsProjectChanges(await requireActiveFair(project));

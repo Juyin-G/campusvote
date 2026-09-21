@@ -24,8 +24,9 @@ model FairCategory {
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
   // Relaciones
-  fair     Fair      @relation(fields: [fairId], references: [id], onDelete: Cascade)
+  fair     Fair                        @relation(fields: [fairId], references: [id], onDelete: Cascade)
   projects Project[]
+  juryAssignments FairJuryCategoryAssignment[]
 
   // Índices / unicidad
   @@unique([fairId, name], map: "uq_fair_categories_fair_name")

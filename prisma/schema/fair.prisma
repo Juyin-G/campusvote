@@ -38,6 +38,8 @@ model Fair {
   evaluations    FairEvaluation[]
   voteParticipations FairVoteParticipation[]
   votes          FairVote[]
+  projectLikes   FairProjectLike[]
+  projectComments FairProjectComment[]
   resultPublication FairResultPublication?
   categories     FairCategory[]
   stands         FairStand[]

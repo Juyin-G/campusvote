@@ -25,10 +25,15 @@ export const getVotingStatus = asyncHandler(async (req, res) =>
 );
 
 // GET /api/fairs/:fairId/voting/results (ADMIN)
-export const getVotingResults = asyncHandler(async (req, res) => {
-  const result = await resultsService.getVotingResults({ fairId: req.params.fairId, actor: getActor(req.user), filters: req.query });
-  return sendPaginated(res, result.projects, result.pagination, 'Resultados de votación obtenidos correctamente');
-});
+export const getVotingResults = asyncHandler(async (req, res) =>
+  sendSuccess(
+    res,
+    await resultsService.getVotingResults({ fairId: req.params.fairId, actor: getActor(req.user) }),
+    'Resultados de votación obtenidos correctamente (agrupados por categoría)',
+    {},
+    HTTP_STATUS.OK
+  )
+);
 
 // GET /api/fairs/:fairId/voting/verify/:receiptCode (público)
 export const verifyReceipt = asyncHandler(async (req, res) =>

@@ -13,6 +13,7 @@ import {
   assertRubricOpenForResponse,
   EVALUABLE_PROJECT_STATUS,
 } from './fairEvaluation.access.js';
+import { assertJuryCanOperateOnProject } from '../../shared/helpers/juryCategoryAccess.js';
 
 const loadRubric = async (fairId) => {
   const rubric = await evaluationRepository.findRubricByFair(fairId);
@@ -28,6 +29,9 @@ export const upsertChecklist = async ({ fairId, projectId, data, actor }) => {
   const fair = await loadFair(fairId);
   assertRubricOpenForResponse(fair);
   await assertJuryAssignedToFair({ fairId, juryId: actor.id });
+
+  // Verificar que el JURY puede operar sobre este proyecto (categoría).
+  await assertJuryCanOperateOnProject({ fairId, projectId, actor });
 
   const rubric = await loadRubric(fairId);
   if (!rubric.criteria || rubric.criteria.length === 0) {
@@ -95,6 +99,9 @@ export const getMyChecklist = async ({ fairId, projectId, actor }) => {
   const fair = await loadFair(fairId);
   assertRubricOpenForResponse(fair);
   await assertJuryAssignedToFair({ fairId, juryId: actor.id });
+
+  // Verificar que el JURY puede operar sobre este proyecto (categoría).
+  await assertJuryCanOperateOnProject({ fairId, projectId, actor });
 
   const rubric = await loadRubric(fairId);
   const existing = await evaluationRepository.findEvaluationByFairProjectJury(

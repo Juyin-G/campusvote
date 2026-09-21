@@ -34,8 +34,10 @@ import fairRoutes from '../modules/fairs/fair.routes.js';
 import juryAssignmentRoutes from '../modules/juryAssignments/juryAssignment.routes.js';
 import fairEvaluationRoutes from '../modules/fairEvaluations/fairEvaluation.routes.js';
 import fairVotingRoutes from '../modules/fairVoting/fairVoting.routes.js';
+import fairEngagementRoutes from '../modules/fairEngagement/fairEngagement.routes.js';
 import fairResultRoutes from '../modules/fairResults/fairResult.routes.js';
 import fairCategoryRoutes from '../modules/fairCategories/fairCategory.routes.js';
+import fairJuryCategoryAssignmentRoutes from '../modules/fairJuryCategoryAssignments/fairJuryCategoryAssignment.routes.js';
 import fairStandRoutes from '../modules/fairStands/fairStand.routes.js';
 
 import {
@@ -134,9 +136,11 @@ tenantRouter.use('/certificates', certificatesRouter);
 tenantRouter.use('/fairs', juryAssignmentRoutes);
 tenantRouter.use('/fairs', fairEvaluationRoutes);
 tenantRouter.use('/fairs', fairVotingRoutes);
+tenantRouter.use('/fairs', fairEngagementRoutes);
 tenantRouter.use('/fairs', fairResultRoutes);
 tenantRouter.use('/fairs', fairCertificatesRouter);
 tenantRouter.use('/fairs', fairCategoryRoutes);
+tenantRouter.use('/fairs', fairJuryCategoryAssignmentRoutes);
 tenantRouter.use('/fairs', fairStandRoutes);
 tenantRouter.use('/fairs', fairRoutes);
 

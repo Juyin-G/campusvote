@@ -67,6 +67,9 @@ model Project {
   members      ProjectMember[]
   evaluations  FairEvaluation[]
   votes        FairVote[]
+  likes        FairProjectLike[]
+  comments     FairProjectComment[]
+  likeMilestones FairProjectLikeMilestone[]
   category     FairCategory?   @relation(fields: [categoryId], references: [id], onDelete: Restrict)
   stand        FairStand?      @relation(fields: [standId], references: [id], onDelete: Restrict)
   certificates Certificate[]
