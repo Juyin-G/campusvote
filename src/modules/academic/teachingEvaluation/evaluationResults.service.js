@@ -56,29 +56,50 @@ export const getTeacherSummary = async (teacherId, actor, filters = {}) => {
 
   const where = buildBaseWhere(teacherId, actor, filters);
 
-  const [responseAgg, perCourseGroup] = await Promise.all([
-    prisma.evaluationResponse.aggregate({
-      where,
-      _avg: { _all: true },
-      _count: { _all: true },
-    }),
-    prisma.evaluationResponse.groupBy({
-      by: ['teachingAssignmentId'],
-      where,
-      _avg: { _all: true },
-      _count: { _all: true },
-    }),
-  ]);
+  const totalAgg = await prisma.evaluationResponse.aggregate({
+    where,
+    _count: { _all: true },
+  });
 
-  const totalResponses = responseAgg._count?._all ?? 0;
+  const totalResponses = totalAgg._count?._all ?? 0;
 
   if (totalResponses < MINIMUM_RESPONSES) {
     return enforceMinimumResponses(null, totalResponses);
   }
 
-  const overallAverage = Number(responseAgg._avg?._all ?? 0);
+  const responses = await prisma.evaluationResponse.findMany({
+    where,
+    select: { id: true, teachingAssignmentId: true },
+  });
 
-  const assignmentIds = perCourseGroup.map((g) => g.teachingAssignmentId);
+  const allIds = responses.map((r) => r.id);
+
+  const details = await prisma.evaluationResponseDetail.findMany({
+    where: { evaluationResponseId: { in: allIds } },
+    select: { evaluationResponseId: true, score: true },
+  });
+
+  const totalScore = details.reduce((sum, d) => sum + d.score, 0);
+  const overallAverage = details.length > 0 ? Number((totalScore / details.length).toFixed(2)) : 0;
+
+  const responseToAssignment = new Map(responses.map((r) => [r.id, r.teachingAssignmentId]));
+  const byAssignmentMap = new Map();
+  for (const r of responses) {
+    if (!byAssignmentMap.has(r.teachingAssignmentId)) {
+      byAssignmentMap.set(r.teachingAssignmentId, { totalScore: 0, count: 0 });
+    }
+  }
+  for (const d of details) {
+    const assignmentId = responseToAssignment.get(d.evaluationResponseId);
+    if (!assignmentId) continue;
+    const entry = byAssignmentMap.get(assignmentId);
+    if (entry) {
+      entry.totalScore += d.score;
+      entry.count += 1;
+    }
+  }
+
+  const assignmentIds = [...byAssignmentMap.keys()];
   const assignments = await prisma.teachingAssignment.findMany({
     where: { id: { in: assignmentIds } },
     select: {
@@ -92,15 +113,15 @@ export const getTeacherSummary = async (teacherId, actor, filters = {}) => {
   });
   const assignmentMap = new Map(assignments.map((a) => [a.id, a]));
 
-  const byCourse = perCourseGroup
-    .map((g) => {
-      const assignment = assignmentMap.get(g.teachingAssignmentId);
+  const byCourse = [...byAssignmentMap.entries()]
+    .map(([assignmentId, { totalScore: ts, count }]) => {
+      const assignment = assignmentMap.get(assignmentId);
       return {
         courseId: assignment?.courseId ?? null,
         academicPeriodId: assignment?.academicPeriodId ?? null,
         cycle: assignment?.cycle ?? null,
-        averageScore: Number(g._avg?._all ?? 0),
-        totalResponses: g._count?._all ?? 0,
+        averageScore: count > 0 ? Number((ts / count).toFixed(2)) : 0,
+        totalResponses: count,
         course: assignment?.course ?? null,
         academicPeriod: assignment?.academicPeriod ?? null,
       };
@@ -300,26 +321,48 @@ export const getScoreEvolution = async (teacherId, actor, filters = {}) => {
     status: 'SUBMITTED',
   };
 
-  const [periodGroup, totalResponsesAgg] = await Promise.all([
-    prisma.evaluationResponse.groupBy({
-      by: ['teachingAssignmentId'],
-      where: baseWhere,
-      _avg: { _all: true },
-      _count: { _all: true },
-    }),
-    prisma.evaluationResponse.aggregate({
-      where: baseWhere,
-      _count: { _all: true },
-    }),
-  ]);
+  const totalAgg = await prisma.evaluationResponse.aggregate({
+    where: baseWhere,
+    _count: { _all: true },
+  });
 
-  const totalResponses = totalResponsesAgg._count?._all ?? 0;
+  const totalResponses = totalAgg._count?._all ?? 0;
 
   if (totalResponses < MINIMUM_RESPONSES) {
     return enforceMinimumResponses(null, totalResponses);
   }
 
-  const assignmentIds = periodGroup.map((g) => g.teachingAssignmentId);
+  const responses = await prisma.evaluationResponse.findMany({
+    where: baseWhere,
+    select: { id: true, teachingAssignmentId: true },
+  });
+
+  const allIds = responses.map((r) => r.id);
+
+  const details = await prisma.evaluationResponseDetail.findMany({
+    where: { evaluationResponseId: { in: allIds } },
+    select: { evaluationResponseId: true, score: true },
+  });
+
+  const responseToAssignment = new Map(responses.map((r) => [r.id, r.teachingAssignmentId]));
+  const byAssignmentScores = new Map();
+  for (const r of responses) {
+    if (!byAssignmentScores.has(r.teachingAssignmentId)) {
+      byAssignmentScores.set(r.teachingAssignmentId, { totalScore: 0, totalScores: 0, responseCount: 0 });
+    }
+    byAssignmentScores.get(r.teachingAssignmentId).responseCount += 1;
+  }
+  for (const d of details) {
+    const assignmentId = responseToAssignment.get(d.evaluationResponseId);
+    if (!assignmentId) continue;
+    const entry = byAssignmentScores.get(assignmentId);
+    if (entry) {
+      entry.totalScore += d.score;
+      entry.totalScores += 1;
+    }
+  }
+
+  const assignmentIds = [...byAssignmentScores.keys()];
   const assignments = await prisma.teachingAssignment.findMany({
     where: { id: { in: assignmentIds } },
     select: {
@@ -331,8 +374,8 @@ export const getScoreEvolution = async (teacherId, actor, filters = {}) => {
   const assignmentMap = new Map(assignments.map((a) => [a.id, a]));
 
   const periodMap = new Map();
-  for (const g of periodGroup) {
-    const assignment = assignmentMap.get(g.teachingAssignmentId);
+  for (const [assignmentId, { totalScore: ts, totalScores, responseCount }] of byAssignmentScores) {
+    const assignment = assignmentMap.get(assignmentId);
     if (!assignment) continue;
     const periodId = assignment.academicPeriodId;
     if (!periodMap.has(periodId)) {
@@ -340,19 +383,21 @@ export const getScoreEvolution = async (teacherId, actor, filters = {}) => {
         academicPeriodId: periodId,
         academicPeriod: assignment.academicPeriod ?? null,
         totalScore: 0,
+        totalScores: 0,
         totalResponses: 0,
       });
     }
     const entry = periodMap.get(periodId);
-    entry.totalScore += Number(g._avg?._all ?? 0) * (g._count?._all ?? 0);
-    entry.totalResponses += g._count?._all ?? 0;
+    entry.totalScore += ts;
+    entry.totalScores += totalScores;
+    entry.totalResponses += responseCount;
   }
 
   const evolution = Array.from(periodMap.values())
     .map((p) => ({
       academicPeriodId: p.academicPeriodId,
       academicPeriod: p.academicPeriod,
-      averageScore: p.totalResponses > 0 ? Number((p.totalScore / p.totalResponses).toFixed(2)) : 0,
+      averageScore: p.totalScores > 0 ? Number((p.totalScore / p.totalScores).toFixed(2)) : 0,
       totalResponses: p.totalResponses,
     }))
     .sort((a, b) => {
