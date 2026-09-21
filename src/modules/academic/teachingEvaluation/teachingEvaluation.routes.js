@@ -8,6 +8,7 @@ import * as service from './teachingEvaluation.service.js';
 import * as criteriaService from './evaluationCriteria.service.js';
 import * as responseService from './evaluationResponse.service.js';
 import * as detailService from './evaluationResponseDetail.service.js';
+import * as resultsService from './evaluationResults.service.js';
 import {
   createCriterionSchema,
   updateCriterionSchema,
@@ -24,6 +25,10 @@ import {
   deleteDetailSchema,
   getDetailsSchema,
 } from './evaluationResponseDetail.schema.js';
+import {
+  teacherResultsParamsSchema,
+  teacherResultsQuerySchema,
+} from './evaluationResults.schema.js';
 import { z } from 'zod';
 
 const router = Router();
@@ -99,6 +104,98 @@ router.get('/teachers/:teacherId/evaluation-summary', authenticate, authorize(RO
 // ============================================================
 // EVALUACIÓN DOCENTE — NUEVO DOMINIO
 // ============================================================
+
+// --- RESULTADOS DEL DOCENTE ---
+
+router.get(
+  '/evaluation-results/teacher/:teacherId/summary',
+  authenticate,
+  authorize(ROLES.ADMIN, ROLES.SUPERADMIN, ROLES.TEACHER),
+  validate(teacherResultsQuerySchema),
+  asyncHandler(async (req, res) => {
+    const result = await resultsService.getTeacherSummary(
+      req.params.teacherId,
+      req.user,
+      req.query
+    );
+    if (result.meta?.insufficient_data) {
+      return res.json({ success: true, data: null, meta: result.meta });
+    }
+    return res.json({ success: true, data: result.data, meta: result.meta });
+  })
+);
+
+router.get(
+  '/evaluation-results/teacher/:teacherId/criteria',
+  authenticate,
+  authorize(ROLES.ADMIN, ROLES.SUPERADMIN, ROLES.TEACHER),
+  validate(teacherResultsQuerySchema),
+  asyncHandler(async (req, res) => {
+    const result = await resultsService.getCriterionAverages(
+      req.params.teacherId,
+      req.user,
+      req.query
+    );
+    if (result.meta?.insufficient_data) {
+      return res.json({ success: true, data: null, meta: result.meta });
+    }
+    return res.json({ success: true, data: result.data, meta: result.meta });
+  })
+);
+
+router.get(
+  '/evaluation-results/teacher/:teacherId/distribution',
+  authenticate,
+  authorize(ROLES.ADMIN, ROLES.SUPERADMIN, ROLES.TEACHER),
+  validate(teacherResultsQuerySchema),
+  asyncHandler(async (req, res) => {
+    const result = await resultsService.getScoreDistribution(
+      req.params.teacherId,
+      req.user,
+      req.query
+    );
+    if (result.meta?.insufficient_data) {
+      return res.json({ success: true, data: null, meta: result.meta });
+    }
+    return res.json({ success: true, data: result.data, meta: result.meta });
+  })
+);
+
+router.get(
+  '/evaluation-results/teacher/:teacherId/comments',
+  authenticate,
+  authorize(ROLES.ADMIN, ROLES.SUPERADMIN, ROLES.TEACHER),
+  validate(teacherResultsQuerySchema),
+  asyncHandler(async (req, res) => {
+    const result = await resultsService.getAnonymousComments(
+      req.params.teacherId,
+      req.user,
+      req.query
+    );
+    if (result.meta?.insufficient_data) {
+      return res.json({ success: true, data: null, meta: result.meta });
+    }
+    return res.json({ success: true, data: result.data, meta: result.meta });
+  })
+);
+
+router.get(
+  '/evaluation-results/teacher/:teacherId/evolution',
+  authenticate,
+  authorize(ROLES.ADMIN, ROLES.SUPERADMIN, ROLES.TEACHER),
+  validate(teacherResultsQuerySchema),
+  asyncHandler(async (req, res) => {
+    const result = await resultsService.getScoreEvolution(
+      req.params.teacherId,
+      req.user,
+      req.query
+    );
+    if (result.meta?.insufficient_data) {
+      return res.json({ success: true, data: null, meta: result.meta });
+    }
+    return res.json({ success: true, data: result.data, meta: result.meta });
+  })
+);
 
 // --- CRITERIOS DE EVALUACIÓN (ADMIN/SUPERADMIN) ---
 
