@@ -160,32 +160,6 @@ export const findPendingDeliveries = (limit = 50) =>
     take: limit,
   });
 
-/**
- * Lista los votantes de una elección (para difundir RESULTADOS_PUBLISHED).
- */
-export const findVotersForElection = (electionId, limit = 5000) =>
-  prisma.vote.findMany({
-    where: { electionId },
-    select: { voterId: true },
-    distinct: ['voterId'],
-    take: limit,
-  });
-
-/**
- * Crea N notificaciones idénticas (broadcast) a una lista de destinatarios.
- */
-export const createBroadcast = (userId, data) =>
-  prisma.notification.create({
-    data: {
-      userId,
-      type: data.type,
-      title: data.title,
-      message: data.message,
-      metadata: data.metadata || {},
-    },
-    select: NOTIFICATION_SELECT,
-  });
-
 export default {
   countUnreadNotifications,
   findNotificationsByUser,
@@ -195,6 +169,4 @@ export default {
   markAllNotificationsAsRead,
   updateDeliveryStatus,
   findPendingDeliveries,
-  findVotersForElection,
-  createBroadcast,
 };

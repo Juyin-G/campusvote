@@ -38,7 +38,7 @@
  *         required: true
  *         schema: { type: string, format: uuid }
  *     responses:
- *       200: { description: Declaración (signed: bool) }
+ *       200: { description: 'Declaración (signed: bool)' }
  *
  * /api/fairs/my-progress/{fairId}:
  *   get:

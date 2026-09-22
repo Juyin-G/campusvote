@@ -15,17 +15,10 @@ import userRoutesExtra from '../modules/users/user.routes.extra.js';
 import healthRoutes from '../modules/health/health.routes.js';
 import organizationRoutes from '../modules/organizations/organization/organization.routes.js';
 import academicRoutes from '../modules/academic/academic.routes.js';
-import electionRoutes from '../modules/elections/elections/election.routes.js';
-import ballotRoutes from '../modules/ballots/ballot.routes.js';
-import resultsRoutes, { resultsPublicRouter } from '../modules/results/results.routes.js';
-import publicKpisRoutes from '../modules/results/publicKpis.routes.js';
 import auditRoutes from '../modules/audit/audit.routes.js';
 import platformTranslationRoutes from '../modules/PlatformTranslation/PlatformTranslation.routes.js';
 
 import notificationRoutes from '../modules/notification/notification.routes.js';
-import votingRoutes from '../modules/voting/voting.routes.js';
-import votingPublicRoutes from '../modules/voting/voting.public.routes.js';
-import objectionRoutes from '../modules/objections/objection.routes.js';
 import uploadRoutes from '../modules/upload/upload.routes.js';
 import gmailTestRoutes from '../modules/admin/gmailTest.routes.js';
 import projectRoutes from '../modules/projects/project.routes.js';
@@ -60,13 +53,6 @@ router.use('/health', healthRoutes);
 // SUPERADMIN; las rutas internas ya autorizan por endpoint.
 router.use('/auth', authRoutes);
 router.use('/auth/otp', otpRoutes);
-
-// Panel público: resultados, KPIs y verificación de comprobantes. Deben
-// quedar FUERA del tenantRouter (que exige authenticate + bloquea SUPERADMIN)
-// para poder consultarse de forma anónima.
-router.use(resultsPublicRouter);
-router.use(publicKpisRoutes);
-router.use(votingPublicRoutes);
 
 // CAMBIO: el CRUD de usuarios académicos vive en el TENANT ROUTER (protegido
 // por blockSuperAdminFromTenantRoutes). Las rutas de PROVISION (PLATFORM:
@@ -114,16 +100,8 @@ tenantRouter.use('/academic', academicRoutes);
 tenantRouter.use('/users', userRoutes);
 tenantRouter.use('/users', userRoutesExtra);
 
-// Proceso Electoral.
-tenantRouter.use('/elections', electionRoutes);
-tenantRouter.use('/ballots', ballotRoutes);
-
-// Resultados, KPIs, votos, padrones, notificaciones, calificaciones, tachas.
-// (Los sub-routers públicos de results/KPIs se montan en la sección pública.)
-tenantRouter.use(resultsRoutes);
+// Notificaciones del tenant.
 tenantRouter.use('/notifications', notificationRoutes);
-tenantRouter.use('/voting', votingRoutes);
-tenantRouter.use(objectionRoutes);
 
 // Subida de archivos (imágenes/PDFs) operada por tenant.
 tenantRouter.use('/upload', uploadRoutes);

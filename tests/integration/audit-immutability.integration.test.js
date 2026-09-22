@@ -23,7 +23,6 @@ const insertSampleAuditLog = async () => {
   await prisma.$executeRawUnsafe(`
     INSERT INTO audit_logs (
       actor_id,
-      election_id,
       action,
       ip_address,
       metadata,
@@ -31,7 +30,6 @@ const insertSampleAuditLog = async () => {
       current_hash,
       signature
     ) VALUES (
-      NULL,
       NULL,
       'LOGIN',
       NULL,

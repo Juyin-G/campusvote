@@ -25,7 +25,7 @@
  *         name: category
  *         schema:
  *           type: string
- *         description: "Filtrar por categoría (ej: general, auth, elections)"
+ *         description: "Filtrar por categoría (ej: general, auth)"
  *     responses:
  *       200:
  *         description: Diccionario de traducciones
@@ -91,11 +91,11 @@
  *               translation_key:
  *                 type: string
  *                 pattern: "^[a-z0-9._-]+$"
- *                 example: "elections.vote.submit"
+ *                 example: "auth.login.submit"
  *               category:
  *                 type: string
  *                 default: "general"
- *                 example: "elections"
+ *                 example: "general"
  *               values:
  *                 type: object
  *                 additionalProperties:

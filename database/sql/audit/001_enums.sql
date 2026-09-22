@@ -3,34 +3,23 @@
 BEGIN;
 
 -- ENUM: TIPOS DE ACCIONES DE AUDITORÍA
+-- El dominio de elecciones fue removido (FASE 13). Solo sobreviven acciones
+-- de CORE (login/2FA/acceso denegado) y del dominio de FERIAS.
 
 DO $$
 BEGIN
     CREATE TYPE audit_action_type AS ENUM (
         'LOGIN',
         'VERIFY_2FA',
-        'CREATE_ELECTION',
-        'OPEN_ELECTION',
-        'CAST_VOTE',
-        'CLOSE_ELECTION',
-        'CERTIFY_RESULT',
-        'PUBLISH_RESULT',
-        'ASSIGN_JURY',
-        'REVOKE_JURY',
-        'DECLARE_JURY_CONFLICT',
-        'CLEAR_JURY_CONFLICT',
-        'REGENERATE_BALLOT',
-        'REOPEN_RATING'
+        'ACCESS_DENIED',
+        'CAST_FAIR_VOTE',
+        'FAIR_VOTE_ATTEMPT_DENIED',
+        'RUBRIC_CHECKLIST_FINALIZED',
+        'PROJECT_LIKED',
+        'PROJECT_COMMENTED'
     );
 EXCEPTION
     WHEN duplicate_object THEN NULL;
 END $$;
-
-ALTER TYPE audit_action_type ADD VALUE IF NOT EXISTS 'ASSIGN_JURY';
-ALTER TYPE audit_action_type ADD VALUE IF NOT EXISTS 'REVOKE_JURY';
-ALTER TYPE audit_action_type ADD VALUE IF NOT EXISTS 'DECLARE_JURY_CONFLICT';
-ALTER TYPE audit_action_type ADD VALUE IF NOT EXISTS 'CLEAR_JURY_CONFLICT';
-ALTER TYPE audit_action_type ADD VALUE IF NOT EXISTS 'REGENERATE_BALLOT';
-ALTER TYPE audit_action_type ADD VALUE IF NOT EXISTS 'REOPEN_RATING';
 
 COMMIT;

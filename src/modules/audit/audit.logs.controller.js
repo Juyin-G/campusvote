@@ -93,7 +93,6 @@ class AuditLogsController {
 
       const logData = {
         actorId: req.user?.userId ?? req.user?.id ?? null,
-        electionId: logPayload.electionId || null,
         action: logPayload.action,
         ipAddress: clientIp,
         metadata: logPayload.metadata || {},

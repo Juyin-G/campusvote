@@ -115,7 +115,7 @@ Documentos de flujo y revisión:
 - [Variables públicas del frontend](.env.frontend.example)
 
 ## Arquitectura de Carpetas
-- `src/modules/`: Feature-based (auth, users, elections).
+- `src/modules/`: Feature-based (auth, users, fairs, academic, audit).
 - `src/common/`: Errores tipados, utilidades compartidas.
 - `src/middlewares/`: Autenticación, validación Zod, RBAC.
 - `database/sql/`: Scripts nativos de PostgreSQL (Triggers, Funciones).

@@ -109,55 +109,6 @@ export const MESSAGES = {
       'Este correo es informativo; no requiere ninguna accion inmediata.',
   },
 
-  // ELECCIONES (ELECTIONS)
-  ELECTION: {
-    CREATED_SUCCESS: 'Elección creada correctamente.',
-    UPDATED_SUCCESS: 'Elección actualizada correctamente.',
-    DELETED_SUCCESS: 'Elección eliminada correctamente.',
-    NOT_FOUND: 'La elección solicitada no existe.',
-    TITLE_TAKEN: 'Ya existe una elección con ese título en el mismo período.',
-
-    // Estados
-    DRAFT_ONLY_ACTION: 'Esta acción solo puede realizarse cuando la elección está en estado BORRADOR.',
-    ALREADY_OPEN: 'La elección ya se encuentra abierta.',
-    ALREADY_CLOSED: 'La elección ya ha finalizado.',
-    OPENED_SUCCESS: 'Elección abierta. Los votantes ya pueden emitir su voto.',
-    CLOSED_SUCCESS: 'Elección cerrada correctamente.',
-    CANCELLED_SUCCESS: 'Elección cancelada correctamente.',
-    NOT_OPEN: 'La elección no se encuentra abierta para votación.',
-    ALREADY_FINISHED: 'La elección ya ha sido finalizada y no acepta más modificaciones.',
-    CANNOT_MODIFY_ACTIVE: 'No se puede modificar una elección que se encuentra en curso.',
-    INVALID_DATES: 'La fecha de inicio debe ser anterior a la fecha de finalización.',
-  },
-
-  // VOTACIÓN Y PAPELETAS (VOTING)
-  VOTE: {
-    SUBMITTED_SUCCESS: 'Voto emitido y registrado correctamente.',
-    ALREADY_VOTED: 'Usted ya ha emitido su voto en esta elección.',
-    NOT_ELIGIBLE: 'No se encuentra habilitado en el padrón electoral para votar en esta elección.',
-    SELECTION_INVALID: 'La selección de candidatos u opciones elegidas no es válida.',
-    RECEIPT_GENERATED: 'Comprobante de votación generado correctamente.',
-    TOKEN_INVALID: 'El token único de votación es inválido o ya ha sido utilizado.',
-  },
-
-  // CANDIDATOS Y LISTAS (CANDIDATES)
-  CANDIDATE: {
-    CREATED_SUCCESS: 'Candidato registrado correctamente.',
-    UPDATED_SUCCESS: 'Información del candidato actualizada correctamente.',
-    DELETED_SUCCESS: 'Candidato eliminado correctamente.',
-    NOT_FOUND: 'El candidato solicitado no existe.',
-    ALREADY_EXISTS: 'El candidato ya se encuentra registrado en esta lista o elección.',
-    LIST_FULL: 'La lista electoral ha alcanzado el número máximo de candidatos permitidos.',
-  },
-
-  // RESULTADOS Y ESCRUTINIO (RESULTS)
-  RESULTS: {
-    CALCULATED_SUCCESS: 'Escrutinio completado y resultados calculados correctamente.',
-    NOT_AVAILABLE: 'Los resultados aún no están disponibles para esta elección.',
-    PUBLISHED_SUCCESS: 'Resultados publicados correctamente.',
-    EXPORTED_SUCCESS: 'Reporte de resultados exportado correctamente.',
-  },
-
   // SISTEMA Y ERRORES COMUNES (COMMON / SYSTEM)
   COMMON: {
     INTERNAL_SERVER_ERROR: 'Ocurrió un error interno en el servidor. Intente nuevamente más tarde.',

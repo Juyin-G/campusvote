@@ -86,38 +86,6 @@ export class ApiError extends Error {
     return new ApiError(409, `A user with this ${field} already exists`, { field }, 'USER_ALREADY_EXISTS');
   }
 
-  static electionNotFound(electionId = null) {
-    return new ApiError(404, 'Election not found', { electionId }, 'ELECTION_NOT_FOUND');
-  }
-
-  static electionNotOpen(status = null) {
-    return new ApiError(409, 'Election is not open for voting', { status }, 'ELECTION_NOT_OPEN');
-  }
-
-  static alreadyVoted(electionId = null) {
-    return new ApiError(409, 'User has already voted in this election', { electionId }, 'ALREADY_VOTED');
-  }
-
-  static notEligibleToVote(reason = null) {
-    return new ApiError(403, 'User is not eligible to vote', { reason }, 'NOT_ELIGIBLE_TO_VOTE');
-  }
-
-  static tokenAlreadyUsed() {
-    return new ApiError(409, 'One-time token has already been used', null, 'TOKEN_ALREADY_USED');
-  }
-
-  static tokenExpired() {
-    return new ApiError(410, 'One-time token has expired', null, 'TOKEN_EXPIRED');
-  }
-
-  static invalidBallot(details = null) {
-    return new ApiError(422, 'Invalid or incomplete ballot', details, 'INVALID_BALLOT');
-  }
-
-  static invalidVotingSession() {
-    return new ApiError(409, 'Invalid or expired voting session', null, 'INVALID_VOTING_SESSION');
-  }
-
   static invalidDigitalSignature() {
     return new ApiError(422, 'Invalid digital signature', null, 'INVALID_DIGITAL_SIGNATURE');
   }

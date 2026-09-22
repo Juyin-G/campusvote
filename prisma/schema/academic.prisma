@@ -10,7 +10,6 @@ model Faculty {
   // Relaciones
   programs  Program[]
   users     User[] // Necesario para la FK faculty_id en User
-  elections Election[]
 
   @@map("faculties")
 }
@@ -29,7 +28,6 @@ model Program {
   faculty         Faculty         @relation(fields: [facultyId], references: [id], onDelete: Restrict)
   voterRegistries VoterRegistry[]
   users           User[] // Necesario para la FK program_id en User
-  elections       Election[]
 
   @@unique([facultyId, name], name: "uq_programs_faculty_name")
   @@map("programs")
@@ -138,7 +136,6 @@ model AcademicPeriod {
   // Relaciones
   voterRegistries     VoterRegistry[]
   voterRegistryClaims VoterRegistryClaim[]
-  elections           Election[]
   users               User[] // FK admission_period_id en User
   teachingAssignments TeachingAssignment[]
   teacherEvaluations  TeacherEvaluation[]

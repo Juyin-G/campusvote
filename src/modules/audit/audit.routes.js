@@ -1,11 +1,9 @@
 // src/modules/audit/audit.routes.js
 
 import { Router } from 'express';
-import rateLimit from 'express-rate-limit';
 import asyncHandler from '../../shared/utils/asyncHandler.js';
 import auditController from './audit.controller.js';
 import { authenticate, authorize } from '../../middlewares/auth.middleware.js';
-import { ApiError } from '../../shared/errors/ApiError.js';
 import { ROLES } from '../../constants/roles.js';
 
 const router = Router();
@@ -16,28 +14,6 @@ const router = Router();
 const GESTORES = [ROLES.ADMIN];
 const VIEWERS = [ROLES.ADMIN];
 
-// Handler que delega en el error handler global para mantener el formato
-// de respuesta 429 consistente con el resto de la API.
-const tokenRateLimitHandler = (req, res, next, options) => {
-  const retryAfterSeconds = Math.ceil((options?.windowMs || 0) / 1000);
-  next(
-    ApiError.tooManyRequests(
-      'Demasiadas solicitudes desde esta IP. Intente más tarde.',
-      { retryAfterSeconds, code: 'AUDIT_TOKEN_RATE_LIMITED' },
-      'AUDIT_TOKEN_RATE_LIMITED'
-    )
-  );
-};
-
-// Limitador estricto para operaciones de tokens de votación/sensibles
-const tokenRateLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutos
-  max: 30, // 30 intentos por ventana
-  standardHeaders: true,
-  legacyHeaders: false,
-  handler: tokenRateLimitHandler,
-});
-
 /**
  * RUTAS DE AUDIT LOGS (Trazabilidad e historial)
  */
@@ -45,7 +21,7 @@ const tokenRateLimiter = rateLimit({
 router.get(
   '/verify',
   authenticate,
-  authorize([ROLES.ADMIN]),
+  authorize(GESTORES),
   asyncHandler(auditController.verifyAuditChain)
 );
 
@@ -68,40 +44,6 @@ router.post(
   authenticate,
   authorize(GESTORES),
   asyncHandler(auditController.createAuditLog)
-);
-
-/**
- * RUTAS DE ONE-TIME TOKENS / VOTING TOKENS
- */
-
-// Generar token para un usuario (Restringido a GESTORES para evitar acuñación no autorizada)
-router.post(
-  '/tokens',
-  authenticate,
-  authorize(GESTORES),
-  asyncHandler(auditController.createOneTimeToken)
-);
-
-// Consumir token en cabina/proceso de votación (protegido por Rate Limit)
-router.post(
-  '/tokens/consume',
-  tokenRateLimiter,
-  asyncHandler(auditController.consumeOneTimeToken)
-);
-
-// Consultar validez de token sin consumirlo
-router.get(
-  '/tokens/status',
-  tokenRateLimiter,
-  asyncHandler(auditController.checkTokenStatus)
-);
-
-// Mantenimiento y depuración de tokens vencidos (Solo administradores)
-router.delete(
-  '/tokens/cleanup',
-  authenticate,
-  authorize([ROLES.ADMIN]),
-  asyncHandler(auditController.cleanupExpiredTokens)
 );
 
 export default router;

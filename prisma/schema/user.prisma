@@ -180,26 +180,16 @@ model User {
   activationTokens             ActivationToken[]
   voterRegistries              VoterRegistry[]
   auditLogs                    AuditLog[]
-  votingAccessTokens           VotingAccessToken[]
-  createdElections             Election[]               @relation("CreatedElections")
-  candidacies                  Candidacy[]
   notifications                Notification[]
   reviewedOrgRequests          OrganizationRequest[]    @relation("OrgRequestReviewer")
-  votingSessions               VotingSession[]
-  votes                        Vote[]
 
   voterRegistryClaims          VoterRegistryClaim[]     @relation("UserClaims")
   reviewedVoterRegistryClaims  VoterRegistryClaim[]     @relation("ReviewerClaims")
   mediaFiles                   media_files[]
-  advisorForCandidacies        Candidacy[]              @relation("AdvisorCandidacies")
-  juryAssignments              JuryAssignment[]         @relation("JuryAssignments")
   teachingAssignments          TeachingAssignment[]     @relation("TeachingAssignments")
   teacherEvaluationsByStudent  TeacherEvaluation[]      @relation("TeacherEvaluationsByStudent")
   teacherEvaluationsForTeacher TeacherEvaluation[]      @relation("TeacherEvaluationsForTeacher")
   evaluationResponsesByStudent EvaluationResponse[]     @relation("EvaluationResponsesByStudent")
-  assignedJuryAssignments      JuryAssignment[]         @relation("JuryAssignmentsBy")
-  objectionsFiled              CandidacyObjection[]     @relation("ObjectionFiler")
-  objectionsReviewed           CandidacyObjection[]     @relation("ObjectionReviewer")
 
   // Proyectos de feria (propietario / revisor / participante)
   createdProjects    Project[]       @relation("CreatedProjects")
@@ -210,8 +200,7 @@ model User {
   siteAssignments             UserSiteAssignment[] @relation("UserSiteAssignments")
   siteAssignmentsGranted      UserSiteAssignment[] @relation("UserSiteAssignmentsGrantedBy")
   // Jurados de FERIAS (rol global JURY; participación formal en una feria).
-  // Relación exclusiva del dominio de ferias — no se mezcla con
-  // juryAssignments (dominio electoral de elections/candidacies).
+  // Relación exclusiva del dominio de ferias.
   fairJuryAssignments         FairJuryAssignment[] @relation("FairJuryAssignments")
   assignedFairJuryAssignments FairJuryAssignment[] @relation("FairJuryAssignmentsBy")
 

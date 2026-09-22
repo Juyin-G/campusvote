@@ -3,7 +3,6 @@
 // Ejecuta en orden:
 //   1. Contexto organizacional (organizations, periods, faculties, programs, careers).
 //   2. Usuarios de desarrollo (roles ADMIN/TEACHER/STUDENT/JURY/COMMISSION/SUPERADMIN).
-//   3. Elecciones publicadas.
 //
 // Cada función seedX es idempotente (upsert por claves únicas).
 //
@@ -13,7 +12,6 @@ import { PrismaClient } from '@prisma/client';
 
 import { seedOrganizations } from '../database/seeds/organization.js';
 import { seedDevUsers, seedUsers } from '../database/seeds/user.js';
-import { seedElections } from '../database/seeds/election.js';
 
 const prisma = new PrismaClient();
 
@@ -37,16 +35,6 @@ async function main() {
   if (ctxUsersLegacy?.superAdmin) {
     usersByEmail[ctxUsersLegacy.superAdmin.email] = ctxUsersLegacy.superAdmin;
   }
-  // Mapeo por "rol@org" esperado por el seed de elecciones.
-  const usersByRole = {
-    admin_a: usersByEmail['admin.a@dev-a.campusvote.edu'],
-  };
-
-  // 4) Elecciones publicadas.
-  await seedElections(prisma, {
-    ...ctxOrg,
-    users: usersByRole,
-  });
 
   console.log('¡Sembrado de datos de desarrollo finalizado con éxito!');
 }

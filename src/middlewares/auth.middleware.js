@@ -77,6 +77,13 @@ const createAuthenticateMiddleware = (options = {}) => (req, res, next) => {
 export const authenticate = createAuthenticateMiddleware({ allowPending: false });
 
 /**
+ * Alias de retrocompatibilidad: el export se denominaba `authenticateToken`
+ * antes de la refactorización de nombres. Se conserva para imports vigentes
+ * (fairResult.routes.js y suites de pruebas).
+ */
+export const authenticateToken = authenticate;
+
+/**
  * Middleware de autenticación que permite tokens TOTP_PENDING.
  * Solo debe usarse en la ruta de verificación TOTP.
  */
@@ -146,6 +153,13 @@ export const authorizeTenant = (...roles) => (req, res, next) => {
 
   next();
 };
+
+/**
+ * Alias de retrocompatibilidad: export histórico que se usaba como guard de
+ * roles en rutas de negocio; ahora delega en authorizeTenant(), designado
+ * para rutas de tenant (ferias/proyectos). Conserva imports vigentes.
+ */
+export const authorizeRoles = authorizeTenant;
 
 /**
  * CAMBIO: authorizePlatform(roles) está pensado para rutas macro

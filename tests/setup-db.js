@@ -55,8 +55,6 @@ export default async function setupTestDB() {
     await executeFile('005_base_functions.sql');
     await executeFile('organizations/001_enums.sql');
     await executeFile('user/001_enums.sql');
-    await executeFile('elections/001_enums.sql');
-    await executeFile('ballots/001_enums.sql');
     await executeFile('audit/001_enums.sql');
 
     console.log('5. Creando organizaciones...');
@@ -132,54 +130,19 @@ export default async function setupTestDB() {
       END IF;
     END$$;`);
 
-    console.log('9. Creando elecciones...');
-
-    await executeFile('elections/002_elections.sql');
-    await executeFile('elections/003_organization_scope.sql');
-    await executeFile('elections/003_positions.sql');
-    await executeFile('elections/004_candidate_lists.sql');
-    await executeFile('elections/005_candidacies.sql');
-    await executeFile('elections/006_election_rules.sql');
-    await executeFile('elections/007_candidacy_documents.sql');
-    await executeFile('elections/008_candidate_lists_fair_profile.sql');
-    await executeFile('elections/009_election_rules_peru.sql');
-    await executeFile('elections/010_candidacy_advisor.sql');
-
-    console.log('10. Creando ballots...');
-
-    await executeFile('ballots/002_ballots.sql');
-    await executeFile('ballots/003_ballot_positions.sql');
-    await executeFile('ballots/004_ballot_options.sql');
-
-    console.log('11. Creando auditoría...');
+    console.log('9. Creando auditoría...');
 
     await executeFile('audit/002_audit_logs.sql');
     await executeFile('audit/003_audit_protection.sql');
-    await executeFile('audit/004_voting_access_tokens.sql');
-    await executeFile('audit/005_token_consumption.sql');
     await executeFile('audit/006_audit_permissions.sql');
     await executeFile('audit/007_actions_peru.sql');
 
-    console.log('12. Creando resultados...');
-
-    await executeFile('results/001_tallies.sql');
-    await executeFile('results/002_election_results.sql');
-
-    console.log('13. Creando votación...');
-
-    await executeFile('voting/001_voting_sessions.sql');
-    await executeFile('voting/002_votes.sql');
-    await executeFile('voting/003_vote_selections.sql');
-
-    console.log('14. Cargando funciones y vistas...');
+    console.log('10. Cargando funciones y vistas...');
 
     await executeFile('academic/005_voter_validation.sql');
     await executeFile('academic/006_views.sql');
     await executeFile('academic/007_functions.sql');
     await executeFile('academic/008_sis_sync.sql');
-
-    await executeFile('ballots/005_views.sql');
-    await executeFile('ballots/006_functions.sql');
 
     await executeFile('organizations/004_approval_functions.sql');
 
@@ -192,29 +155,15 @@ export default async function setupTestDB() {
     await executeFile('user/020b_user_scope_columns.sql');
     await executeFile('user/021_user_site_assignments.sql');
 
-    await executeFile('reports/001_election_report_history.sql');
     await executeFile('claims/001_voter_registry_claims.sql');
-    await executeFile('objections/001_candidacy_objections.sql');
-    await executeFile('public/001_public_election_landing.sql');
 
-    await executeFile('results/003_turnout_trigger.sql');
-    await executeFile('results/004_tally_votes.sql');
-    await executeFile('results/005_certify_election.sql');
-    await executeFile('results/006_weighted_fair.sql');
-
-    await executeFile('voting/004_start_session.sql');
-    await executeFile('voting/005_cast_vote.sql');
-    await executeFile('voting/006_session_management.sql');
-    await executeFile('voting/007_vote_integrity.sql');
-    await executeFile('voting/008_scrutiny.sql');
-
-    console.log('15. Cargando notificaciones e i18n...');
+    console.log('11. Cargando notificaciones e i18n...');
 
     await executeFile('notifications/001_notifications.sql');
     await executeFile('notifications/002_channels.sql');
     await executeFile('i18n/001_locales_and_translations.sql');
 
-    console.log('16. Creando proyectos y ferias académicas...');
+    console.log('12. Creando proyectos y ferias académicas...');
 
     await executeFile('projects/001_projects.sql');
     await executeFile('fairs/001_fairs.sql');

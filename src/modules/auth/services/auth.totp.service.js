@@ -48,7 +48,6 @@ const log2FASuccess = async (userId, method) => {
   try {
     await auditService.logAction({
       actorId: userId,
-      electionId: null,
       action: 'VERIFY_2FA',
       metadata: { method },
     });

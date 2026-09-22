@@ -56,7 +56,6 @@ const auditCastVote = async ({ fairId, receiptCode }) => {
   try {
     await auditService.logAction({
       actorId: null,
-      electionId: null,
       action: 'CAST_FAIR_VOTE',
       metadata: { fair_id: fairId, receipt: receiptCode },
     });
@@ -69,7 +68,6 @@ const auditVoteAttempt = async ({ fairId, reason, actorId }) => {
   try {
     await auditService.logAction({
       actorId,
-      electionId: null,
       action: 'FAIR_VOTE_ATTEMPT_DENIED',
       metadata: { fair_id: fairId, reason },
     });

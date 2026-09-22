@@ -1,21 +1,13 @@
 enum AuditActionType {
   LOGIN
   VERIFY_2FA
-  CREATE_ELECTION
-  OPEN_ELECTION
-  CAST_VOTE
-  CLOSE_ELECTION
-  CERTIFY_RESULT
-  PUBLISH_RESULT
-  FILE_OBJECTION
-  RESOLVE_OBJECTION
-  ASSIGN_JURY
-  REVOKE_JURY
-  DECLARE_JURY_CONFLICT
-  CLEAR_JURY_CONFLICT
-  REGENERATE_BALLOT
-  REOPEN_RATING
-  SUBMIT_RATING
+  ACCESS_DENIED
+  CAST_FAIR_VOTE
+  FAIR_VOTE_ATTEMPT_DENIED
+  RUBRIC_CHECKLIST_FINALIZED
+  PROJECT_LIKED
+  PROJECT_COMMENTED
+  PROJECT_LIKE_MILESTONE
 
   @@map("audit_action_type")
 }
@@ -24,7 +16,6 @@ model AuditLog {
   id           String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   sequenceNum  BigInt          @unique @default(autoincrement()) @map("sequence_num")
   actorId      String?         @map("actor_id") @db.Uuid
-  electionId   String?         @map("election_id") @db.Uuid
   action       AuditActionType
   timestamp    DateTime        @default(now()) @db.Timestamptz(6)
   ipAddress    String?         @map("ip_address") @db.Inet
@@ -34,30 +25,10 @@ model AuditLog {
   signature    String          @default("")
 
   // Relaciones
-  user     User?     @relation(fields: [actorId], references: [id], onDelete: SetNull, onUpdate: NoAction)
-  election Election? @relation(fields: [electionId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  user User? @relation(fields: [actorId], references: [id], onDelete: SetNull, onUpdate: NoAction)
 
   @@index([action, timestamp(sort: Desc)], map: "idx_audit_logs_action_timestamp")
-  @@index([electionId, timestamp(sort: Desc)], map: "idx_audit_logs_election_timestamp")
   @@index([actorId, timestamp(sort: Desc)], map: "idx_audit_logs_actor_timestamp")
   @@index([timestamp(sort: Desc)], map: "idx_audit_logs_timestamp_desc")
   @@map("audit_logs")
-}
-
-model VotingAccessToken {
-  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tokenHash  String    @unique @map("token_hash") @db.VarChar(64)
-  userId     String    @map("user_id") @db.Uuid
-  electionId String    @map("election_id") @db.Uuid
-  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  expiresAt  DateTime  @map("expires_at") @db.Timestamptz(6)
-  usedAt     DateTime? @map("used_at") @db.Timestamptz(6)
-
-  // Relaciones
-  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  election Election @relation(fields: [electionId], references: [id], onDelete: Cascade)
-
-  @@index([userId, electionId], map: "idx_vat_user_election")
-  @@index([electionId], map: "idx_vat_election")
-  @@map("voting_access_tokens")
 }

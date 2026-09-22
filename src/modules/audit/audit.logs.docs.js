@@ -21,9 +21,6 @@
  *         name: action
  *         schema: { type: string }
  *       - in: query
- *         name: electionId
- *         schema: { type: string, format: uuid }
- *       - in: query
  *         name: actorId
  *         schema: { type: string, format: uuid }
  *       - in: query
@@ -63,7 +60,6 @@
  *             type: object
  *             required: [action]
  *             properties:
- *               electionId: { type: string, format: uuid }
  *               action: { type: string }
  *               metadata: { type: object }
  *     responses:

@@ -6,7 +6,6 @@
 import userSchemas from './user.schema.js';
 import authSchemas from './auth.schema.js';
 import organizationSchemas from './organization.schema.js';
-import electionSchemas from './election.schema.js';
 import responseSchemas from './responses.schema.js';
 
 /**
@@ -17,7 +16,6 @@ const schemas = {
   ...userSchemas,
   ...authSchemas,
   ...organizationSchemas,
-  ...electionSchemas,
   ...responseSchemas,
 };
 
