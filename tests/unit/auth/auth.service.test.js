@@ -101,6 +101,7 @@ jest.unstable_mockModule(
     generatePendingToken: mockGeneratePendingToken,
     generateRefreshToken: mockGenerateRefreshToken,
     formatUserResponse: mockFormatUserResponse,
+    PENDING_TOKEN_TTL: { TOTP_PENDING: 600, ONBOARDING: 1800 },
     default: {
       AUTH_MESSAGES: {
         INVALID_CREDENTIALS: 'Credenciales inválidas',
@@ -111,6 +112,7 @@ jest.unstable_mockModule(
       generatePendingToken: mockGeneratePendingToken,
       generateRefreshToken: mockGenerateRefreshToken,
       formatUserResponse: mockFormatUserResponse,
+      PENDING_TOKEN_TTL: { TOTP_PENDING: 600, ONBOARDING: 1800 },
     },
   })
 );

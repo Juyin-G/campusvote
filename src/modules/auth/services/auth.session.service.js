@@ -12,6 +12,7 @@ import {
   generateRefreshToken,
   generatePendingToken,
   formatUserResponse,
+  PENDING_TOKEN_TTL,
 } from './auth.helpers.js';
 import env from '../../../config/env.js';
 import logger from '../../../config/logger.js';
@@ -73,7 +74,7 @@ export const login = async ({
         email: user.email,
         role: user.role,
         purpose: 'ONBOARDING',
-        ttlSeconds: 1800,
+        ttlSeconds: PENDING_TOKEN_TTL.ONBOARDING,
       });
 
       return {
@@ -90,7 +91,7 @@ export const login = async ({
       email: user.email,
       role: user.role,
       purpose: 'TOTP_PENDING',
-      ttlSeconds: 600,
+      ttlSeconds: PENDING_TOKEN_TTL.TOTP_PENDING,
     });
 
     return {

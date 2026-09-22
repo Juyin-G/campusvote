@@ -33,6 +33,12 @@ export const AUTH_MESSAGES = {
   TOKEN_INVALID: 'Token inválido o expirado',
 };
 
+/** TTL de los tokens temporales de propósito limitado (segundos). */
+export const PENDING_TOKEN_TTL = {
+  TOTP_PENDING: 600,
+  ONBOARDING: 1800,
+};
+
 /** Wrapper para errores de autenticación (401). */
 export const authError = (message, code = 'UNAUTHORIZED') =>
   new ApiError(401, message, null, code);

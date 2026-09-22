@@ -6,14 +6,80 @@ import bcrypt from 'bcryptjs';
 import crypto from 'node:crypto';
 import { prisma } from '../../../database/prisma.js';
 import { ApiError } from '../../../shared/errors/ApiError.js';
-import { AUTH_MESSAGES, authError } from './auth.helpers.js';
+import {
+  AUTH_MESSAGES,
+  authError,
+  generatePendingToken,
+  formatUserResponse,
+  PENDING_TOKEN_TTL,
+} from './auth.helpers.js';
 import * as otpRepository from '../repositories/otp.repository.js';
+import * as authRepository from '../repositories/auth.repository.js';
 
 const sha256 = (value) => crypto.createHash('sha256').update(value).digest('hex');
 
-/** Busca un token de activación por su hash (helper Prisma). */
-const findActivationToken = async (tokenHash) =>
-  prisma.activationToken.findUnique({ where: { tokenHash } });
+/**
+ * Activa una cuenta de ADMIN proveniente de la aprobación de una solicitud.
+ * El repositorio crea organización + usuario ADMIN (scopeLevel ORG) de forma
+ * atómica y consume el token. Emite un tempToken ONBOARDING para continuar el
+ * enrolamiento de 2FA (/onboarding/totp/*, /onboarding/finalize).
+ */
+export const activateAccount = async (rawToken, newPassword) => {
+  const passwordHash = await bcrypt.hash(newPassword, 12);
+  const userId = await authRepository.activateOrganizationWithToken(
+    rawToken,
+    passwordHash
+  );
+
+  if (!userId) {
+    throw authError(AUTH_MESSAGES.TOKEN_INVALID);
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      email: true,
+      username: true,
+      role: true,
+      status: true,
+      firstName: true,
+      lastName: true,
+      institutionalId: true,
+      organizationId: true,
+      isVerified: true,
+      isStaff: true,
+      isSuperuser: true,
+      twoFactorEnabled: true,
+      mustChangePassword: true,
+      mustSetup2fa: true,
+      lastLogin: true,
+      dateJoined: true,
+    },
+  });
+
+  if (!user) {
+    throw authError(AUTH_MESSAGES.TOKEN_INVALID);
+  }
+
+  const tempToken = generatePendingToken({
+    userId: user.id,
+    email: user.email,
+    role: user.role,
+    purpose: 'ONBOARDING',
+    ttlSeconds: PENDING_TOKEN_TTL.ONBOARDING,
+  });
+
+  return {
+    activated: true,
+    requiresOnboarding: true,
+    tempToken,
+    email: user.email,
+    mustChangePassword: user.mustChangePassword ?? false,
+    mustSetup2fa: user.mustSetup2fa ?? false,
+    user: formatUserResponse(user),
+  };
+};
 
 /** Busca un token de password reset por su hash. */
 const findPasswordResetToken = async (tokenHash) =>
@@ -22,24 +88,6 @@ const findPasswordResetToken = async (tokenHash) =>
 /** Busca un token de verificación de email por su hash. */
 const findEmailVerificationToken = async (tokenHash) =>
   prisma.emailVerificationToken.findUnique({ where: { tokenHash } });
-
-export const activateAccount = async (rawToken, newPassword) => {
-  const token = await findActivationToken(sha256(rawToken));
-  if (!token || token.usedAt || token.expiresAt < new Date()) {
-    throw authError(AUTH_MESSAGES.TOKEN_INVALID);
-  }
-  await prisma.user.update({
-    where: { id: token.userId },
-    data: {
-      password: await bcrypt.hash(newPassword, 12),
-      mustChangePassword: false,
-      status: 'ACTIVE',
-      isVerified: true,
-    },
-  });
-  await prisma.activationToken.update({ where: { id: token.id }, data: { usedAt: new Date() } });
-  return { activated: true };
-};
 
 export const finalizeOnboarding = async ({
   userId,

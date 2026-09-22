@@ -7,6 +7,7 @@ import {
   sendAdminActivation,
 } from '../../../shared/services/email.service.js';
 import logger from '../../../config/logger.js';
+import env from '../../../config/env.js';
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -108,6 +109,8 @@ export const approveRequest = async (requestId, reviewerId) => {
     contactEmail: request.contactEmail,
     activation_email_sent: activationEmailSent,
     ...(activationEmailError ? { activation_email_error: activationEmailError } : {}),
+    // Sin Gmail no hay canal para entregar el token; solo se expone en dev/test.
+    ...(env.NODE_ENV !== 'production' ? { _debugToken: activationToken } : {}),
   };
 };
 
