@@ -15,7 +15,6 @@ jest.unstable_mockModule('../../src/middlewares/rateLimiter.middleware.js', () =
   loginLimiter: (_req, _res, next) => next(),
   authLimiter: (_req, _res, next) => next(),
   userLimiter: () => (_req, _res, next) => next(),
-  userElectionLimiter: () => (_req, _res, next) => next(),
 }));
 
 const { prisma } = await import('../../src/database/prisma.js');

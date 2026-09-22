@@ -29,7 +29,6 @@ jest.unstable_mockModule('../../../src/middlewares/rateLimiter.middleware.js', (
   loginLimiter: (_r, _s, n) => n(), 
   authLimiter: (_r, _s, n) => n(),
   userLimiter: () => (_r, _s, n) => n(), 
-  userElectionLimiter: () => (_r, _s, n) => n(),
 }));
 
 // Importaciones dinámicas para evitar errores de teardown en Jest ESM

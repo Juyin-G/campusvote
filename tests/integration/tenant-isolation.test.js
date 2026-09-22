@@ -12,7 +12,8 @@ const JWT_SECRET = env.JWT_SECRET || 'test-secret-for-jest-only-do-not-use-in-pr
 const makeToken = (user) =>
   jwt.sign(
     { id: user.id, userId: user.id, email: user.email, role: user.role,
-      organizationId: user.organizationId, isSuperuser: user.isSuperuser ?? false },
+      organizationId: user.organizationId, scopeLevel: user.scopeLevel ?? null,
+      isSuperuser: user.isSuperuser ?? false, isStaff: user.isStaff ?? false },
     JWT_SECRET,
     { expiresIn: '1h' }
   );
@@ -23,18 +24,18 @@ describe('Multi-Tenant Isolation (FASE 15.4)', () => {
   let tokenAdminA, tokenAdminB, tokenSuperAdmin;
 
   beforeAll(async () => {
-    orgA = await prisma.organization.create({ data: { name: 'Org A', institutionName: 'Universidad A', orgType: 'UNIVERSITY' } });
-    orgB = await prisma.organization.create({ data: { name: 'Org B', institutionName: 'Universidad B', orgType: 'UNIVERSITY' } });
+    orgA = await prisma.organization.create({ data: { name: 'Org A', code: 'ORGA', orgType: 'UNIVERSITY' } });
+    orgB = await prisma.organization.create({ data: { name: 'Org B', code: 'ORGB', orgType: 'UNIVERSITY' } });
 
-    userAdminA = await prisma.user.create({ data: { username: 'adminA', email: 'admin@a.com', role: 'ADMIN', organizationId: orgA.id, status: 'ACTIVE', authProvider: 'LOCAL', isVerified: true } });
-    userAdminB = await prisma.user.create({ data: { username: 'adminB', email: 'admin@b.com', role: 'ADMIN', organizationId: orgB.id, status: 'ACTIVE', authProvider: 'LOCAL', isVerified: true } });
+    userAdminA = await prisma.user.create({ data: { username: 'adminA', email: 'admin@a.com', role: 'ADMIN', scopeLevel: 'ORG', organizationId: orgA.id, status: 'ACTIVE', authProvider: 'LOCAL', isVerified: true } });
+    userAdminB = await prisma.user.create({ data: { username: 'adminB', email: 'admin@b.com', role: 'ADMIN', scopeLevel: 'ORG', organizationId: orgB.id, status: 'ACTIVE', authProvider: 'LOCAL', isVerified: true } });
     userSuperAdmin = await prisma.user.create({ data: { username: 'super', email: 'super@platform.com', role: 'SUPERADMIN', status: 'ACTIVE', authProvider: 'LOCAL', isVerified: true } });
 
     fairA = await prisma.fair.create({ data: { name: 'Feria A', organizationId: orgA.id, status: 'OPEN' } });
-    projectA = await prisma.project.create({ data: { name: 'Proyecto A', fairId: fairA.id, organizationId: orgA.id, status: 'APPROVED' } });
+    projectA = await prisma.project.create({ data: { name: 'Proyecto A', fairId: fairA.id, organizationId: orgA.id, status: 'APPROVED', reviewedAt: new Date() } });
     
     fairB = await prisma.fair.create({ data: { name: 'Feria B', organizationId: orgB.id, status: 'OPEN' } });
-    projectB = await prisma.project.create({ data: { name: 'Proyecto B', fairId: fairB.id, organizationId: orgB.id, status: 'APPROVED' } });
+    projectB = await prisma.project.create({ data: { name: 'Proyecto B', fairId: fairB.id, organizationId: orgB.id, status: 'APPROVED', reviewedAt: new Date() } });
 
     tokenAdminA = makeToken(userAdminA);
     tokenAdminB = makeToken(userAdminB);
