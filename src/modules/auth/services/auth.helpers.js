@@ -60,3 +60,22 @@ export const generateRefreshToken = () => {
   const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
   return { token, tokenHash };
 };
+
+/** Genera un token temporal (TOTP_PENDING / ONBOARDING) de propósito limitado. */
+export const generatePendingToken = ({
+  userId,
+  email,
+  role = null,
+  purpose,
+  ttlSeconds,
+}) =>
+  jwt.sign(
+    {
+      userId,
+      email,
+      role,
+      purpose,
+    },
+    env.JWT_SECRET,
+    { algorithm: 'HS256', expiresIn: ttlSeconds }
+  );

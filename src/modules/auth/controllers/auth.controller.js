@@ -30,9 +30,12 @@ export const login = asyncHandler(async (req, res) => {
     requestId: req.requestId,
   });
 
-  const message = result.requiresTotp
-    ? MESSAGES.AUTH.TWO_FACTOR_REQUIRED
-    : MESSAGES.AUTH.LOGIN_SUCCESS;
+  let message = MESSAGES.AUTH.LOGIN_SUCCESS;
+  if (result.requiresTotp) {
+    message = MESSAGES.AUTH.TWO_FACTOR_REQUIRED;
+  } else if (result.requiresOnboarding) {
+    message = MESSAGES.AUTH.ONBOARDING_REQUIRED;
+  }
 
   return sendSuccess(
     res,
@@ -124,9 +127,13 @@ export const verifyTotp = asyncHandler(async (req, res) => {
 
 export const verifyLoginTotp = asyncHandler(async (req, res) => {
   // Recibe el objeto con { code } o { backupCode } normalizado por Zod
+  const ipAddress = req.ip || req.headers['x-forwarded-for'] || null;
+  const userAgent = req.headers['user-agent'] || null;
+
   const result = await authService.verifyLoginTotp(
     req.user.userId,
-    req.body
+    req.body,
+    { ipAddress, userAgent }
   );
 
   return sendSuccess(

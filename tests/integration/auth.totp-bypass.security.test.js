@@ -15,6 +15,11 @@ import { jest } from '@jest/globals';
 import bcrypt from 'bcryptjs';
 import request from 'supertest';
 import jwt from 'jsonwebtoken';
+import { generateSync } from 'otplib';
+
+/** Genera el TOTP actual (otplib v13: generateSync(options) con secret >= 16 bytes base32). */
+const generateTotpCode = (secret) =>
+  generateSync({ secret, digits: 6, period: 30, epoch: Math.floor(Date.now() / 1000) });
 import { createAcademicFixture } from './academic.fixture.js';
 
 // Mock email service to prevent actual emails
@@ -56,12 +61,35 @@ const { prisma } = await import('../../src/database/prisma.js');
 const env = (await import('../../src/config/env.js')).default;
 
 const TEST_PASSWORD = 'TotpBypass123!';
+const USER_TOTP_SECRET = 'GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ'; // Test TOTP secret (20 bytes base32)
 const runId = Date.now();
 
 let userWith2FA;
 let userWithout2FA;
+let baselineUser;
+let superAdmin;
 let totpPendingToken;
 let validToken;
+
+/** Flujo real paso 2 del login: login → tempToken → verificación TOTP → token. */
+const completeTotpLogin = async (user) => {
+  const loginRes = await request(app)
+    .post('/api/auth/login')
+    .send({ email: user.email, password: TEST_PASSWORD });
+
+  if (!loginRes.body?.data?.tempToken) {
+    throw new Error('Login no emitió tempToken TOTP_PENDING');
+  }
+
+  const totpCode = generateTotpCode(USER_TOTP_SECRET);
+
+  const verifyRes = await request(app)
+    .post('/api/auth/otp/verify-login')
+    .set('Authorization', `Bearer ${loginRes.body.data.tempToken}`)
+    .send({ code: totpCode });
+
+  return verifyRes.body?.data?.token;
+};
 
 describe('Security: TOTP-pending JWT bypass mitigation', () => {
   beforeAll(async () => {
@@ -83,9 +111,48 @@ describe('Security: TOTP-pending JWT bypass mitigation', () => {
         status: 'ACTIVE',
         mustChangePassword: false,
         twoFactorEnabled: true,
-        twoFactorSecret: 'JBSWY3DPEHPK3PXP', // Test TOTP secret
+        twoFactorSecret: USER_TOTP_SECRET, // Test TOTP secret
         programId: program.id,
         currentCycle: 5,
+      },
+    });
+
+    // Usuario STUDENT con 2FA listo para completar TOTP (baseline de sesión válida)
+    baselineUser = await prisma.user.create({
+      data: {
+        username: `totp.bypass.base.${runId}`,
+        email: `totp.bypass.base.${runId}@campusvote.edu.pe`,
+        password: passwordHash,
+        firstName: 'Base',
+        lastName: 'Line',
+        institutionalId: `BASELINE${runId}`,
+        role: 'STUDENT',
+        authProvider: 'LOCAL',
+        isVerified: true,
+        status: 'ACTIVE',
+        mustChangePassword: false,
+        twoFactorEnabled: true,
+        twoFactorSecret: USER_TOTP_SECRET,
+        programId: program.id,
+        currentCycle: 5,
+      },
+    });
+
+    // Usuario SUPERADMIN sin 2FA (escenario A: exento de 2FA)
+    superAdmin = await prisma.user.create({
+      data: {
+        username: `totp.bypass.super.${runId}`,
+        email: `totp.bypass.super.${runId}@campusvote.edu.pe`,
+        password: passwordHash,
+        firstName: 'Super',
+        lastName: 'Admin',
+        institutionalId: `SUPER${runId}`,
+        role: 'SUPERADMIN',
+        authProvider: 'LOCAL',
+        isVerified: true,
+        status: 'ACTIVE',
+        mustChangePassword: false,
+        twoFactorEnabled: false,
       },
     });
 
@@ -120,19 +187,17 @@ describe('Security: TOTP-pending JWT bypass mitigation', () => {
       { expiresIn: '5m' }
     );
 
-    // Get a valid token for the user without 2FA
-    const loginRes = await request(app)
-      .post('/api/auth/login')
-      .send({ 
-        email: userWithout2FA.email, 
-        password: TEST_PASSWORD 
-      });
-    
-    validToken = loginRes.body.data.token;
+    // Get a valid, full-session token completing the real TOTP flow (escenario C)
+    validToken = await completeTotpLogin(baselineUser);
   });
 
   afterAll(async () => {
-    const idsToDelete = [userWith2FA?.id, userWithout2FA?.id].filter(Boolean);
+    const idsToDelete = [
+      userWith2FA?.id,
+      userWithout2FA?.id,
+      baselineUser?.id,
+      superAdmin?.id,
+    ].filter(Boolean);
     if (idsToDelete.length > 0) {
       await prisma.user.deleteMany({
         where: { id: { in: idsToDelete } },
@@ -202,7 +267,7 @@ describe('Security: TOTP-pending JWT bypass mitigation', () => {
 
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);
-      expect(res.body.data.id).toBe(userWithout2FA.id);
+      expect(res.body.data.id).toBe(baselineUser.id);
     });
 
     it('should allow valid token on PUT /api/users/me', async () => {
@@ -234,7 +299,7 @@ describe('Security: TOTP-pending JWT bypass mitigation', () => {
   const passwordHash = await bcrypt.hash(TEST_PASSWORD, 12);
 
   await prisma.user.update({
-    where: { id: userWithout2FA.id },
+    where: { id: baselineUser.id },
     data: {
       password: passwordHash,
     },
@@ -264,7 +329,7 @@ describe('Security: TOTP-pending JWT bypass mitigation', () => {
       expect(decoded.userId).toBe(userWith2FA.id);
     });
 
-    it('should return normal token when logging in without 2FA', async () => {
+    it('should require onboarding (tempToken ONBOARDING) when logging in without 2FA (regla: no SUPERADMIN sin 2FA no recibe sesión)', async () => {
       const res = await request(app)
         .post('/api/auth/login')
         .send({ 
@@ -274,13 +339,15 @@ describe('Security: TOTP-pending JWT bypass mitigation', () => {
 
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);
-      expect(res.body.data.requiresTotp).toBe(false);
-      expect(res.body.data.token).toBeDefined();
-      expect(res.body.data.tempToken).toBeUndefined();
+      expect(res.body.data.requiresOnboarding).toBe(true);
+      expect(res.body.data.tempToken).toBeDefined();
+      expect(res.body.data.email).toBe(userWithout2FA.email);
+      expect(res.body.data.token).toBeUndefined();
+      expect(res.body.data.refreshToken).toBeUndefined();
       
-      // Verify the token does NOT have TOTP_PENDING purpose
-      const decoded = jwt.verify(res.body.data.token, env.JWT_SECRET);
-      expect(decoded.purpose).toBeUndefined();
+      // Verify the tempToken has ONBOARDING purpose
+      const decoded = jwt.verify(res.body.data.tempToken, env.JWT_SECRET);
+      expect(decoded.purpose).toBe('ONBOARDING');
       expect(decoded.userId).toBe(userWithout2FA.id);
     });
   });
@@ -461,6 +528,105 @@ describe('Security: TOTP-pending JWT bypass mitigation', () => {
         .set('Authorization', `Bearer ${totpPendingToken}`);
 
       expect(otherRes.status).toBe(403);
+    });
+  });
+
+  describe('Business rule: 2FA por rol (escenarios A-G)', () => {
+    it('A: SUPERADMIN sin 2FA → sesión completa (token + refreshToken, sin tempToken)', async () => {
+      const res = await request(app)
+        .post('/api/auth/login')
+        .send({ email: superAdmin.email, password: TEST_PASSWORD });
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.requiresTotp).toBe(false);
+      expect(res.body.data.token).toBeDefined();
+      expect(res.body.data.refreshToken).toBeDefined();
+      expect(res.body.data.tempToken).toBeUndefined();
+
+      const decoded = jwt.verify(res.body.data.token, env.JWT_SECRET);
+      expect(decoded.purpose).toBeUndefined();
+      expect(decoded.userId).toBe(superAdmin.id);
+    });
+
+    it('B: rol con 2FA → requiresTotp + tempToken, NUNCA token antes de 2FA', async () => {
+      const res = await request(app)
+        .post('/api/auth/login')
+        .send({ email: userWith2FA.email, password: TEST_PASSWORD });
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.requiresTotp).toBe(true);
+      expect(res.body.data.tempToken).toBeDefined();
+      expect(res.body.data.token).toBeUndefined();
+      expect(res.body.data.refreshToken).toBeUndefined();
+    });
+
+    it('C: TOTP correcto → token + refreshToken + user', async () => {
+      const loginRes = await request(app)
+        .post('/api/auth/login')
+        .send({ email: userWith2FA.email, password: TEST_PASSWORD });
+
+      const code = generateTotpCode(USER_TOTP_SECRET);
+
+      const verifyRes = await request(app)
+        .post('/api/auth/otp/verify-login')
+        .set('Authorization', `Bearer ${loginRes.body.data.tempToken}`)
+        .send({ code });
+
+      expect(verifyRes.status).toBe(200);
+      expect(verifyRes.body.data.token).toBeDefined();
+      expect(verifyRes.body.data.refreshToken).toBeDefined();
+      expect(verifyRes.body.data.user).toBeDefined();
+      // remainingCodes solo aplica al flujo de backup code.
+      expect(verifyRes.body.data.remainingCodes).toBeUndefined();
+    });
+
+    it('D: TOTP incorrecto → 400 y sin sesión', async () => {
+      const loginRes = await request(app)
+        .post('/api/auth/login')
+        .send({ email: userWith2FA.email, password: TEST_PASSWORD });
+
+      const verifyRes = await request(app)
+        .post('/api/auth/otp/verify-login')
+        .set('Authorization', `Bearer ${loginRes.body.data.tempToken}`)
+        .send({ code: '000000' });
+
+      expect(verifyRes.status).toBe(400);
+      expect(verifyRes.body.data).toBeUndefined();
+      expect(verifyRes.body.success).toBe(false);
+    });
+
+    it('E+F: sin 2FA → ONBOARDING tempToken rechazado en rutas protegidas (403)', async () => {
+      const loginRes = await request(app)
+        .post('/api/auth/login')
+        .send({ email: userWithout2FA.email, password: TEST_PASSWORD });
+
+      expect(loginRes.body.data.requiresOnboarding).toBe(true);
+      expect(loginRes.body.data.token).toBeUndefined();
+
+      const res = await request(app)
+        .get('/api/users/me')
+        .set('Authorization', `Bearer ${loginRes.body.data.tempToken}`);
+
+      expect(res.status).toBe(403);
+      expect(res.body.error.code).toBe('FORBIDDEN');
+    });
+
+    it('G: rol/userId/organizationId del body son ignorados', async () => {
+      const res = await request(app)
+        .post('/api/auth/login')
+        .send({
+          email: userWith2FA.email,
+          password: TEST_PASSWORD,
+          role: 'SUPERADMIN',
+          userId: 'spoofed-id',
+          organizationId: 'spoofed-org',
+        });
+
+      // Sigue siendo STUDENT con 2FA → requiere TOTP; jamás sesión completa.
+      expect(res.status).toBe(200);
+      expect(res.body.data.requiresTotp).toBe(true);
+      expect(res.body.data.token).toBeUndefined();
     });
   });
 });

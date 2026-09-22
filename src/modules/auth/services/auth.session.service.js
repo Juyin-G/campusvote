@@ -4,14 +4,17 @@
 import bcrypt from 'bcryptjs';
 import crypto from 'node:crypto';
 import { prisma } from '../../../database/prisma.js';
+import { ROLES } from '../../../constants/roles.js';
 import {
   AUTH_MESSAGES,
-  LOGIN_STAGES,
   authError,
   generateJwt,
   generateRefreshToken,
+  generatePendingToken,
+  formatUserResponse,
 } from './auth.helpers.js';
 import env from '../../../config/env.js';
+import logger from '../../../config/logger.js';
 import * as authRepository from '../repositories/auth.repository.js';
 import auditService from '../../audit/audit.service.js';
 
@@ -60,50 +63,46 @@ export const login = async ({
     });
   }
 
-  // Usuario que debe completar 2FA.
-  if (user.twoFactorEnabled && !user.twoFactorBackupCodes) {
-    const pendingToken = await authRepository.createPendingSession({
+  // Regla de negocio: solo SUPERADMIN obtiene sesión completa con credenciales.
+  // Cualquier otro rol debe tener 2FA configurado y completarlo antes de recibir
+  // un JWT definitivo. El rol siempre proviene de la BD (nunca del cliente).
+  if (user.role !== ROLES.SUPERADMIN) {
+    if (!user.twoFactorEnabled) {
+      const tempToken = generatePendingToken({
+        userId: user.id,
+        email: user.email,
+        role: user.role,
+        purpose: 'ONBOARDING',
+        ttlSeconds: 1800,
+      });
+
+      return {
+        requiresOnboarding: true,
+        tempToken,
+        email: user.email,
+        mustChangePassword: true,
+        user: formatUserResponse(user),
+      };
+    }
+
+    const tempToken = generatePendingToken({
       userId: user.id,
-      ipAddress,
-      userAgent,
+      email: user.email,
+      role: user.role,
       purpose: 'TOTP_PENDING',
       ttlSeconds: 600,
     });
 
     return {
-      stage: LOGIN_STAGES.MFA_PENDING,
-      pendingToken,
-      user: {
-        id: user.id,
-        email: user.email,
-        role: user.role,
-      },
+      requiresTotp: true,
+      tempToken,
+      mustChangePassword: user.mustChangePassword ?? false,
+      user: formatUserResponse(user),
     };
   }
 
-  // Usuario que debe completar onboarding.
-  if (user.mustSetup2fa) {
-    const pendingToken = await authRepository.createPendingSession({
-      userId: user.id,
-      ipAddress,
-      userAgent,
-      purpose: 'ONBOARDING',
-      ttlSeconds: 1800,
-    });
-
-    return {
-      stage: LOGIN_STAGES.ONBOARDING_PENDING,
-      pendingToken,
-      user: {
-        id: user.id,
-        email: user.email,
-        role: user.role,
-      },
-    };
-  }
-
-  // Access token JWT.
-  const accessToken = generateJwt(user);
+  // SUPERADMIN: sesión completa tras validar credenciales.
+  const token = generateJwt(user);
 
   // Refresh token opaco + hash para persistencia.
   const {
@@ -138,18 +137,18 @@ export const login = async ({
     });
   } catch (err) {
     // El fallo de auditoría no debe impedir el login.
+    logger.warn('No se pudo registrar LOGIN en auditoría', {
+      error: err.message,
+    });
   }
 
   return {
-    stage: LOGIN_STAGES.FULL_AUTH,
-    accessToken,
+    requiresTotp: false,
+    token,
     refreshToken,
     expiresIn: ACCESS_TOKEN_TTL_SECONDS,
-    user: {
-      id: user.id,
-      email: user.email,
-      role: user.role,
-    },
+    mustChangePassword: user.mustChangePassword ?? false,
+    user: formatUserResponse(user),
   };
 };
 
@@ -192,15 +191,11 @@ export const refreshSession = async (refreshToken) => {
 
   // Generar un JWT real para que auth.middleware.js pueda
   // validarlo mediante jwt.verify().
-  const accessToken = generateJwt(session.user);
+  const token = generateJwt(session.user);
 
   return {
-    accessToken,
+    token,
     expiresIn: ACCESS_TOKEN_TTL_SECONDS,
-    user: {
-      id: session.user.id,
-      email: session.user.email,
-      role: session.user.role,
-    },
+    user: formatUserResponse(session.user),
   };
 };

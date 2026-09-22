@@ -52,7 +52,7 @@ const issueSession = async (
     throw ApiError.notFound('Usuario no encontrado');
   }
 
-  const accessToken = generateJwt(user);
+  const token = generateJwt(user);
 
   const {
     token: refreshToken,
@@ -72,7 +72,7 @@ const issueSession = async (
   });
 
   return {
-    accessToken,
+    token,
     refreshToken,
     user: formatUserResponse(user),
   };

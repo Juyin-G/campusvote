@@ -15,6 +15,15 @@ export {
   verifyEmail,
   resendVerification,
 } from './auth.lifecycle.service.js';
+export {
+  setupTotp,
+  verifyAndEnableTotp,
+  verifyTotp,
+  verifyLoginTotp,
+  verifyBackupCodeLogin,
+  disableTotp,
+  getTwoFactorStatus,
+} from './auth.totp.service.js';
 
 import {
   login,
@@ -30,6 +39,15 @@ import {
   verifyEmail,
   resendVerification,
 } from './auth.lifecycle.service.js';
+import {
+  setupTotp,
+  verifyAndEnableTotp,
+  verifyTotp,
+  verifyLoginTotp,
+  verifyBackupCodeLogin,
+  disableTotp,
+  getTwoFactorStatus,
+} from './auth.totp.service.js';
 
 export default {
   login,
@@ -42,4 +60,11 @@ export default {
   resetPassword,
   verifyEmail,
   resendVerification,
+  setupTotp,
+  verifyAndEnableTotp,
+  verifyTotp,
+  verifyLoginTotp,
+  verifyBackupCodeLogin,
+  disableTotp,
+  getTwoFactorStatus,
 };

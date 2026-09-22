@@ -1,62 +1,71 @@
 import { jest } from '@jest/globals';
 
-const mockFindByEmail = jest.fn();
-const mockFindByUsername = jest.fn();
-const mockCreateUser = jest.fn();
-const mockGenerateEmailVerificationToken = jest.fn();
-const mockLoginIsAllowed = jest.fn();
-const mockRegisterFailedLogin = jest.fn().mockResolvedValue(true);
-const mockRegisterSuccessfulLogin = jest.fn().mockResolvedValue(true);
-const mockUpdateLastLogin = jest.fn().mockResolvedValue(true);
-const mockFindById = jest.fn();
-const mockGeneratePasswordResetToken = jest.fn();
-const mockResetPasswordWithToken = jest.fn();
-const mockVerifyEmailWithToken = jest.fn();
-const mockCreateRefreshToken = jest.fn().mockResolvedValue({ id: 'rt-1' });
+// Mocks de modules transitivos del módulo under test (auth.service.js).
+// Se registran ANTES del import dinámico.
+
+// prisma (database/prisma.js)
+const mockUserFindUnique = jest.fn();
+const mockUserUpdate = jest.fn();
+const prismaMock = {
+  user: {
+    findUnique: mockUserFindUnique,
+    update: mockUserUpdate,
+  },
+  refreshToken: {
+    create: jest.fn(),
+    deleteMany: jest.fn(),
+  },
+  passwordResetToken: {
+    findUnique: jest.fn(),
+    create: jest.fn(),
+    update: jest.fn(),
+  },
+  emailVerificationToken: {
+    findUnique: jest.fn(),
+    update: jest.fn(),
+  },
+  activationToken: {
+    findUnique: jest.fn(),
+    update: jest.fn(),
+  },
+};
+
+jest.unstable_mockModule(
+  '../../../src/database/prisma.js',
+  () => ({ prisma: prismaMock, default: prismaMock })
+);
+
+// audit service
+const mockLogAction = jest.fn().mockResolvedValue(true);
+jest.unstable_mockModule(
+  '../../../src/modules/audit/audit.service.js',
+  () => ({ default: { logAction: mockLogAction }, logAction: mockLogAction })
+);
+
+// auth.repository
+const mockCreateSession = jest.fn().mockResolvedValue({ id: 'session-1' });
+const mockRevokeSession = jest.fn().mockResolvedValue({ count: 1 });
 const mockFindRefreshToken = jest.fn();
-const mockRevokeRefreshToken = jest.fn().mockResolvedValue({ count: 1 });
-const mockRevokeAllUserRefreshTokens = jest.fn().mockResolvedValue({ count: 1 });
-const mockFindOrgsByEmailDomain = jest.fn().mockResolvedValue([]);
-const mockFindCareersByOrganization = jest.fn().mockResolvedValue([]);
+const mockFindByEmail = jest.fn();
+const mockFindById = jest.fn();
 
 const repoMock = {
   findByEmail: mockFindByEmail,
-  findByUsername: mockFindByUsername,
-  createUser: mockCreateUser,
-  generateEmailVerificationToken: mockGenerateEmailVerificationToken,
-  loginIsAllowed: mockLoginIsAllowed,
-  registerFailedLogin: mockRegisterFailedLogin,
-  registerSuccessfulLogin: mockRegisterSuccessfulLogin,
-  updateLastLogin: mockUpdateLastLogin,
   findById: mockFindById,
-  generatePasswordResetToken: mockGeneratePasswordResetToken,
-  resetPasswordWithToken: mockResetPasswordWithToken,
-  verifyEmailWithToken: mockVerifyEmailWithToken,
-  createRefreshToken: mockCreateRefreshToken,
+  createSession: mockCreateSession,
+  revokeSession: mockRevokeSession,
   findRefreshToken: mockFindRefreshToken,
-  revokeRefreshToken: mockRevokeRefreshToken,
-  revokeAllUserRefreshTokens: mockRevokeAllUserRefreshTokens,
-  findOrganizationsByEmailDomain: mockFindOrgsByEmailDomain,
-  findCareersByOrganization: mockFindCareersByOrganization,
+  createRefreshToken: jest.fn().mockResolvedValue({ id: 'rt-1' }),
+  revokeRefreshToken: jest.fn().mockResolvedValue({ count: 1 }),
+  revokeAllUserRefreshTokens: jest.fn().mockResolvedValue({ count: 1 }),
+  updateLastLogin: jest.fn().mockResolvedValue({}),
   default: {
     findByEmail: mockFindByEmail,
-    findByUsername: mockFindByUsername,
-    createUser: mockCreateUser,
-    generateEmailVerificationToken: mockGenerateEmailVerificationToken,
-    loginIsAllowed: mockLoginIsAllowed,
-    registerFailedLogin: mockRegisterFailedLogin,
-    registerSuccessfulLogin: mockRegisterSuccessfulLogin,
-    updateLastLogin: mockUpdateLastLogin,
     findById: mockFindById,
-    generatePasswordResetToken: mockGeneratePasswordResetToken,
-    resetPasswordWithToken: mockResetPasswordWithToken,
-    verifyEmailWithToken: mockVerifyEmailWithToken,
-    createRefreshToken: mockCreateRefreshToken,
+    createSession: mockCreateSession,
+    revokeSession: mockRevokeSession,
     findRefreshToken: mockFindRefreshToken,
-    revokeRefreshToken: mockRevokeRefreshToken,
-    revokeAllUserRefreshTokens: mockRevokeAllUserRefreshTokens,
-    findOrganizationsByEmailDomain: mockFindOrgsByEmailDomain,
-    findCareersByOrganization: mockFindCareersByOrganization,
+    createRefreshToken: jest.fn().mockResolvedValue({ id: 'rt-1' }),
   },
 };
 
@@ -65,87 +74,73 @@ jest.unstable_mockModule(
   () => repoMock
 );
 
-// Mock del servicio de correo electrónico
-const mockSendVerification = jest.fn().mockResolvedValue(true);
-const mockSendReset = jest.fn().mockResolvedValue(true);
-
-jest.unstable_mockModule(
-  '../../../src/shared/services/email.service.js',
-  () => ({
-    sendVerification: mockSendVerification,
-    sendReset: mockSendReset,
-  })
-);
-
-// Mock de helpers de autenticación
+// auth.helpers
 const mockGenerateJwt = jest.fn().mockReturnValue('mocked-jwt-token-123');
-const mockFormatUserResponse = jest.fn((user) => user);
-const mockGenerateRefreshToken = jest
+const mockGeneratePendingToken = jest
   .fn()
-  .mockReturnValue({ rawToken: 'raw-refresh-token', tokenHash: 'token-hash-123' });
-const mockHashToken = jest.fn((token) => `hash:${token}`);
+  .mockReturnValue('mocked-temp-token-123');
+const mockGenerateRefreshToken = jest.fn().mockReturnValue({
+  token: 'raw-refresh-token',
+  tokenHash: 'token-hash-123',
+});
+const mockFormatUserResponse = jest.fn((user) => user);
 
 jest.unstable_mockModule(
   '../../../src/modules/auth/services/auth.helpers.js',
   () => ({
+    AUTH_MESSAGES: {
+      INVALID_CREDENTIALS: 'Credenciales inválidas',
+      ACCOUNT_LOCKED: 'Cuenta bloqueada por intentos fallidos',
+      ACCOUNT_SUSPENDED: 'Cuenta suspendida',
+      MFA_REQUIRED: 'Se requiere 2FA',
+      TOKEN_INVALID: 'Token inválido o expirado',
+    },
+    authError: (message, code = 'UNAUTHORIZED') =>
+      new Error(`${code}: ${message}`),
     generateJwt: mockGenerateJwt,
-    formatUserResponse: mockFormatUserResponse,
+    generatePendingToken: mockGeneratePendingToken,
     generateRefreshToken: mockGenerateRefreshToken,
-    hashToken: mockHashToken,
+    formatUserResponse: mockFormatUserResponse,
     default: {
+      AUTH_MESSAGES: {
+        INVALID_CREDENTIALS: 'Credenciales inválidas',
+        ACCOUNT_LOCKED: 'Cuenta bloqueada por intentos fallidos',
+      },
+      authError: (message) => new Error(message),
       generateJwt: mockGenerateJwt,
-      formatUserResponse: mockFormatUserResponse,
+      generatePendingToken: mockGeneratePendingToken,
       generateRefreshToken: mockGenerateRefreshToken,
-      hashToken: mockHashToken,
+      formatUserResponse: mockFormatUserResponse,
     },
   })
 );
 
-// Mock de bcryptjs
+// bcryptjs
 const mockHash = jest.fn();
 const mockCompare = jest.fn();
-
 jest.unstable_mockModule('bcryptjs', () => ({
-  default: {
-    hash: mockHash,
-    compare: mockCompare,
-  },
+  default: { hash: mockHash, compare: mockCompare },
   hash: mockHash,
   compare: mockCompare,
 }));
 
-// Mock de jsonwebtoken
-const mockSign = jest.fn();
-
-jest.unstable_mockModule('jsonwebtoken', () => ({
-  default: {
-    sign: mockSign,
-  },
-  sign: mockSign,
-}));
-
-// Mock de variables de entorno
+// env
 jest.unstable_mockModule(
   '../../../src/config/env.js',
   () => ({
     default: {
       JWT_SECRET: 'test-secret-key',
-      JWT_EXPIRATION: '1h',
+      JWT_EXPIRES_IN: '1h',
+      REFRESH_TOKEN_TTL_SECONDS: 3600,
     },
-    JWT_SECRET: 'test-secret-key',
-    JWT_EXPIRATION: '1h',
   })
 );
 
-// Mock del logger
+// logger
 jest.unstable_mockModule(
   '../../../src/config/logger.js',
   () => ({
-    default: {
-      info: jest.fn(),
-      error: jest.fn(),
-      warn: jest.fn(),
-    },
+    default: { info: jest.fn(), error: jest.fn(), warn: jest.fn() },
   })
 );
 
@@ -153,98 +148,176 @@ const authService = await import(
   '../../../src/modules/auth/services/auth.service.js'
 );
 
-describe('Auth Service', () => {
+const baseUser = {
+  id: 'user-1',
+  email: 'estudiante@universidad.edu',
+  password: 'hashed_password_db',
+  username: 'estudiante1',
+  firstName: 'E',
+  lastName: 'U',
+  authProvider: 'LOCAL',
+  status: 'ACTIVE',
+  isVerified: true,
+  role: 'STUDENT',
+  failedLoginAttempts: 0,
+  lockedUntil: null,
+  mustChangePassword: false,
+  twoFactorEnabled: false,
+  lastLogin: null,
+};
+
+describe('Auth Service — regla de 2FA por rol (login)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockUserFindUnique.mockResolvedValue(null);
   });
 
-  describe('requestPasswordReset', () => {
-    it('retorna mensaje genérico aunque el correo no exista', async () => {
-      mockGeneratePasswordResetToken.mockResolvedValue(null);
+  it('E: rol sin 2FA → requiresOnboarding + tempToken ONBOARDING, sin token', async () => {
+    mockUserFindUnique.mockResolvedValue(baseUser);
+    mockCompare.mockResolvedValue(true);
 
-      const result = await authService.requestPasswordReset('noexiste@test.com');
-      expect(result.message).toBeDefined();
+    const result = await authService.login({
+      email: baseUser.email,
+      password: 'PasswordSeguro123!',
     });
 
-    it('genera token y envía correo si el usuario existe', async () => {
-      mockGeneratePasswordResetToken.mockResolvedValue('reset-token-123');
-      mockSendReset.mockResolvedValue(true);
-
-      const result = await authService.requestPasswordReset('test@test.com');
-      expect(mockGeneratePasswordResetToken).toHaveBeenCalledWith('test@test.com');
-      expect(result.message).toBeDefined();
-    });
+    expect(result.requiresOnboarding).toBe(true);
+    expect(result.tempToken).toBe('mocked-temp-token-123');
+    expect(result.email).toBe(baseUser.email);
+    expect(result.mustChangePassword).toBe(true);
+    expect(result.token).toBeUndefined();
+    expect(result.refreshToken).toBeUndefined();
+    expect(mockGeneratePendingToken).toHaveBeenCalledWith(
+      expect.objectContaining({ purpose: 'ONBOARDING', ttlSeconds: 1800 })
+    );
+    expect(mockGenerateJwt).not.toHaveBeenCalled();
+    expect(mockCreateSession).not.toHaveBeenCalled();
   });
 
-  describe('Login (Inicio de sesion)', () => {
-    const mockUser = {
-      id: '123',
-      email: 'estudiante@universidad.edu',
-      password: 'hashed_password_db',
-      authProvider: 'LOCAL',
-      status: 'ACTIVE',
-      isVerified: true,
-      role: 'STUDENT',
-      failedAttempts: 0,
-      lockUntil: null,
-    };
+  it('G: rol embebido en el body es ignorado (backend es la autoridad)', async () => {
+    mockUserFindUnique.mockResolvedValue(baseUser);
+    mockCompare.mockResolvedValue(true);
 
-    it('Deberia loguear exitosamente y retornar un JWT', async () => {
-      mockFindByEmail.mockResolvedValue(mockUser);
-      mockLoginIsAllowed.mockResolvedValue(true);
-      mockCompare.mockResolvedValue(true);
-      mockGenerateJwt.mockReturnValue('mocked-jwt-token-123');
+    const result = await authService.login({
+      email: baseUser.email,
+      password: 'PasswordSeguro123!',
+      role: 'SUPERADMIN',
+      userId: 'falso-id',
+      organizationId: 'falso-org',
+    });
 
-      const result = await authService.login({
-        email: 'estudiante@universidad.edu',
-        password: 'PasswordSeguro123!',
+    // Sigue siendo STDUDENT sin 2FA → onboarding; jamás sesión completa.
+    expect(result.requiresOnboarding).toBe(true);
+    expect(result.token).toBeUndefined();
+    expect(mockGenerateJwt).not.toHaveBeenCalled();
+  });
+
+  it('B: rol con 2FA configurado → requiresTotp + tempToken TOTP_PENDING, sin token', async () => {
+    mockUserFindUnique.mockResolvedValue({
+      ...baseUser,
+      twoFactorEnabled: true,
+      twoFactorBackupCodes: ['hash-1', 'hash-2'],
+      mustChangePassword: true,
+    });
+    mockCompare.mockResolvedValue(true);
+
+    const result = await authService.login({
+      email: baseUser.email,
+      password: 'PasswordSeguro123!',
+    });
+
+    expect(result.requiresTotp).toBe(true);
+    expect(result.tempToken).toBe('mocked-temp-token-123');
+    expect(result.token).toBeUndefined();
+    expect(result.mustChangePassword).toBe(true);
+    expect(mockGeneratePendingToken).toHaveBeenCalledWith(
+      expect.objectContaining({ purpose: 'TOTP_PENDING', ttlSeconds: 600 })
+    );
+    expect(mockCreateSession).not.toHaveBeenCalled();
+  });
+
+  it('A: SUPERADMIN sin 2FA → sesión completa con token + refreshToken', async () => {
+    mockUserFindUnique.mockResolvedValue({
+      ...baseUser,
+      role: 'SUPERADMIN',
+      email: 'super@campusvote.pe',
+    });
+    mockCompare.mockResolvedValue(true);
+    mockUserUpdate.mockResolvedValue({});
+
+    const result = await authService.login({
+      email: 'super@campusvote.pe',
+      password: 'PasswordSeguro123!',
+    });
+
+    expect(result.requiresTotp).toBe(false);
+    expect(result.token).toBe('mocked-jwt-token-123');
+    expect(result.refreshToken).toBe('raw-refresh-token');
+    expect(result.expiresIn).toBe(3600);
+    expect(result.tempToken).toBeUndefined();
+    expect(mockGenerateJwt).toHaveBeenCalledTimes(1);
+    expect(mockCreateSession).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-1',
+        tokenHash: 'token-hash-123',
+      })
+    );
+    expect(mockUserUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'user-1' },
+        data: expect.objectContaining({ lastLogin: expect.any(Date) }),
+      })
+    );
+    expect(mockLogAction).toHaveBeenCalledWith(
+      expect.objectContaining({ action: 'LOGIN' })
+    );
+  });
+
+  it('rechaza credenciales inválidas', async () => {
+    mockUserFindUnique.mockResolvedValue(null);
+    await expect(
+      authService.login({ email: 'no@existe.com', password: 'x' })
+    ).rejects.toThrow();
+  });
+
+  it('rechaza contraseña incorrecta', async () => {
+    mockUserFindUnique.mockResolvedValue(baseUser);
+    mockCompare.mockResolvedValue(false);
+    await expect(
+      authService.login({ email: baseUser.email, password: 'incorrecta' })
+    ).rejects.toThrow();
+  });
+
+  it('rechaza cuenta bloqueada temporalmente', async () => {
+    mockUserFindUnique.mockResolvedValue({
+      ...baseUser,
+      lockedUntil: new Date(Date.now() + 60 * 60 * 1000),
+    });
+    mockCompare.mockResolvedValue(true);
+    await expect(
+      authService.login({ email: baseUser.email, password: 'x' })
+    ).rejects.toThrow('bloqueada');
+  });
+
+  describe('refreshSession', () => {
+    it('renueva con contract token/expiresIn/user formateado', async () => {
+      mockFindRefreshToken.mockResolvedValue({
+        revokedAt: null,
+        expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+        user: { ...baseUser, email: 'super@campusvote.pe', role: 'SUPERADMIN' },
       });
 
-      expect(mockCompare).toHaveBeenCalledWith(
-        'PasswordSeguro123!',
-        'hashed_password_db'
-      );
-      expect(mockRegisterSuccessfulLogin).toHaveBeenCalledWith(
-        mockUser.email,
-        null,
-        null
-      );
+      const result = await authService.refreshSession('raw-refresh-token');
+
       expect(result.token).toBe('mocked-jwt-token-123');
+      expect(result.expiresIn).toBe(3600);
+      expect(result.user).toBeDefined();
     });
 
-    it('Deberia fallar si el usuario no existe', async () => {
-      mockFindByEmail.mockResolvedValue(null);
-
+    it('rechaza refresh token revocado o expirado', async () => {
+      mockFindRefreshToken.mockResolvedValue({ revokedAt: new Date(), user: baseUser });
       await expect(
-        authService.login({
-          email: 'noexiste@universidad.edu',
-          password: 'Password123!',
-        })
-      ).rejects.toThrow();
-    });
-
-    it('Deberia fallar si la contrasena es incorrecta', async () => {
-      mockFindByEmail.mockResolvedValue(mockUser);
-      mockLoginIsAllowed.mockResolvedValue(true);
-      mockCompare.mockResolvedValue(false);
-
-      await expect(
-        authService.login({
-          email: 'estudiante@universidad.edu',
-          password: 'PasswordIncorrecto!',
-        })
-      ).rejects.toThrow();
-    });
-
-    it('Deberia fallar si la cuenta esta bloqueada por intentos fallidos', async () => {
-      mockFindByEmail.mockResolvedValue(mockUser);
-      mockLoginIsAllowed.mockResolvedValue(false);
-
-      await expect(
-        authService.login({
-          email: 'estudiante@universidad.edu',
-          password: 'PasswordSeguro123!',
-        })
+        authService.refreshSession('raw-refresh-token')
       ).rejects.toThrow();
     });
   });
