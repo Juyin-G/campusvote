@@ -187,7 +187,7 @@ model User {
   reviewedOrgRequests          OrganizationRequest[]    @relation("OrgRequestReviewer")
   votingSessions               VotingSession[]
   votes                        Vote[]
-  ratings                      Rating[]                 @relation("JurorRatings")
+
   voterRegistryClaims          VoterRegistryClaim[]     @relation("UserClaims")
   reviewedVoterRegistryClaims  VoterRegistryClaim[]     @relation("ReviewerClaims")
   mediaFiles                   media_files[]

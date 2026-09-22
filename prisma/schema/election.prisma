@@ -87,7 +87,7 @@ model Election {
   candidateLists  CandidateList[]
   candidacies     Candidacy[]
   electionRule    ElectionRule?
-  criteria        FeriaCriterion[] // rúbricas multicriterio (ferias)
+
   juryAssignments JuryAssignment[]
   objections      CandidacyObjection[]
 
@@ -99,7 +99,7 @@ model Election {
   votingSessions     VotingSession[]
   votes              Vote[]
   electionResults    ElectionResult[]
-  ratings            Rating[]
+
 
   @@index([status], map: "idx_elections_status")
   @@index([periodId], map: "idx_elections_period")
@@ -185,7 +185,7 @@ model Candidacy {
   user            User                 @relation(fields: [userId], references: [id], onDelete: Restrict)
   advisor         User?                @relation("AdvisorCandidacies", fields: [advisorId], references: [id], onDelete: SetNull)
   documents       CandidacyDocument[]
-  ratings         Rating[]
+
   juryAssignments JuryAssignment[]
   objections      CandidacyObjection[] @relation("ObjectionTargetCandidacy")
 
@@ -223,14 +223,14 @@ model ElectionRule {
   publicWeight Decimal @default(0.20) @map("public_weight") @db.Decimal(5, 2)
 
   // DESEMPATE: criterio de rúbrica prioritario
-  tieBreakerCriterionId String? @unique @map("tie_breaker_criterion_id") @db.Uuid
+
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
   // Relaciones
   election            Election        @relation(fields: [electionId], references: [id], onDelete: Cascade)
-  tieBreakerCriterion FeriaCriterion? @relation("TieBreaker", fields: [tieBreakerCriterionId], references: [id], onDelete: SetNull)
+
 
   @@map("election_rules")
 }

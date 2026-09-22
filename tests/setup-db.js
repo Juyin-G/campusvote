@@ -207,9 +207,6 @@ export default async function setupTestDB() {
     await executeFile('voting/006_session_management.sql');
     await executeFile('voting/007_vote_integrity.sql');
     await executeFile('voting/008_scrutiny.sql');
-    await executeFile('ratings/001_ratings.sql');
-    await executeFile('ratings/002_feria_rubrics.sql');
-    await executeFile('ratings/003_jury_assignments.sql');
 
     console.log('15. Cargando notificaciones e i18n...');
 

@@ -44,8 +44,6 @@
  *         name: sortBy
  *         schema:
  *           type: string
- *           enum: [name, createdAt, rating]
- *         description: Orden de resultados (rating requiere withRatings=true)
  *       - in: query
  *         name: limit
  *         schema:
@@ -60,10 +58,8 @@
  *           minimum: 0
  *         description: Desplazamiento para paginación
  *       - in: query
- *         name: withRatings
  *         schema:
  *           type: boolean
- *         description: Adjunta ratings.count, ratings.average y latestComment de la feria
  *     responses:
  *       200:
  *         description: Lista de proyectos obtenida exitosamente

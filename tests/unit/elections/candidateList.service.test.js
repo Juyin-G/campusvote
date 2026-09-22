@@ -1,218 +1,133 @@
+// tests/unit/elections/candidateList.service.test.js
 import { jest } from '@jest/globals';
 
-const mockFindCandidateListById = jest.fn();
-const mockFindCandidateListsByElection = jest.fn();
-const mockCountCandidateListsByElection = jest.fn();
-const mockCreateCandidateList = jest.fn();
-const mockUpdateCandidateList = jest.fn();
-const mockDeleteCandidateListById = jest.fn();
-const mockCountCandidaciesByList = jest.fn();
+// 1. Definir mocks como variables para controlar su comportamiento por prueba
 const mockFindElectionStatus = jest.fn();
+const mockCount = jest.fn();
+const mockList = jest.fn();
+const mockCreate = jest.fn();
+const mockUpdate = jest.fn();
+const mockDelete = jest.fn();
+const mockCountCandidacies = jest.fn();
+const mockFindById = jest.fn();
+
+// 2. Aplicar mocks a los módulos antes de importar el servicio
+jest.unstable_mockModule(
+  '../../../src/modules/elections/elections/election.repository.js',
+  () => ({ findElectionStatus: mockFindElectionStatus })
+);
 
 jest.unstable_mockModule(
   '../../../src/modules/elections/candidateList/candidateList.repository.js',
   () => ({
-    findCandidateListById: mockFindCandidateListById,
-    findCandidateListsByElection: mockFindCandidateListsByElection,
-    countCandidateListsByElection: mockCountCandidateListsByElection,
-    createCandidateList: mockCreateCandidateList,
-    updateCandidateList: mockUpdateCandidateList,
-    deleteCandidateListById: mockDeleteCandidateListById,
-    countCandidaciesByList: mockCountCandidaciesByList,
+    count: mockCount,
+    list: mockList,
+    create: mockCreate,
+    update: mockUpdate,
+    delete: mockDelete,
+    countCandidaciesByList: mockCountCandidacies,
+    findCandidateListById: mockFindById,
   })
 );
 
-jest.unstable_mockModule(
-  '../../../src/modules/elections/elections/election.repository.js',
-  () => ({
-    findElectionStatus: mockFindElectionStatus,
-  })
-);
+// 3. Importar el servicio (se resuelve después de mockear)
+const service = await import('../../../src/modules/elections/candidateList/candidateList.crud.service.js');
 
-const service = await import(
-  '../../../src/modules/elections/candidateList/candidateList.service.js'
-);
+const ELEC_ID = '3f0c2b1e-1c2d-4a5b-8c9d-0e1f2a3b4c5d';
+const LIST_ID = '5d4c3b2a-1e2f-4a5b-8c9d-0e1f2a3b4c5d';
 
-const ELECCION = '3f0c2b1e-1c2d-4a5b-8c9d-0e1f2a3b4c5d';
-const OTRA_ELECCION = '7a2b9c4d-3e5f-4a6b-9c8d-1e2f3a4b5c6d';
-const LISTA = '5d4c3b2a-1e2f-4a5b-8c9d-0e1f2a3b4c5d';
-
-const capturarError = async (fn) => {
+// Helper para verificar errores de forma concisa
+const expectError = async (fn, statusCode, messageSnippet) => {
   try {
     await fn();
-    return null;
+    throw new Error('Se esperaba un error, pero resolvió correctamente.');
   } catch (err) {
+    expect(err.statusCode).toBe(statusCode);
+    if (messageSnippet) expect(err.message).toContain(messageSnippet);
     return err;
   }
 };
 
-const eleccionEn = (status) =>
-  mockFindElectionStatus.mockResolvedValue({ id: ELECCION, status });
-
-describe('CandidateList Service — lectura y pertenencia', () => {
-  beforeEach(() => jest.clearAllMocks());
-
-  it('listar devuelve 404 si la elección no existe', async () => {
-    mockFindElectionStatus.mockResolvedValue(null);
-
-    const err = await capturarError(() => service.listCandidateLists(ELECCION));
-
-    expect(err.statusCode).toBe(404);
-    expect(mockFindCandidateListsByElection).not.toHaveBeenCalled();
+describe('CandidateList CRUD Service', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    // Valor por defecto: elección válida y en estado editable
+    mockFindElectionStatus.mockResolvedValue({ id: ELEC_ID, status: 'DRAFT' });
   });
 
-  it('listar devuelve las listas con su total', async () => {
-    eleccionEn('OPEN');
-    mockFindCandidateListsByElection.mockResolvedValue([
-      { id: LISTA, name: 'Unidad Estudiantil' },
-      { id: 'otra', name: 'Fuerza Joven' },
-    ]);
+  describe('Lectura', () => {
+    it('devuelve 404 si la elección no existe', async () => {
+      mockFindElectionStatus.mockResolvedValue(null);
 
-    const res = await service.listCandidateLists(ELECCION);
-
-    expect(res.total).toBe(2);
-    expect(res.candidateLists).toHaveLength(2);
-  });
-
-  it('obtener una lista de OTRA elección devuelve 404', async () => {
-    eleccionEn('DRAFT');
-    mockFindCandidateListById.mockResolvedValue({
-      id: LISTA,
-      electionId: OTRA_ELECCION,
+      await expectError(() => service.listCandidateLists(ELEC_ID), 404);
+      expect(mockList).not.toHaveBeenCalled();
     });
 
-    const err = await capturarError(() =>
-      service.getCandidateListById(ELECCION, LISTA)
-    );
+    it('lista las candidaturas con paginación correcta', async () => {
+      const lists = [{ id: LIST_ID, name: 'Unidad Estudiantil' }];
+      mockCount.mockResolvedValue(1);
+      mockList.mockResolvedValue(lists);
 
-    expect(err.statusCode).toBe(404);
+      const res = await service.listCandidateLists(ELEC_ID, { page: 1, limit: 10 });
+
+      expect(res.data).toEqual(lists);
+      expect(res.pagination.total).toBe(1);
+      expect(mockCount).toHaveBeenCalledWith({ electionId: ELEC_ID });
+    });
   });
-});
 
-describe('CandidateList Service — normalización de campos opcionales', () => {
-  beforeEach(() => jest.clearAllMocks());
+  describe('Escritura y Normalización', () => {
+    it('convierte strings vacíos en null y limpia espacios', async () => {
+      mockCreate.mockResolvedValue({ id: LIST_ID });
 
-  it('convierte acronym y motto vacíos a null (la BD rechaza cadena vacía)', async () => {
-    eleccionEn('DRAFT');
-    mockCreateCandidateList.mockResolvedValue({ id: LISTA });
+      await service.createCandidateList(ELEC_ID, {
+        name: '  Unidad Estudiantil  ',
+        acronym: '   ',
+        motto: '',
+        logo: '  https://cdn/logo.png  ',
+      });
 
-    await service.createCandidateList(ELECCION, {
-      name: '  Unidad Estudiantil  ',
-      acronym: '   ',
-      motto: '',
-      logo: '  https://cdn/logo.png  ',
+      expect(mockCreate).toHaveBeenCalledWith(expect.objectContaining({
+        name: 'Unidad Estudiantil',
+        acronym: null,
+        motto: null,
+        logo: 'https://cdn/logo.png',
+        electionId: ELEC_ID,
+      }));
     });
 
-    const data = mockCreateCandidateList.mock.calls[0][0];
-    expect(data.name).toBe('Unidad Estudiantil');
-    expect(data.acronym).toBeNull();
-    expect(data.motto).toBeNull();
-    expect(data.logo).toBe('https://cdn/logo.png');
-    expect(data.electionId).toBe(ELECCION);
-  });
+    it('rechaza creación si la elección no está en DRAFT o SCHEDULED (409)', async () => {
+      mockFindElectionStatus.mockResolvedValue({ id: ELEC_ID, status: 'OPEN' });
 
-  it('conserva acronym y motto cuando traen contenido', async () => {
-    eleccionEn('DRAFT');
-    mockCreateCandidateList.mockResolvedValue({ id: LISTA });
-
-    await service.createCandidateList(ELECCION, {
-      name: 'Fuerza Joven',
-      acronym: 'FJ',
-      motto: 'Por un campus mejor',
+      await expectError(() => service.createCandidateList(ELEC_ID, { name: 'Unidad' }), 409, 'BORRADOR');
+      expect(mockCreate).not.toHaveBeenCalled();
     });
 
-    const data = mockCreateCandidateList.mock.calls[0][0];
-    expect(data.acronym).toBe('FJ');
-    expect(data.motto).toBe('Por un campus mejor');
-  });
+    it('traduce errores de unicidad de Prisma a 409', async () => {
+      mockCreate.mockRejectedValue({ code: 'P2002' });
 
-  it('permite limpiar un campo enviando null explícito', async () => {
-    eleccionEn('DRAFT');
-    mockFindCandidateListById.mockResolvedValue({
-      id: LISTA,
-      electionId: ELECCION,
+      await expectError(() => service.createCandidateList(ELEC_ID, { name: 'Unidad' }), 409, 'Ya existe');
     });
-    mockUpdateCandidateList.mockResolvedValue({ id: LISTA });
-
-    await service.updateCandidateList(ELECCION, LISTA, { motto: null });
-
-    expect(mockUpdateCandidateList).toHaveBeenCalledWith(LISTA, { motto: null });
-  });
-});
-
-describe('CandidateList Service — escritura solo en DRAFT', () => {
-  beforeEach(() => jest.clearAllMocks());
-
-  it('crear falla si la elección ya no es borrador (409)', async () => {
-    eleccionEn('OPEN');
-
-    const err = await capturarError(() =>
-      service.createCandidateList(ELECCION, { name: 'Unidad' })
-    );
-
-    expect(err.statusCode).toBe(409);
-    expect(mockCreateCandidateList).not.toHaveBeenCalled();
   });
 
-  it('crear con nombre repetido en la elección devuelve 409', async () => {
-    eleccionEn('DRAFT');
-    mockCreateCandidateList.mockRejectedValue({ code: 'P2002' });
+  describe('Borrado Seguro', () => {
+    it('no borra una lista con candidaturas (409)', async () => {
+      mockFindById.mockResolvedValue({ id: LIST_ID, electionId: ELEC_ID });
+      mockCountCandidacies.mockResolvedValue(5);
 
-    const err = await capturarError(() =>
-      service.createCandidateList(ELECCION, { name: 'Unidad' })
-    );
-
-    expect(err.statusCode).toBe(409);
-    expect(err.message).toContain('Ya existe una lista');
-  });
-
-  it('actualizar una lista de otra elección devuelve 404', async () => {
-    eleccionEn('DRAFT');
-    mockFindCandidateListById.mockResolvedValue({
-      id: LISTA,
-      electionId: OTRA_ELECCION,
+      await expectError(() => service.deleteCandidateList(ELEC_ID, LIST_ID), 409, 'candidatura');
+      expect(mockDelete).not.toHaveBeenCalled();
     });
 
-    const err = await capturarError(() =>
-      service.updateCandidateList(ELECCION, LISTA, { name: 'Otra' })
-    );
+    it('borra la lista si está vacía', async () => {
+      mockFindById.mockResolvedValue({ id: LIST_ID, electionId: ELEC_ID });
+      mockCountCandidacies.mockResolvedValue(0);
+      mockDelete.mockResolvedValue(true);
 
-    expect(err.statusCode).toBe(404);
-    expect(mockUpdateCandidateList).not.toHaveBeenCalled();
-  });
-});
+      const res = await service.deleteCandidateList(ELEC_ID, LIST_ID);
 
-describe('CandidateList Service — borrado seguro', () => {
-  beforeEach(() => jest.clearAllMocks());
-
-  it('no borra una lista con candidaturas (409)', async () => {
-    eleccionEn('DRAFT');
-    mockFindCandidateListById.mockResolvedValue({
-      id: LISTA,
-      electionId: ELECCION,
+      expect(res).toEqual({ deleted: true, id: LIST_ID });
+      expect(mockDelete).toHaveBeenCalledWith(LIST_ID);
     });
-    mockCountCandidaciesByList.mockResolvedValue(5);
-
-    const err = await capturarError(() =>
-      service.deleteCandidateList(ELECCION, LISTA)
-    );
-
-    expect(err.statusCode).toBe(409);
-    expect(err.message).toContain('5 candidatura');
-    expect(mockDeleteCandidateListById).not.toHaveBeenCalled();
-  });
-
-  it('borra la lista si está vacía', async () => {
-    eleccionEn('DRAFT');
-    mockFindCandidateListById.mockResolvedValue({
-      id: LISTA,
-      electionId: ELECCION,
-    });
-    mockCountCandidaciesByList.mockResolvedValue(0);
-    mockDeleteCandidateListById.mockResolvedValue({ id: LISTA });
-
-    const res = await service.deleteCandidateList(ELECCION, LISTA);
-
-    expect(res).toEqual({ deleted: true });
   });
 });

@@ -25,7 +25,6 @@ import platformTranslationRoutes from '../modules/PlatformTranslation/PlatformTr
 import notificationRoutes from '../modules/notification/notification.routes.js';
 import votingRoutes from '../modules/voting/voting.routes.js';
 import votingPublicRoutes from '../modules/voting/voting.public.routes.js';
-import ratingRoutes from '../modules/ratings/rating.routes.js';
 import objectionRoutes from '../modules/objections/objection.routes.js';
 import uploadRoutes from '../modules/upload/upload.routes.js';
 import gmailTestRoutes from '../modules/admin/gmailTest.routes.js';
@@ -124,7 +123,6 @@ tenantRouter.use('/ballots', ballotRoutes);
 tenantRouter.use(resultsRoutes);
 tenantRouter.use('/notifications', notificationRoutes);
 tenantRouter.use('/voting', votingRoutes);
-tenantRouter.use(ratingRoutes);
 tenantRouter.use(objectionRoutes);
 
 // Subida de archivos (imágenes/PDFs) operada por tenant.

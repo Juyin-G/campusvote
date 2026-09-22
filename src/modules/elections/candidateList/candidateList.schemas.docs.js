@@ -20,10 +20,8 @@
  *         tags:
  *           type: array
  *           items: { type: string }
- *         ratings:
  *           type: object
  *           nullable: true
- *           description: Resumen (solo con withRatings=true)
  *           properties:
  *             count: { type: integer }
  *             average: { type: number }

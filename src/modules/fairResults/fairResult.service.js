@@ -1,141 +1,191 @@
-// src/modules/fairResults/fairResult.service.js
-// Resultados de FERIAS derivados de la VOTACIÓN ANÓNIMA (fair_votes).
-// NO usa las hojas de rúbrica (fair_evaluations) — la rúbrica NO decide
-// ganadores; la votación sí.
-//
-// Reglas del ranking:
-//   1. votes DESC
-//   2. project.id ASC (desempate determinista)
-//   3. Proyectos sin votos al final con votes=null y position=null
-//      (no se inventa un 0).
-//
-// Ganador (winner):
-//   - Solo existe cuando fair.status = CLOSED y los resultados fueron
-//     publicados (fair_result_publications).
-//   - winner=true solo para position === 1 de una feria CLOSED publicada.
+import * as fairResultRepository from './fairResult.repository.js';
 
-import * as resultRepository from './fairResult.repository.js';
-import * as fairRepository from '../fairs/fair.repository.js';
-import { ApiError } from '../../shared/errors/ApiError.js';
+export class FairResultsService {
+  /**
+   * Obtiene los resultados y el ranking ordenado de los proyectos aprobados.
+   */
+  static async getResults(fairId, currentUser) {
+    const fair = await fairResultRepository.findFairById(fairId);
 
-const loadFair = async (fairId) => {
-  const fair = await fairRepository.findById(fairId);
-  if (!fair) throw ApiError.notFound('Feria no encontrada');
-  return fair;
-};
-
-const assertTenantMatch = ({ fair, actor }) => {
-  if (!actor.organizationId) {
-    throw ApiError.forbidden('Tu cuenta no está vinculada a ninguna organización');
-  }
-  if (fair.organizationId !== actor.organizationId) {
-    throw ApiError.forbidden('La feria no pertenece a tu organización');
-  }
-};
-
-// ── Lógica pura de cálculo (exportada para tests unit sin BD) ────
-
-/**
- * Construye el ranking a partir de los votos por proyecto.
- * @param {string} status - fair.status
- * @param {boolean} published
- * @param {Array<{id:string,name:string}>} projects
- * @param {Map<string, number>} votesByProject
- */
-export const buildVoteRanking = ({ status, published = false, projects, votesByProject = new Map() }) => {
-  const enriched = projects.map((p) => ({
-    project_id: p.id,
-    project_name: p.name,
-    votes: votesByProject.get(p.id) ?? 0,
-  }));
-  enriched.sort((a, b) => {
-    if (b.votes !== a.votes) return b.votes - a.votes;
-    return a.project_id.localeCompare(b.project_id);
-  });
-
-  const ranking = [];
-  let position = 0;
-  for (const entry of enriched) {
-    if (entry.votes === 0) {
-      ranking.push({ position: null, ...entry, winner: false });
-    } else {
-      position += 1;
-      ranking.push({
-        position,
-        ...entry,
-        winner: published && status === 'CLOSED' && position === 1,
-      });
+    if (!fair) {
+      const error = new Error('Feria no encontrada');
+      error.statusCode = 404;
+      throw error;
     }
-  }
-  return ranking;
-};
 
-// ── Operación ─────────────────────────────────────────────────────
-
-const mapPublishedBy = (p) =>
-  p?.publishedBy
-    ? { id: p.publishedBy.id, first_name: p.publishedBy.firstName, last_name: p.publishedBy.lastName }
-    : null;
-
-export const getFairResults = async ({ fairId, actor }) => {
-  const fair = await loadFair(fairId);
-  assertTenantMatch({ fair, actor });
-
-  const [projects, votesByProject, publication] = await Promise.all([
-    resultRepository.listApprovedProjects(fairId),
-    resultRepository.countVotesByProject(fairId),
-    resultRepository.findPublicationByFair(fairId),
-  ]);
-
-  const ranking = buildVoteRanking({
-    status: fair.status,
-    published: Boolean(publication),
-    projects,
-    votesByProject,
-  });
-
-  return {
-    fair_id: fair.id,
-    fair_name: fair.name,
-    fair_status: fair.status,
-    published: Boolean(publication),
-    published_at: publication?.createdAt ?? null,
-    published_by: mapPublishedBy(publication),
-    ranking,
-  };
-};
-
-export const publishFairResults = async ({ fairId, actor }) => {
-  const fair = await loadFair(fairId);
-  assertTenantMatch({ fair, actor });
-  if (fair.status !== 'CLOSED') {
-    throw ApiError.conflict('Los resultados solo se publican cuando la feria está cerrada (CLOSED)');
-  }
-  const existing = await resultRepository.findPublicationByFair(fairId);
-  if (existing) {
-    throw ApiError.conflict('Los resultados de esta feria ya fueron publicados');
-  }
-  let publication;
-  try {
-    publication = await resultRepository.createPublication({ fairId, publishedById: actor.id });
-  } catch (err) {
-    if (err.message === 'FAIR_RESULT_ALREADY_PUBLISHED') {
-      throw ApiError.conflict('Los resultados de esta feria ya fueron publicados');
+    // Validación Multi-Tenant estricta (ADMIN y SUPERADMIN no cruzan frontera ORG)
+    if (fair.organizationId !== currentUser.organizationId) {
+      const error = new Error('No tiene permisos para acceder a esta organización');
+      error.statusCode = 403;
+      error.code = 'FORBIDDEN';
+      throw error;
     }
-    throw err;
-  }
-  return {
-    fair_id: fair.id,
-    fair_name: fair.name,
-    fair_status: fair.status,
-    published: true,
-    published_at: publication.createdAt,
-    published_by: mapPublishedBy(publication),
-  };
-};
 
-export default {
-  getFairResults,
-  publishFairResults,
-  buildVoteRanking,
-};
+    const publication = await fairResultRepository.findPublicationByFair(fairId);
+    const isPublished = Boolean(publication);
+
+    const projects = await fairResultRepository.listApprovedProjects(fairId);
+
+    // Mapeo e independización de promedio y conteo de evaluaciones
+    const mappedRanking = projects.map((project) => {
+      const evaluationCount = project.evaluations.length;
+
+      if (evaluationCount === 0) {
+        return {
+          project_id: project.id,
+          name: project.name,
+          average_score: null,
+          evaluation_count: 0,
+          position: null,
+          winner: false,
+        };
+      }
+
+      const totalSum = project.evaluations.reduce((acc, curr) => acc + Number(curr.totalScore || 0), 0);
+      const averageScore = Math.round((totalSum / evaluationCount) * 100) / 100;
+
+      return {
+        project_id: project.id,
+        name: project.name,
+        average_score: averageScore,
+        evaluation_count: evaluationCount,
+        position: null,
+        winner: false,
+      };
+    });
+
+    const evaluated = mappedRanking.filter((item) => item.average_score !== null);
+    const unevaluated = mappedRanking.filter((item) => item.average_score === null);
+
+    // Algoritmo de Ordenamiento Determinista:
+    // 1. average_score DESC
+    // 2. evaluation_count DESC
+    // 3. project_id ASC
+    evaluated.sort((a, b) => {
+      if (b.average_score !== a.average_score) {
+        return b.average_score - a.average_score;
+      }
+      if (b.evaluation_count !== a.evaluation_count) {
+        return b.evaluation_count - a.evaluation_count;
+      }
+      return a.project_id.localeCompare(b.project_id);
+    });
+
+    // Asignación de Posición y regla de Ganador (winner solo si isPublished === true)
+    evaluated.forEach((item, index) => {
+      item.position = index + 1;
+      if (isPublished && item.position === 1) {
+        item.winner = true;
+      }
+    });
+
+    const finalRanking = [...evaluated, ...unevaluated];
+
+    return {
+      fair_id: fair.id,
+      fair_status: fair.status,
+      published: isPublished,
+      published_at: publication?.createdAt ? publication.createdAt.toISOString() : null,
+      published_by: publication?.publishedBy
+        ? {
+            id: publication.publishedBy.id,
+            first_name: publication.publishedBy.firstName,
+            last_name: publication.publishedBy.lastName,
+          }
+        : null,
+      ranking: finalRanking,
+    };
+  }
+
+  /**
+   * Publica oficialmente los resultados de una feria en estado CLOSED.
+   */
+  static async publishResults(fairId, currentUser) {
+    const fair = await fairResultRepository.findFairById(fairId);
+
+    if (!fair) {
+      const error = new Error('Feria no encontrada');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    // Validación Multi-Tenant
+    if (fair.organizationId !== currentUser.organizationId) {
+      const error = new Error('No tiene permisos para publicar en esta organización');
+      error.statusCode = 403;
+      error.code = 'FORBIDDEN';
+      throw error;
+    }
+
+    // Regla: Solo ferias CERRADAS pueden publicarse
+    if (fair.status !== 'CLOSED') {
+      const error = new Error('Solo se pueden publicar resultados de ferias cerradas');
+      error.statusCode = 409;
+      throw error;
+    }
+
+    // Regla: Prevenir doble publicación
+    const existingPub = await fairResultRepository.findPublicationByFair(fairId);
+    if (existingPub) {
+      const error = new Error('Los resultados ya han sido publicados anteriormente');
+      error.statusCode = 409;
+      throw error;
+    }
+
+    const created = await fairResultRepository.createPublication({
+      fairId,
+      publishedById: currentUser.id,
+    });
+
+    return {
+      published: true,
+      published_at: created.createdAt.toISOString(),
+      published_by: {
+        id: created.publishedBy.id,
+        first_name: created.publishedBy.firstName,
+        last_name: created.publishedBy.lastName,
+      },
+    };
+  }
+
+  /**
+   * Obtiene la revisión de un proyecto exclusivo para el rol JURY.
+   */
+  static async getProjectReviewForJury(fairId, projectId, currentUser) {
+    if (currentUser.role !== 'JURY') {
+      const error = new Error('Endpoint exclusivo para rol JURY');
+      error.statusCode = 403;
+      throw error;
+    }
+
+    const assignment = await fairResultRepository.findJuryAssignment(fairId, currentUser.id);
+    if (!assignment) {
+      const error = new Error('El jurado no tiene asignación en esta feria');
+      error.statusCode = 403;
+      throw error;
+    }
+
+    const project = await fairResultRepository.findProjectForJuryReview(fairId, projectId);
+    if (!project) {
+      const error = new Error('Proyecto no encontrado o no cumple con el estado APPROVED en esta feria');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    return {
+      project_id: project.id,
+      name: project.name,
+      fair_id: project.fairId,
+      logo_url: project.logoUrl ?? null,
+      cover_url: project.coverUrl ?? null,
+      project_url: project.projectUrl ?? null,
+      description: project.description ?? null,
+      members: project.members.map((member) => ({
+        id: member.id,
+        role: member.role,
+        first_name: member.user?.firstName ?? null,
+        last_name: member.user?.lastName ?? null,
+      })),
+    };
+  }
+}

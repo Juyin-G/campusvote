@@ -1,46 +1,46 @@
-// src/modules/fairResults/fairResult.routes.js
-// Rutas de RESULTADOS de proyectos de FERIAS (dominio exclusivo de ferias).
-//
-//   GET  /api/fairs/:id/results         → ranking de la feria (ADMIN)
-//   POST /api/fairs/:id/results/publish → publicación oficial (ADMIN)
-//
-// Autorización:
-//   - ADMIN opera SOLO sobre ferias de su organización (tenant en service).
-//   - SUPERADMIN NO tiene acceso operativo a resultados organizacionales
-//     (403 desde este router; sin bypass aunque tenga organizationId).
-//   - JURY NO obtiene acceso global a resultados por ser jurado.
-//   - STUDENT/TEACHER sin acceso administrativo a resultados.
-//
-// El ranking, el promedio y el ganador se derivan del backend (evaluaciones en
-// BD); al publicar solo se persiste el evento (fair + published_by + fecha).
-// Este router se monta ANTES que fairRoutes para que /:id/results y
-// /:id/results/publish no colisionen con /:id.
-
 import { Router } from 'express';
-import { authenticate, authorize } from '../../middlewares/auth.middleware.js';
-import { validate } from '../../middlewares/validate.middleware.js';
+import { FairResultsController } from './fairResult.controller.js';
+// Se importan los nombres reales exportados por auth.middleware.js
+import { authenticate, authorizeTenant, authenticateToken, authorizeRoles } from '../../middlewares/auth.middleware.js';
 import { ROLES } from '../../constants/roles.js';
-import * as fairResultController from './fairResult.controller.js';
-import * as fairResultSchema from './fairResult.schema.js';
 
 const router = Router();
 
-const MANAGERS = [ROLES.ADMIN];
+// Soporte para ambos nombres para compatibilidad con las pruebas existentes
+const authMiddleware = authenticateToken || authenticate;
+const roleMiddleware = authorizeRoles || authorizeTenant;
 
+// Exige autenticación Bearer Token
+router.use(authMiddleware);
+
+/**
+ * @route GET /api/fairs/:id/results
+ * Acceso: Exclusivo para ADMIN de la Organización (Tenant)
+ */
 router.get(
   '/:id/results',
-  authenticate,
-  authorize(MANAGERS),
-  validate(fairResultSchema.getFairResultsSchema),
-  fairResultController.getFairResults
+  roleMiddleware(ROLES.ADMIN || 'ADMIN'),
+  FairResultsController.getResults
 );
 
+/**
+ * @route POST /api/fairs/:id/results/publish
+ * Acceso: Exclusivo para ADMIN de la Organización (Tenant)
+ */
 router.post(
   '/:id/results/publish',
-  authenticate,
-  authorize(MANAGERS),
-  validate(fairResultSchema.publishFairResultsSchema),
-  fairResultController.publishFairResults
+  roleMiddleware(ROLES.ADMIN || 'ADMIN'),
+  FairResultsController.publishResults
+);
+
+/**
+ * @route GET /api/fairs/:id/projects/:projectId
+ * Acceso: Exclusivo para JURY asignado a la feria
+ */
+router.get(
+  '/:id/projects/:projectId',
+  roleMiddleware(ROLES.JURY || 'JURY'),
+  FairResultsController.getProjectReview
 );
 
 export default router;
