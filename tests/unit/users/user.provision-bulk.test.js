@@ -54,6 +54,13 @@ jest.unstable_mockModule('../../../src/shared/utils/emailDomain.js', () => ({
   isDomainAllowed: jest.fn(() => true),
 }));
 
+jest.unstable_mockModule('../../../src/shared/services/email.service.js', () => ({
+  default: {
+    hasEmailConfigured: jest.fn(() => false),
+  },
+  hasEmailConfigured: jest.fn(() => false),
+}));
+
 const userService = await import('../../../src/modules/users/user.service.js');
 const { ApiError } = await import('../../../src/shared/errors/ApiError.js');
 
@@ -101,7 +108,7 @@ describe('User Service - provisionAdmin (superadmin)', () => {
     ).rejects.toThrow(ApiError);
   });
 
-  it('crea la organización + ADMIN y le provisiona el 2FA de primer acceso', async () => {
+  it('crea la organización + ADMIN en modo onboarding (sin 2FA provisionado)', async () => {
     const result = await userService.provisionAdmin(
       {
         organization: {
@@ -125,13 +132,13 @@ describe('User Service - provisionAdmin (superadmin)', () => {
     expect(result.organization.code).toBe('UNAL');
     expect(result.user.role).toBe('ADMIN');
     expect(result.user.organization_id).toBe('org-9');
-    // Desde 84bf677 el alta directa provisiona el 2FA de inmediato (QR +
-    // códigos de respaldo); la activación por correo vive en la aprobación de
-    // solicitudes de organización.
-    expect(result.mustChangePassword).toBe(true);
-    expect(result.qrCode).toBe('data:image/png;base64,QR');
-    expect(result.secret).toBe('SECRET_TEST');
-    expect(result.backupCodes).toEqual(['CODE1', 'CODE2']);
+    // Sin canal de email → credenciales temporales: no se provisiona 2FA
+    expect(result.onboarding_mode).toBe('temp');
+    expect(result.must_change_password).toBe(true);
+    expect(result.must_setup_2fa).toBe(true);
+    expect(result.qrCode).toBeUndefined();
+    expect(result.secret).toBeUndefined();
+    expect(result.backupCodes).toBeUndefined();
   });
 
   it('rechaza si el correo ya está registrado', async () => {

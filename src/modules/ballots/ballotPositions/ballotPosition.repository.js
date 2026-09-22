@@ -114,6 +114,13 @@ export const findByBallotAndOrder = (
     select: BALLOT_POSITION_SELECT,
   });
 
+// Nombres cortos que usa ballotPosition.crud.service.js; sin ellos
+// listar/crear/editar/borrar cargos de la cédula respondía 500.
+export const listByBallot = findBallotPositionsByBallot;
+export const create = createBallotPosition;
+export const update = updateBallotPosition;
+export { deleteBallotPositionById as delete };
+
 export default {
   findBallotPositionById,
   findBallotPositionsByBallot,

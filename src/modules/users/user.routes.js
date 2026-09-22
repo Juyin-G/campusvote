@@ -1,11 +1,26 @@
 // src/modules/users/user.routes.js
+// CRUD de usuarios académicos + provisionamiento de ADMINs.
+//
+// Plataforma (SOLO SUPERADMIN): /users/admin/provision*
+// Tenant (SOLO ADMIN, con scope multi-sede): el resto.
+// Las rutas extra (site assignment, academic, bulk PDF) viven en user.routes.extra.js.
 
 import express from 'express';
 import * as userController from './user.controller.js';
 import { authenticate, authorize } from '../../middlewares/auth.middleware.js';
 import { validate } from '../../middlewares/validate.middleware.js';
-import { ROLES, ADMIN_ROLES } from '../../constants/roles.js';
+import { ROLES } from '../../constants/roles.js';
+import { prisma } from '../../database/prisma.js';
 import { ApiError } from '../../shared/errors/ApiError.js';
+import { canActorActOnUser } from '../../middlewares/tenantScope.middleware.js';
+import {
+  attachScopeUserFilter,
+  requireActorCanActOnUser,
+} from '../../middlewares/tenantScope.middleware.js';
+import {
+  preventSelfRoleChange,
+  requireAdminScopeForAdminRole,
+} from './user.guards.js';
 import {
   userParamsSchema,
   listUserSchema,
@@ -20,72 +35,12 @@ import {
   createUsersBulkSchema,
 } from './user.schema.js';
 
-const router = express.Router();
+// ════════════════════════════════════════════════════════════════════════
+//  platformUsersRouter — exclusivamente para SUPERADMIN.
+// ════════════════════════════════════════════════════════════════════════
+export const platformUsersRouter = express.Router();
 
-// Guard 1: Impide que un usuario modifique su propio rol
-const preventSelfRoleChange = (req, res, next) => {
-  const actorId = req.user?.id || req.user?.userId;
-  if (actorId === req.params.id) {
-    return next(ApiError.badRequest('No puedes modificar tu propio rol'));
-  }
-  next();
-};
-
-// Guard 2: Exige privilegios de superusuario para gestión de roles privilegiados
-// (ADMIN / ELECTORAL_COMMISSION). Los roles electorales regulares
-// (STUDENT/TEACHER) pueden ser gestionados por cualquier administrador.
-const requireSuperUserForRole = (req, res, next) => {
-  const target = req.body?.role;
-  if (target && !ADMIN_ROLES.includes(target)) {
-    // Cambiar a un rol no privilegiado no exige superusuario.
-    return next();
-  }
-  const isSuperUser = req.user?.isSuperuser || req.user?.isSuperAdmin || req.user?.role === ROLES.SUPERADMIN;
-  if (!isSuperUser) {
-    return next(ApiError.forbidden('Solo superusuarios pueden asignar o modificar roles privilegiados'));
-  }
-  next();
-};
-
-router.get(
-  '/',
-  authenticate,
-  authorize(ROLES.SUPERADMIN, ROLES.ADMIN, ROLES.ELECTORAL_COMMISSION),
-  validate(listUserSchema),
-  userController.listUsers
-);
-
-router.get(
-  '/me',
-  authenticate,
-  userController.getMe
-);
-
-router.get(
-  '/:id',
-  authenticate,
-  validate(userParamsSchema),
-  userController.getUserById
-);
-
-// Creación de usuario: Si asigna un rol privilegiado (ADMIN/COMISIÓN), requiere superusuario
-router.post(
-  '/',
-  authenticate,
-  authorize(ROLES.ADMIN, ROLES.SUPERADMIN),
-  validate(createUserSchema),
-  (req, res, next) => {
-    const isSuperUser = req.user?.isSuperuser || req.user?.isSuperAdmin || req.user?.role === ROLES.SUPERADMIN;
-    if (req.body.role && ADMIN_ROLES.includes(req.body.role) && !isSuperUser) {
-      return next(ApiError.forbidden('Solo superusuarios pueden crear usuarios con roles administrativos o de comisión'));
-    }
-    next();
-  },
-  userController.createUser
-);
-
-// SUPERADMIN: crea un ADMIN y le entrega el OTP/QR de primer acceso
-router.post(
+platformUsersRouter.post(
   '/admin/provision',
   authenticate,
   authorize(ROLES.SUPERADMIN),
@@ -93,7 +48,7 @@ router.post(
   userController.provisionAdmin
 );
 
-router.post(
+platformUsersRouter.post(
   '/admin/provision-existing/:organizationId',
   authenticate,
   authorize(ROLES.SUPERADMIN),
@@ -101,62 +56,138 @@ router.post(
   userController.provisionExistingAdmin
 );
 
-// ADMIN/SUPERADMIN: crea jurados/usuarios en lote (bulk)
-router.post(
-  '/bulk',
-  authenticate,
-  authorize(ROLES.ADMIN, ROLES.ELECTORAL_COMMISSION, ROLES.SUPERADMIN),
-  validate(createUsersBulkSchema),
-  userController.createUsersBulk
-);
+// ════════════════════════════════════════════════════════════════════════
+//  tenantUsersRouter — CRUD académico y de admins de tenant.
+// ════════════════════════════════════════════════════════════════════════
+const router = express.Router();
 
-router.put(
-  '/me',
-  authenticate,
-  validate(updateMeSchema),
-  userController.updateMe
-);
+// GET /me → usuario autenticado.
+router.get('/me', authenticate, userController.getMe);
 
-router.put(
-  '/:id',
-  authenticate,
-  authorize(ROLES.ADMIN),
-  validate(updateUserSchema),
-  userController.updateUser
-);
+// PUT /me → edición del propio perfil.
+router.put('/me', authenticate, validate(updateMeSchema), userController.updateMe);
 
-// Cambio explícito de rol con ambas validaciones aplicadas
-router.patch(
-  '/:id/role',
-  authenticate,
-  authorize(ROLES.ADMIN),
-  preventSelfRoleChange,
-  requireSuperUserForRole,
-  validate(changeRoleSchema),
-  userController.changeRole
-);
-
-router.patch(
-  '/:id/status',
-  authenticate,
-  authorize(ROLES.ADMIN),
-  validate(setActiveSchema),
-  userController.setActive
-);
-
-router.patch(
-  '/:id/unlock',
-  authenticate,
-  authorize(ROLES.ADMIN),
-  validate(userParamsSchema),
-  userController.unlockUser
-);
-
+// POST /me/password → cambio de contraseña propio.
 router.post(
   '/me/password',
   authenticate,
   validate(changePasswordSchema),
   userController.changePassword
+);
+
+// GET / → lista usuarios del tenant (scope aplicado en service).
+router.get(
+  '/',
+  authenticate,
+  authorize(ROLES.ADMIN),
+  validate(listUserSchema),
+  attachScopeUserFilter,
+  userController.listUsers
+);
+
+// POST / → crea usuario académico.
+router.post(
+  '/',
+  authenticate,
+  authorize(ROLES.ADMIN),
+  validate(createUserSchema),
+  userController.createUser
+);
+
+// POST /bulk → creación masiva (scope aplicado en service).
+router.post(
+  '/bulk',
+  authenticate,
+  authorize(ROLES.ADMIN),
+  validate(createUsersBulkSchema),
+  userController.createUsersBulk
+);
+
+// GET /:id → consulta usuario con autorización por scope.
+router.get(
+  '/:id',
+  authenticate,
+  authorize(ROLES.ADMIN),
+  validate(userParamsSchema),
+  async (req, res, next) => {
+    try {
+      const target = await prisma.user.findUnique({
+        where: { id: req.params.id },
+        select: {
+          id: true,
+          organizationId: true,
+          role: true,
+          siteAssignments: { select: { siteId: true } },
+        },
+      });
+      if (!target) return next(ApiError.notFound('Usuario no encontrado'));
+      const actorId = req.user?.id || req.user?.userId;
+      const isSelf = actorId === target.id;
+      const isAdmin = req.user?.role === ROLES.ADMIN;
+      if (!isSelf && !isAdmin) return next(ApiError.forbidden('Acceso denegado'));
+      if (isAdmin && !isSelf) {
+        const siteIds = (target.siteAssignments || []).map((s) => s.siteId);
+        const allowed = await canActorActOnUser(req.user, target.organizationId, siteIds);
+        if (!allowed) return next(ApiError.forbidden('No tienes autorización sobre este usuario'));
+      }
+      req.targetUser = target;
+      next();
+    } catch (err) {
+      next(err);
+    }
+  },
+  userController.getUserById
+);
+
+// PUT /:id → editar usuario.
+router.put(
+  '/:id',
+  authenticate,
+  authorize(ROLES.ADMIN),
+  requireActorCanActOnUser('id'),
+  validate(updateUserSchema),
+  userController.updateUser
+);
+
+// PATCH /:id/role → cambio de rol explícito.
+router.patch(
+  '/:id/role',
+  authenticate,
+  authorize(ROLES.ADMIN),
+  preventSelfRoleChange,
+  requireActorCanActOnUser('id'),
+  requireAdminScopeForAdminRole,
+  validate(changeRoleSchema),
+  userController.changeRole
+);
+
+// PATCH /:id/status → activar/desactivar.
+router.patch(
+  '/:id/status',
+  authenticate,
+  authorize(ROLES.ADMIN),
+  requireActorCanActOnUser('id'),
+  validate(setActiveSchema),
+  userController.setActive
+);
+
+// PATCH /:id/unlock → resetear intentos fallidos.
+router.patch(
+  '/:id/unlock',
+  authenticate,
+  authorize(ROLES.ADMIN),
+  requireActorCanActOnUser('id'),
+  validate(userParamsSchema),
+  userController.unlockUser
+);
+
+// DELETE /:id → soft delete (status=SUSPENDED).
+router.delete(
+  '/:id',
+  authenticate,
+  authorize(ROLES.ADMIN),
+  requireActorCanActOnUser('id'),
+  userController.softDeleteUser
 );
 
 export default router;

@@ -37,11 +37,19 @@ const cambiar = (status) =>
   comoAdmin('patch', `/api/elections/${electionId}/status`).send({ status });
 
 describe('Elections Workflow Integration (HTTP + DB)', () => {
+  let orgId;
+
   beforeAll(async () => {
     // Desde 84bf677 el admin crea elecciones dentro de su organización.
     const organizacion = await prisma.organization.create({
-      data: { name: `Flow Org ${runId}`, code: `FLOW${runId}`.slice(0, 30) },
+      data: {
+        name: `OrgFlow ${runId}`,
+        code: `FORG${runId}`.slice(0, 20),
+        categoryCatalog: [],
+        memberLimit: 100,
+      },
     });
+    orgId = organizacion.id;
 
     const admin = await prisma.user.create({
       data: {
@@ -57,6 +65,8 @@ describe('Elections Workflow Integration (HTTP + DB)', () => {
         isVerified: true,
         status: 'ACTIVE',
         mustChangePassword: false,
+        organizationId: organizacion.id,
+        scopeLevel: 'ORG',
       },
     });
     adminId = admin.id;
@@ -100,6 +110,9 @@ describe('Elections Workflow Integration (HTTP + DB)', () => {
     await prisma.academicPeriod.deleteMany({ where: { id: periodId } }).catch(() => {});
     await prisma.faculty.deleteMany({ where: { id: facultyId } }).catch(() => {});
     await prisma.user.deleteMany({ where: { id: adminId } }).catch(() => {});
+    if (orgId) {
+      await prisma.organization.delete({ where: { id: orgId } }).catch(() => {});
+    }
     await prisma.$disconnect();
   });
 

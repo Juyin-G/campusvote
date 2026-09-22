@@ -8,7 +8,10 @@
 //   - code (identificador corto, p. ej. "A-01") es único dentro de la feria
 //     (UNIQUE fair_id + code).
 //   - Gestión (crear/actualizar/eliminar) SOLO en DRAFT; lectura compartida
-//     (ADMIN/SUPERADMIN o JURY formalmente asignado) en cualquier estado.
+//     (ADMIN con organización dueña o JURY formalmente asignado) en cualquier
+//     estado.
+//   - SUPERADMIN NO tiene acceso operativo: 403 desde el router (sin bypass
+//     aunque tenga organizationId).
 //   - "1 stand = 1 proyecto": projects.stand_id es UNIQUE; el service traduce
 //     la violación (P2002) a 409.
 //   - No se elimina un stand que ya tiene un proyecto asignado → 409.
@@ -21,9 +24,6 @@ import { ROLES } from '../../constants/roles.js';
 
 const STAND_CONFIGURABLE_STATUSES = ['DRAFT'];
 
-const isSuperAdmin = (actor) =>
-  actor.role === ROLES.SUPERADMIN || actor.isSuperAdmin || actor.isSuperuser;
-
 const loadFair = async (fairId) => {
   const fair = await fairRepository.findById(fairId);
   if (!fair) {
@@ -33,7 +33,6 @@ const loadFair = async (fairId) => {
 };
 
 const assertTenantMatch = ({ fair, actor }) => {
-  if (isSuperAdmin(actor)) return;
   if (!actor.organizationId) {
     throw ApiError.forbidden('Tu cuenta no está vinculada a ninguna organización');
   }
@@ -65,12 +64,12 @@ const mapStand = (stand) => ({
   updated_at: stand.updatedAt,
 });
 
-// ── Lectura compartida (ADMIN/SUPERADMIN/JURY asignado) ────────────
+// ── Lectura compartida (ADMIN/JURY asignado) ───────────────────────
 
 export const listStands = async ({ fairId, actor }) => {
   const fair = await loadFair(fairId);
 
-  if (actor.role === ROLES.JURY && !isSuperAdmin(actor)) {
+  if (actor.role === ROLES.JURY) {
     await assertJuryAssignedToFair({ fairId, juryId: actor.id });
   } else {
     assertTenantMatch({ fair, actor });
@@ -86,7 +85,7 @@ export const listStands = async ({ fairId, actor }) => {
   };
 };
 
-// ── Gestión (ADMIN/SUPERADMIN; SOLO DRAFT) ─────────────────────────
+// ── Gestión (ADMIN; SOLO DRAFT) ───────────────────────────────────
 
 export const createStand = async ({ fairId, data, actor }) => {
   const fair = await loadFair(fairId);

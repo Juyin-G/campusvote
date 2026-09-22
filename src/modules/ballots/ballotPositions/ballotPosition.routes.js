@@ -27,7 +27,6 @@ const router = Router({
 
 const GESTORES = [
   ROLES.ADMIN,
-  ROLES.ELECTORAL_COMMISSION,
 ];
 
 // ==========================================
@@ -70,7 +69,7 @@ router.get(
 /**
  * @route POST /api/ballots/:ballotId/positions
  * @desc Agregar una nueva posición (cargo) a la boleta
- * @access ADMIN, ELECTORAL_COMMISSION
+ * @access ADMIN
  */
 router.post(
   '/',
@@ -83,7 +82,7 @@ router.post(
 /**
  * @route PUT /api/ballots/:ballotId/positions/:id
  * @desc Actualizar una posición (cargo / orden) dentro de la boleta
- * @access ADMIN, ELECTORAL_COMMISSION
+ * @access ADMIN
  */
 router.put(
   '/:id',
@@ -96,7 +95,7 @@ router.put(
 /**
  * @route DELETE /api/ballots/:ballotId/positions/:id
  * @desc Remover una posición de la boleta
- * @access ADMIN, ELECTORAL_COMMISSION
+ * @access ADMIN
  */
 router.delete(
   '/:id',

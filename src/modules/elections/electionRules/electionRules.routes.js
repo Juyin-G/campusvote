@@ -17,7 +17,7 @@ import {
 
 const router = Router({ mergeParams: true });
 
-const GESTORES = [ROLES.ADMIN, ROLES.ELECTORAL_COMMISSION];
+const GESTORES = [ROLES.ADMIN];
 
 // Obtener reglas existentes
 router.get(

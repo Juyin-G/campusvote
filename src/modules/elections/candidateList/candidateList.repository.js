@@ -106,6 +106,23 @@ export const countCandidaciesByList = (candidateListId) =>
     where: { candidateListId }, // camelCase
   });
 
+// Nombres que usa candidateList.crud.service.js. Sin ellos el servicio llamaba
+// a funciones inexistentes y crear/editar/borrar/listar respondía 500.
+export const count = (where) => prisma.candidateList.count({ where });
+
+export const list = ({ where, skip, take }) =>
+  prisma.candidateList.findMany({
+    where,
+    select: CANDIDATE_LIST_SELECT,
+    orderBy: buildCandidateListOrderBy(),
+    skip,
+    take,
+  });
+
+export const create = createCandidateList;
+export const update = updateCandidateList;
+export { deleteCandidateListById as delete };
+
 export default {
   findCandidateListById,
   findCandidateListsByElection,

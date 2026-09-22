@@ -59,6 +59,8 @@ const createUser = async ({ key, role, organizationId, facultyId = null }) => {
       lastName: key,
       institutionalId: `PJ${key}${runId}`.slice(0, 50),
       role,
+      // chk_users_scope_admin_only: todo ADMIN tiene alcance; el resto, ninguno.
+      scopeLevel: role === 'ADMIN' ? 'ORG' : null,
       authProvider: 'LOCAL',
       isVerified: true,
       status: 'ACTIVE',
@@ -122,7 +124,9 @@ describe('Projects Integration (HTTP + DB)', () => {
     categoriaAjena = await prisma.fairCategory.create({ data: { fairId: otraFeria.id, name: 'Otra' } });
     stand1 = await prisma.fairStand.create({ data: { fairId: fair.id, code: 'A-01' } });
     standAjeno = await prisma.fairStand.create({ data: { fairId: otraFeria.id, code: 'Z-99' } });
-  });
+    // Crea siete usuarios con bcrypt: con toda la suite en paralelo supera los
+    // 30 s por defecto aunque sola tarde unos pocos.
+  }, 120000);
 
   afterAll(async () => {
     await prisma.$disconnect();

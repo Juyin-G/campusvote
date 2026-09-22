@@ -10,6 +10,9 @@
  *   - El jurado asignado a esa feria.
  *   - 3 categorías, 4 stands y 4 proyectos APROBADOS con portada, categoría,
  *     stand, el docente como asesor y sus alumnos como expositores.
+ *   - Rúbrica checklist de 3 criterios y el jurado asignado a todas las
+ *     categorías (la rúbrica solo se configura en DRAFT: con la feria abierta
+ *     ya no se podría agregar desde la web).
  *
  * Es idempotente: volver a correrlo no duplica nada ni mueve las fechas de
  * una feria ya creada; solo restablece la contraseña de sus cuentas.
@@ -51,6 +54,7 @@ const CUENTAS = [
 ];
 
 const CATEGORIAS = ['Software', 'Robótica e IoT', 'Energía y ambiente'];
+const CRITERIOS = ['Innovación', 'Viabilidad técnica', 'Presentación'];
 const STANDS = ['A-01', 'A-02', 'A-03', 'A-04'];
 
 const portada = (id) => `https://images.unsplash.com/photo-${id}?auto=format&fit=crop&w=1200&q=70`;
@@ -159,6 +163,8 @@ async function cuenta(prisma, org, { tipo, role, firstName }, passwordHash) {
       institutionalId: `SEED-${tipo.toUpperCase()}-${org.code}`,
       role,
       organizationId: org.id,
+      // chk_users_scope_admin_only: todo ADMIN tiene alcance; el resto, ninguno.
+      scopeLevel: role === 'ADMIN' ? 'ORG' : null,
       authProvider: 'LOCAL',
       isVerified: true,
       status: 'ACTIVE',
@@ -217,14 +223,11 @@ async function main() {
           },
         }));
 
-      const asignado = await prisma.fairJuryAssignment.findFirst({
-        where: { fairId: fair.id, userId: u.jurado.id },
-      });
-      if (!asignado) {
-        await prisma.fairJuryAssignment.create({
-          data: { fairId: fair.id, userId: u.jurado.id, assignedById: u.admin.id },
-        });
-      }
+      const asignacion = await buscarOCrear(
+        prisma.fairJuryAssignment,
+        { fairId: fair.id, userId: u.jurado.id },
+        { assignedById: u.admin.id }
+      );
 
       const categorias = {};
       for (const name of CATEGORIAS) {
@@ -233,6 +236,20 @@ async function main() {
       const stands = [];
       for (const code of STANDS) {
         stands.push(await buscarOCrear(prisma.fairStand, { fairId: fair.id, code }, {}));
+      }
+
+      // Rúbrica checklist (cumplido / no cumplido por criterio).
+      const rubric = await buscarOCrear(prisma.fairRubric, { fairId: fair.id }, { name: 'Rúbrica 2026-II' });
+      for (const [i, name] of CRITERIOS.entries()) {
+        await buscarOCrear(prisma.rubricCriterion, { rubricId: rubric.id, position: i + 1 }, { name });
+      }
+
+      // Jurados por categoría: sin asignación el jurado no ve ningún proyecto.
+      for (const categoria of Object.values(categorias)) {
+        await buscarOCrear(prisma.fairJuryCategoryAssignment, {
+          juryAssignmentId: asignacion.id,
+          categoryId: categoria.id,
+        }, {});
       }
 
       for (const [i, p] of PROYECTOS[org.clave].entries()) {

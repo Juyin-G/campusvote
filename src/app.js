@@ -11,6 +11,7 @@ import cors from './config/cors.js';
 import logger from './config/logger.js';
 import env from './config/env.js';
 import routes from './routes/index.js';
+import { ApiError } from './shared/errors/ApiError.js';
 
 import { notFoundHandler } from './middlewares/notFoundHandler.js';
 import { errorHandler } from './middlewares/errorHandler.js';
@@ -20,8 +21,34 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 
-// Confianza en proxies inversos (Nginx, Cloudflare, Render, Heroku)
+// Confianza en proxies inversos (Nginx, Cloudflare, Render, Heroku).
+// Render y Heroku colocan un único proxy delante del proceso: `trust proxy = 1`
+// le indica a Express que confíe en la primera IP de X-Forwarded-For para
+// resolver `req.ip`. NO debe usarse `true` (confiar ciegamente en headers
+// del cliente permitiría spoofing de IP).
 app.set('trust proxy', 1);
+
+// Handler que delega en el error handler global para mantener el formato
+// de respuesta 429 consistente con el resto de errores de la API
+// ({ success: false, error: { code, message }, timestamp, path }).
+// Los headers RateLimit-* y Retry-After son fijados por express-rate-limit
+// antes de invocar el handler.
+const rateLimitHandler = (req, res, next, options) => {
+  const customMessage =
+    options?.message && typeof options.message === 'object'
+      ? options.message.message
+      : typeof options?.message === 'string'
+        ? options.message
+        : 'Demasiadas solicitudes, intenta más tarde.';
+  const retryAfterSeconds = Math.ceil((options?.windowMs || 0) / 1000);
+  next(
+    ApiError.tooManyRequests(
+      customMessage,
+      { retryAfterSeconds, code: 'GLOBAL_RATE_LIMITED' },
+      'GLOBAL_RATE_LIMITED'
+    )
+  );
+};
 
 // Limitador de peticiones para evitar abuso de la API
 const limiter = rateLimit({
@@ -29,7 +56,7 @@ const limiter = rateLimit({
   max: env.RATE_LIMIT_MAX_REQUESTS ?? 100, // Configurable; subir en producción (p. ej. 1000)
   standardHeaders: true,
   legacyHeaders: false,
-  message: { status: 429, message: 'Demasiadas solicitudes, intenta más tarde.' },
+  handler: rateLimitHandler,
 });
 
 // Seguridad y Optimización

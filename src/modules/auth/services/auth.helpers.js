@@ -1,50 +1,71 @@
 // src/modules/auth/services/auth.helpers.js
+// Helpers y constantes del módulo de autenticación.
+// Incluye funciones de generación de tokens (JWT + refresh) reusadas por
+// los sub-servicios (session, totp, lifecycle).
 
 import jwt from 'jsonwebtoken';
-import crypto from 'crypto';
+import crypto from 'node:crypto';
+import { ApiError } from '../../../shared/errors/ApiError.js';
 import env from '../../../config/env.js';
 import { formatUserResponse } from '../../../shared/utils/formatUserResponse.js';
 
 export { formatUserResponse };
 
-/**
- * Genera un Access Token JWT de vida corta (15m por defecto)
- */
-export const generateJwt = (user, expiresIn = env.JWT_EXPIRES_IN || '15m') => {
-  return jwt.sign(
+// Etapas del login por tipo de usuario.
+export const LOGIN_STAGES = {
+  CREDENTIALS_VALIDATED: 'CREDENTIALS_VALIDATED',
+  MFA_PENDING: 'MFA_PENDING',
+  ONBOARDING_PENDING: 'ONBOARDING_PENDING',
+  FULL_AUTH: 'FULL_AUTH',
+};
+
+export const ACCOUNT_STATUS = {
+  ACTIVE: 'ACTIVE',
+  PENDING: 'PENDING',
+  SUSPENDED: 'SUSPENDED',
+};
+
+export const AUTH_MESSAGES = {
+  INVALID_CREDENTIALS: 'Credenciales inválidas',
+  ACCOUNT_LOCKED: 'Cuenta bloqueada por intentos fallidos',
+  ACCOUNT_SUSPENDED: 'Cuenta suspendida',
+  MFA_REQUIRED: 'Se requiere 2FA',
+  TOKEN_INVALID: 'Token inválido o expirado',
+};
+
+/** Wrapper para errores de autenticación (401). */
+export const authError = (message, code = 'UNAUTHORIZED') =>
+  new ApiError(401, message, null, code);
+
+/** Genera un Access Token JWT de vida corta. */
+export const generateJwt = (user, expiresIn = env.JWT_EXPIRES_IN || '15m') =>
+  jwt.sign(
     {
       userId: user.id,
       email: user.email,
       role: user.role,
       organizationId: user.organizationId,
+      scopeLevel: user.scopeLevel ?? null,
+      regionId: user.regionId ?? null,
       isSuperuser: user.isSuperuser,
       isStaff: user.isStaff,
     },
     env.JWT_SECRET,
     { expiresIn }
   );
-};
 
 /**
- * Genera un Refresh Token aleatorio de alta entropía y su hash SHA-256 para guardar en BD
+ * Genera un refresh token opaco (no JWT) y su hash SHA-256 para guardar en BD.
+ * Se devuelve el token con los dos nombres: el login y el 2FA leen `rawToken`
+ * y el código nuevo lee `token`.
  */
 export const generateRefreshToken = () => {
-  const rawToken = crypto.randomBytes(40).toString('hex');
-  const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
-
-  return { rawToken, tokenHash };
+  const token = crypto.randomBytes(40).toString('hex');
+  const tokenHash = hashToken(token);
+  return { token, rawToken: token, tokenHash };
 };
 
-/**
- * Hash de un Refresh Token para búsquedas en BD
- */
-export const hashToken = (token) => {
+/** Hash de un refresh token para buscarlo en BD. */
+export function hashToken(token) {
   return crypto.createHash('sha256').update(token).digest('hex');
-};
-
-export default {
-  generateJwt,
-  generateRefreshToken,
-  hashToken,
-  formatUserResponse,
-};
+}

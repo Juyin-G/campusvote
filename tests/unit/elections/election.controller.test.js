@@ -90,6 +90,7 @@ describe('Election Controller', () => {
   it('crear responde 201 y pasa el userId y la organización del JWT', async () => {
     mockCreateElection.mockResolvedValue({ id: ID, status: 'DRAFT' });
     req.body = { title: 'Elecciones 2026' };
+    req.user = { userId: ACTOR, role: 'ADMIN', organizationId: ORG };
 
     await controller.createElection(req, res, next);
 

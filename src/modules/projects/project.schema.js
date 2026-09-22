@@ -56,6 +56,7 @@ export const createProjectSchema = z.object({
       logo_url: urlField('El logo').optional(),
       cover_url: urlField('La portada').optional(),
       project_url: urlField('La URL del proyecto').optional(),
+      category_id: uuid('La categoría').optional(),
     })
     .strict(),
 });
@@ -71,6 +72,7 @@ export const updateProjectSchema = z.object({
       logo_url: urlField('El logo').optional(),
       cover_url: urlField('La portada').optional(),
       project_url: urlField('La URL del proyecto').optional(),
+      category_id: uuid('La categoría').nullable().optional(),
     })
     .strict()
     .refine((data) => Object.values(data).some((value) => value !== undefined), {

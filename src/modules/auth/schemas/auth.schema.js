@@ -7,7 +7,6 @@ export const UserRoleEnum = z.enum([
   'TEACHER',
   'ADMIN',
   'SUPERADMIN',
-  'ELECTORAL_COMMISSION',
   'JURY',
 ]);
 
@@ -88,19 +87,5 @@ export const resendVerificationSchema = z.object({
 export const refreshSchema = z.object({
   body: z.object({
     refreshToken: z.string().min(1, 'El refresh token es obligatorio'),
-  }),
-});
-
-// Verificación de código de Google (login OAuth)
-export const googleVerifySchema = z.object({
-  body: z.object({
-    code: z.string().min(1, 'El código de Google es obligatorio'),
-  }),
-});
-
-// ID token emitido por Firebase Authentication para login con Google.
-export const firebaseVerifySchema = z.object({
-  body: z.object({
-    idToken: z.string().min(1, 'El ID token de Firebase es obligatorio'),
   }),
 });

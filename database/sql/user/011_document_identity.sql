@@ -1,6 +1,6 @@
 -- user/011_document_identity.sql
 -- Identidad nacional peruana (DNI/CE) en users. Idempotente.
--- Obligatorio en service para JURY / ELECTORAL_COMMISSION / ADMIN y docentes;
+-- Obligatorio en service para JURY / ADMIN y docentes;
 -- opcional para estudiantes. La validación externa (RENIEC/PIDE) vive en
 -- el IdentityProvider (src/shared/providers/identityProvider.js).
 

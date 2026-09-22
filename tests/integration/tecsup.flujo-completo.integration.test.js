@@ -25,15 +25,20 @@ import { generateSync } from 'otplib';
 // El correo se simula: se guardan los enlaces de activación para usarlos.
 const activaciones = new Map();
 
-jest.unstable_mockModule('../../src/shared/services/email.service.js', () => ({
-  hasEmailConfigured: jest.fn().mockReturnValue(true),
-  sendVerification: jest.fn().mockResolvedValue(true),
-  sendReset: jest.fn().mockResolvedValue(true),
-  sendRequestReceived: jest.fn().mockResolvedValue(true),
-  sendAdminActivation: jest.fn(async ({ email, token }) => {
-    activaciones.set(email, token);
-  }),
-}));
+jest.unstable_mockModule('../../src/shared/services/email.service.js', () => {
+  const correo = {
+    hasEmailConfigured: jest.fn().mockReturnValue(true),
+    sendVerification: jest.fn().mockResolvedValue(true),
+    sendReset: jest.fn().mockResolvedValue(true),
+    sendRequestReceived: jest.fn().mockResolvedValue(true),
+    sendAdminActivation: jest.fn(async ({ email, token }) => {
+      activaciones.set(email, token);
+    }),
+  };
+  // Mismo contrato que el módulo real: exports con nombre, el alias
+  // sendActivation y el export default (user.provision.service lo usa).
+  return { ...correo, sendActivation: correo.sendAdminActivation, default: correo };
+});
 
 jest.unstable_mockModule('../../src/middlewares/rateLimiter.middleware.js', () => ({
   loginLimiter: (_req, _res, next) => next(),
@@ -258,7 +263,10 @@ describe('Flujo completo con Tecsup (HTTP + DB)', () => {
       must_change_password: false,
     }));
 
-    const res = await api('post', '/api/users/bulk', t.adminToken).send({ users: [...alumnos, ...jurados] });
+    const res = await api('post', '/api/users/bulk', t.adminToken).send({
+      organization_id: t.tecsupId,
+      users: [...alumnos, ...jurados],
+    });
     expect(res.status).toBe(201);
     expect(res.body.data.totalOk).toBe(6);
     expect(res.body.data.totalFailed).toBe(0);
@@ -309,10 +317,9 @@ describe('Flujo completo con Tecsup (HTTP + DB)', () => {
       [1, 'Innovación'],
       [2, 'Viabilidad técnica'],
     ]) {
+      // Rúbrica checklist: cada criterio se marca cumplido o no, sin notas.
       const res = await api('post', `/api/fairs/${t.feriaId}/rubric/criteria`, t.adminToken).send({
         name,
-        min_score: 0,
-        max_score: 10,
         position,
       });
       expect(res.status).toBe(201);
@@ -325,6 +332,13 @@ describe('Flujo completo con Tecsup (HTTP + DB)', () => {
     for (const jurado of [t.jurado1, t.jurado2]) {
       const res = await api('post', `/api/fairs/${t.feriaId}/juries`, t.adminToken).send({ user_id: jurado.id });
       expect(res.status).toBe(201);
+      // Jurados por categoría: se asignan en DRAFT; con la feria abierta ya no.
+      for (const category_id of [t.catSoftware, t.catRobotica]) {
+        const cat = await api('post', `/api/fairs/${t.feriaId}/juries/${jurado.id}/categories`, t.adminToken).send({
+          category_id,
+        });
+        expect(cat.status).toBe(201);
+      }
     }
   });
 
@@ -459,9 +473,8 @@ describe('Flujo completo con Tecsup (HTTP + DB)', () => {
       expect(res.status).toBe(201);
     }
 
-    const temprano = await api('post', `/api/fairs/${t.feriaId}/evaluations`, t.jurado1Token).send({
-      project_id: t.proyecto1,
-      scores: t.criterios.map((criterion_id) => ({ criterion_id, score: 8 })),
+    const temprano = await api('put', `/api/fairs/${t.feriaId}/projects/${t.proyecto1}/rubric`, t.jurado1Token).send({
+      responses: t.criterios.map((criterion_id) => ({ criterion_id, checked: true })),
     });
     expect(temprano.status).toBe(409);
   });
@@ -483,31 +496,41 @@ describe('Flujo completo con Tecsup (HTTP + DB)', () => {
     expect(catalogo.body.data.map((f) => f.id)).not.toContain(t.feriaId);
   });
 
-  it('17. el jurado ve los proyectos aprobados con su stand y los evalúa', async () => {
+  it('17. el jurado ve los proyectos aprobados con su stand, llena la rúbrica y vota', async () => {
     const lista = await api('get', `/api/fairs/${t.feriaId}/projects`, t.jurado1Token);
     expect(lista.status).toBe(200);
     expect(lista.body.data.map((p) => p.id).sort()).toEqual([t.proyecto1, t.proyecto2].sort());
 
-    const notas = [
-      [t.jurado1Token, t.proyecto1, [9, 8]],
-      [t.jurado2Token, t.proyecto1, [10, 9]],
-      [t.jurado1Token, t.proyecto2, [7, 8]],
-      [t.jurado2Token, t.proyecto2, [8, 8]],
+    // Cada jurado marca y finaliza la rúbrica de los dos proyectos.
+    const hojas = [
+      [t.jurado1Token, t.proyecto1, [true, true]],
+      [t.jurado2Token, t.proyecto1, [true, true]],
+      [t.jurado1Token, t.proyecto2, [true, false]],
+      [t.jurado2Token, t.proyecto2, [false, true]],
     ];
-    for (const [token, projectId, puntajes] of notas) {
-      const res = await api('post', `/api/fairs/${t.feriaId}/evaluations`, token).send({
-        project_id: projectId,
-        scores: t.criterios.map((criterion_id, i) => ({ criterion_id, score: puntajes[i] })),
-        comment: 'Buen trabajo del equipo',
+    for (const [token, projectId, marcas] of hojas) {
+      const res = await api('put', `/api/fairs/${t.feriaId}/projects/${projectId}/rubric`, token).send({
+        responses: t.criterios.map((criterion_id, i) => ({ criterion_id, checked: marcas[i] })),
+        finalize: true,
       });
-      expect(res.status).toBe(201);
+      expect(res.status).toBe(200);
+      expect(res.body.data.submitted).toBe(true);
     }
 
-    const repetida = await api('post', `/api/fairs/${t.feriaId}/evaluations`, t.jurado1Token).send({
-      project_id: t.proyecto1,
-      scores: t.criterios.map((criterion_id) => ({ criterion_id, score: 10 })),
+    // Una rúbrica finalizada ya no se modifica.
+    const repetida = await api('put', `/api/fairs/${t.feriaId}/projects/${t.proyecto1}/rubric`, t.jurado1Token).send({
+      responses: t.criterios.map((criterion_id) => ({ criterion_id, checked: false })),
     });
     expect(repetida.status).toBe(409);
+
+    // Voto anónimo: un voto por jurado y por feria. Ambos eligen el brazo.
+    for (const token of [t.jurado1Token, t.jurado2Token]) {
+      const voto = await api('post', `/api/fairs/${t.feriaId}/votes`, token).send({ project_id: t.proyecto1 });
+      expect(voto.status).toBe(201);
+      expect(voto.body.data.receipt_code).toBeTruthy();
+    }
+    const otroVoto = await api('post', `/api/fairs/${t.feriaId}/votes`, t.jurado1Token).send({ project_id: t.proyecto2 });
+    expect(otroVoto.status).toBe(409);
   });
 
   it('17b. la app del jurado: ferias asignadas, filtros, detalle, avance y edición de su evaluación', async () => {
@@ -551,26 +574,16 @@ describe('Flujo completo con Tecsup (HTTP + DB)', () => {
     expect(JSON.stringify(detalle.body.data)).toContain('Robótica e IoT');
     expect(detalle.body.data.members.length).toBeGreaterThanOrEqual(2);
 
-    // Mi avance y mis evaluaciones.
-    const avance = await api('get', `/api/fairs/my-progress/${t.feriaId}`, token);
-    expect(avance.status).toBe(200);
-    expect(avance.body.data).toMatchObject({ total_projects: 2, evaluated_projects: 2 });
+    // Su hoja de rúbrica del proyecto quedó guardada y finalizada.
+    const hoja = await api('get', `/api/fairs/${t.feriaId}/projects/${t.proyecto1}/rubric`, token);
+    expect(hoja.status).toBe(200);
+    expect(hoja.body.data.submitted).toBe(true);
 
-    const mias = await api('get', `/api/fairs/my-evaluations?fair_id=${t.feriaId}`, token);
-    expect(mias.status).toBe(200);
-    expect(mias.body.data).toHaveLength(2);
-
-    // Corrige su comentario (sin tocar las notas); otro jurado no puede.
-    const evaluacion = mias.body.data.find((e) => e.project_id === t.proyecto1);
-    const editar = await api('put', `/api/fairs/${t.feriaId}/evaluations/${evaluacion.id}`, token).send({
-      comment: 'Excelente integración de visión artificial',
-    });
-    expect(editar.status).toBe(200);
-
-    const ajeno = await api('put', `/api/fairs/${t.feriaId}/evaluations/${evaluacion.id}`, t.jurado2Token).send({
-      comment: 'Intento de editar lo ajeno',
-    });
-    expect([403, 404]).toContain(ajeno.status);
+    // Ya votó: el estado lo dice, sin revelar por qué proyecto.
+    const estado = await api('get', `/api/fairs/${t.feriaId}/voting/status`, token);
+    expect(estado.status).toBe(200);
+    expect(estado.body.data.has_voted).toBe(true);
+    expect(JSON.stringify(estado.body.data)).not.toContain(t.proyecto1);
 
     // El jurado no ve los resultados de la feria.
     expect((await api('get', `/api/fairs/${t.feriaId}/results`, token)).status).toBe(403);
@@ -585,9 +598,10 @@ describe('Flujo completo con Tecsup (HTTP + DB)', () => {
     const res = await api('get', `/api/fairs/${t.feriaId}/results`, t.adminToken);
     expect(res.status).toBe(200);
     expect(res.body.data.published).toBe(false);
+    // Ranking por votos del jurado: el brazo tiene los dos votos.
     const [primero, segundo] = res.body.data.ranking;
-    expect(primero).toMatchObject({ project_id: t.proyecto1, average_score: 18, winner: false });
-    expect(segundo).toMatchObject({ project_id: t.proyecto2, average_score: 15.5 });
+    expect(primero).toMatchObject({ project_id: t.proyecto1, votes: 2, position: 1, winner: false });
+    expect(segundo).toMatchObject({ project_id: t.proyecto2, votes: 0, position: null, winner: false });
   });
 
   it('19. el admin publica los resultados y el brazo robótico gana', async () => {
@@ -618,6 +632,7 @@ describe('Flujo completo con Tecsup (HTTP + DB)', () => {
     expect(t.upaoId).not.toBe(t.tecsupId);
 
     const alumno = await api('post', '/api/users/bulk', t.upaoAdminToken).send({
+      organization_id: t.upaoId,
       users: [
         {
           username: `upao.alumno.${runId}`,

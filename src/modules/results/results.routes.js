@@ -24,7 +24,12 @@ import {
 
 const router = Router();
 
-const GESTORES = [ROLES.ADMIN, ROLES.ELECTORAL_COMMISSION];
+// Sub-router PÚBLICO (sin autenticación). Se monta en src/routes/index.js
+// FUERA del tenantRouter para que el panel público pueda compartir resultados
+// sin token y sin quedar sujeto a la frontera de plataforma.
+export const resultsPublicRouter = Router();
+
+const GESTORES = [ROLES.ADMIN];
 
 // CERTIFY / PUBLISH (S7-03 / S7-04)
 
@@ -96,12 +101,13 @@ router.get(
 // LIVE / FINAL (S7-05) — acceso autenticado y validado por tenant
 
 // Resultados finales publicados: consulta pública para compartir el ganador.
-router.get(
+// Viven en resultsPublicRouter (montado sin authenticate en src/routes/index.js).
+resultsPublicRouter.get(
   '/public/elections',
   asyncHandler(resultsController.listPublishedElections)
 );
 
-router.get(
+resultsPublicRouter.get(
   '/public/results/final',
   validate(finalResultsQuerySchema),
   asyncHandler(resultsController.getFinalResults)

@@ -124,13 +124,8 @@ export default {
   GMAIL_REFRESH_TOKEN: process.env.GMAIL_REFRESH_TOKEN,
   GMAIL_FROM: process.env.GMAIL_FROM,
 
-  // Firebase Authentication (opcional; login Google desde Flutter/Web)
-  FIREBASE_PROJECT_ID: process.env.FIREBASE_PROJECT_ID,
-  FIREBASE_CLIENT_EMAIL: process.env.FIREBASE_CLIENT_EMAIL,
-  FIREBASE_PRIVATE_KEY: process.env.FIREBASE_PRIVATE_KEY,
-  FIREBASE_STORAGE_BUCKET: process.env.FIREBASE_STORAGE_BUCKET,
-  UPLOAD_STORAGE_DRIVER:
-    process.env.UPLOAD_STORAGE_DRIVER || (process.env.NODE_ENV === 'production' ? 'firebase' : 'local'),
+  // Almacenamiento local de uploads (Firebase Storage fue descontinuado).
+  UPLOAD_STORAGE_DRIVER: 'local',
 
   // Frontend URL
   // Debe ser una sola URL pública del frontend; se usa para enlaces de email.

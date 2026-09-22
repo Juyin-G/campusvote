@@ -47,10 +47,11 @@
  * /api/fairs:
  *   get:
  *     tags: [Fairs]
- *     summary: Listar ferias de la organización (ADMIN/SUPERADMIN)
+ *     summary: Listar ferias de la organización (ADMIN)
  *     description: >
- *       ADMIN ve las ferias de su organización. SUPERADMIN conserva el bypass
- *       de tenant global del sistema (sin capacidades nuevas de gestión).
+ *       ADMIN ve las ferias de SU organización (aislamiento por tenant).
+ *       SUPERADMIN NO tiene acceso operativo a ferias (403 desde este router;
+ *       sin bypass aunque tenga organizationId).
  *     security:
  *       - bearerAuth: []
  *     parameters:

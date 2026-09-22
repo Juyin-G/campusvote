@@ -1,0 +1,37 @@
+// ASIGNACIÓN DE JURADO A CATEGORÍA DENTRO DE UNA FERIA (N:M).
+//
+// Estructura:
+//   FairJuryAssignment (fair + jury)
+//       └── FairJuryCategoryAssignment (jury_assignment + category)
+//               └── FairCategory (fair + category)
+//
+// Decisiones:
+//   * N:M: un JURY puede estar en múltiples categorías de la misma feria.
+//   * UNIQUE (jury_assignment_id, category_id): sin duplicados.
+//   * ON DELETE CASCADE en jury_assignment: al desasignar jurado de la feria,
+//     se eliminan sus asignaciones de categoría.
+//   * ON DELETE RESTRICT en category: no se puede eliminar categoría con
+//     jurados asignados.
+//   * Las asignaciones solo se modifican en DRAFT (service); en OPEN quedan
+//     congeladas.
+//   * Trigger en BD verifica que la categoría pertenece a la misma feria que
+//     la asignación del jurado.
+
+model FairJuryCategoryAssignment {
+  id               String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  juryAssignmentId String @map("jury_assignment_id") @db.Uuid
+  categoryId       String @map("category_id") @db.Uuid
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  // Relaciones
+  juryAssignment FairJuryAssignment @relation(fields: [juryAssignmentId], references: [id], onDelete: Cascade)
+  category       FairCategory       @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+
+  // Índices / unicidad
+  @@unique([juryAssignmentId, categoryId], map: "uq_fair_jury_category_assignments")
+  @@index([juryAssignmentId], map: "idx_fair_jury_category_assignments_jury")
+  @@index([categoryId], map: "idx_fair_jury_category_assignments_category")
+  @@map("fair_jury_category_assignments")
+}

@@ -1,22 +1,51 @@
 // src/modules/fairEvaluations/fairEvaluation.repository.js
-// Acceso a datos (Prisma) de rúbricas y evaluaciones de ferias.
+// Acceso a datos (Prisma) de la rúbrica CHECKLIST y de las hojas de respuesta.
+// Solo traduccíón Prisma ↔ SQL — sin reglas de negocio.
 
 import { prisma } from '../../database/prisma.js';
 import { Prisma } from '@prisma/client';
 
-// ── Rúbrica / criterios ────────────────────────────────────────────
+// ── Selects reutilizables ─────────────────────────────────────────
 
 const CRITERION_SELECT = {
   id: true,
   rubricId: true,
   name: true,
   description: true,
-  minScore: true,
-  maxScore: true,
   position: true,
+  isActive: true,
   createdAt: true,
   updatedAt: true,
 };
+
+const DETAIL_SELECT = {
+  id: true,
+  evaluationId: true,
+  criterionId: true,
+  rubricId: true,
+  checked: true,
+  createdAt: true,
+  updatedAt: true,
+  criterion: {
+    select: { id: true, name: true, position: true, isActive: true },
+  },
+};
+
+const PROJECT_REF = {
+  select: { id: true, name: true, fairId: true, status: true },
+};
+
+const JURY_REF = {
+  select: {
+    id: true,
+    firstName: true,
+    lastName: true,
+    institutionalId: true,
+    role: true,
+  },
+};
+
+// ── Rúbrica / criterios ──────────────────────────────────────────
 
 export const findRubricByFair = (fairId) =>
   prisma.fairRubric.findUnique({
@@ -28,10 +57,7 @@ export const findRubricByFair = (fairId) =>
       description: true,
       createdAt: true,
       updatedAt: true,
-      criteria: {
-        select: CRITERION_SELECT,
-        orderBy: { position: 'asc' },
-      },
+      criteria: { select: CRITERION_SELECT, orderBy: { position: 'asc' } },
     },
   });
 
@@ -65,10 +91,133 @@ export const nextCriterionPosition = async (rubricId) => {
   return (last?.position ?? 0) + 1;
 };
 
-export const countCriteria = (rubricId) =>
-  prisma.rubricCriterion.count({ where: { rubricId } });
+// ── Hojas de respuesta (CHECKLIST) ───────────────────────────────
 
-// ── Declaración de jurado ──────────────────────────────────────────
+export const findEvaluation = (id, fairId) =>
+  prisma.fairEvaluation.findFirst({
+    where: { id, fairId },
+    select: {
+      id: true,
+      fairId: true,
+      projectId: true,
+      juryUserId: true,
+      rubricId: true,
+      submittedAt: true,
+      createdAt: true,
+      updatedAt: true,
+      project: PROJECT_REF,
+      jury: JURY_REF,
+      details: {
+        select: DETAIL_SELECT,
+        orderBy: { createdAt: 'asc' },
+      },
+    },
+  });
+
+export const findEvaluationByFairProjectJury = (fairId, projectId, juryUserId) =>
+  prisma.fairEvaluation.findFirst({
+    where: { fairId, projectId, juryUserId },
+    select: { id: true, submittedAt: true, rubricId: true },
+  });
+
+// Crea o actualiza la hoja con sus detalles en una sola transacción.
+// Si el set ya existe, hace upsert de cada respuesta (checklist).
+export const upsertEvaluation = async ({ fairId, projectId, juryUserId, rubricId, responses }) =>
+  prisma.$transaction(async (tx) => {
+    const set = await tx.fairEvaluation.upsert({
+      where: {
+        fairId_projectId_juryUserId: { fairId, projectId, juryUserId },
+      },
+      create: { fairId, projectId, juryUserId, rubricId, submittedAt: null },
+      update: {},
+      select: { id: true, rubricId: true },
+    });
+
+    // upsert por (evaluation_id, criterion_id)
+    for (const r of responses) {
+      await tx.fairEvaluationDetail.upsert({
+        where: {
+          evaluationId_criterionId: {
+            evaluationId: set.id,
+            criterionId: r.criterionId,
+          },
+        },
+        create: {
+          evaluationId: set.id,
+          criterionId: r.criterionId,
+          rubricId,
+          checked: Boolean(r.checked),
+        },
+        update: { checked: Boolean(r.checked) },
+        select: { id: true },
+      });
+    }
+    return set;
+  });
+
+export const finalizeEvaluation = (id) =>
+  prisma.fairEvaluation.update({
+    where: { id },
+    data: { submittedAt: new Date() },
+    select: { id: true, submittedAt: true },
+  });
+
+export const listEvaluations = ({ fairId, juryUserId, projectId, skip = 0, take = 20 }) =>
+  prisma.fairEvaluation.findMany({
+    where: {
+      fairId,
+      ...(juryUserId ? { juryUserId } : {}),
+      ...(projectId ? { projectId } : {}),
+    },
+    select: {
+      id: true,
+      fairId: true,
+      projectId: true,
+      juryUserId: true,
+      rubricId: true,
+      submittedAt: true,
+      createdAt: true,
+      updatedAt: true,
+      project: PROJECT_REF,
+      jury: JURY_REF,
+      details: { select: DETAIL_SELECT, orderBy: { createdAt: 'asc' } },
+    },
+    orderBy: { createdAt: 'desc' },
+    skip,
+    take,
+  });
+
+export const countEvaluations = ({ fairId, juryUserId, projectId }) =>
+  prisma.fairEvaluation.count({
+    where: { fairId, ...(juryUserId ? { juryUserId } : {}), ...(projectId ? { projectId } : {}) },
+  });
+
+export const safeCreateEvaluation = async (data, details) => {
+  try {
+    return await prisma.fairEvaluation.create({
+      data: {
+        ...data,
+        details: {
+          create: details.map((d) => ({
+            criterionId: d.criterionId,
+            rubricId: d.rubricId,
+            checked: Boolean(d.checked),
+          })),
+        },
+      },
+      select: { id: true },
+    });
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+      throw new Error('FAIR_EVALUATION_ALREADY_EXISTS');
+    }
+    throw error;
+  }
+};
+
+// ── Declaración del jurado ──────────────────────────────────────────
+// fairEvaluation.exposition.service.js las usa para firmar y consultar la
+// declaración de imparcialidad; se habían perdido al reescribir el repositorio.
 
 const DECLARATION_SELECT = {
   id: true,
@@ -100,145 +249,10 @@ export const safeCreateDeclaration = async (data) => {
   }
 };
 
-// ── Evaluaciones ────────────────────────────────────────────────────
-
-const PROJECT_REF = {
-  select: {
-    id: true,
-    name: true,
-    description: true,
-    status: true,
-    fairId: true,
-    createdBy: {
-      select: { id: true, firstName: true, lastName: true },
-    },
-  },
-};
-
-const JURY_REF = {
-  select: { id: true, firstName: true, lastName: true, institutionalId: true, role: true },
-};
-
-const DETAIL_REF = {
-  select: {
-    id: true,
-    criterionId: true,
-    score: true,
-    criterion: {
-      select: { id: true, name: true, minScore: true, maxScore: true, position: true },
-    },
-  },
-  orderBy: { createdAt: 'asc' },
-};
-
-export const findEvaluation = (id, fairId) =>
-  prisma.fairEvaluation.findFirst({
-    where: { id, fairId },
-    select: {
-      id: true,
-      fairId: true,
-      projectId: true,
-      juryUserId: true,
-      rubricId: true,
-      totalScore: true,
-      comment: true,
-      createdAt: true,
-      updatedAt: true,
-      project: PROJECT_REF,
-      jury: JURY_REF,
-      details: DETAIL_REF,
-    },
-  });
-
-export const findEvaluationByFairProjectJury = (fairId, projectId, juryUserId) =>
-  prisma.fairEvaluation.findFirst({
-    where: { fairId, projectId, juryUserId },
-    select: { id: true },
-  });
-
-export const createEvaluation = (data, details) =>
-  prisma.fairEvaluation.create({
-    data: {
-      ...data,
-      details: {
-        create: details.map((d) => ({
-          criterionId: d.criterionId,
-          rubricId: d.rubricId,
-          score: d.score,
-        })),
-      },
-    },
-    select: { id: true },
-  });
-
-export const updateEvaluation = async (id, data, details) =>
-  prisma.$transaction(async (tx) => {
-    await tx.fairEvaluationDetail.deleteMany({ where: { evaluationId: id } });
-    await tx.fairEvaluationDetail.createMany({
-      data: details.map((d) => ({
-        evaluationId: id,
-        criterionId: d.criterionId,
-        rubricId: d.rubricId,
-        score: d.score,
-      })),
-    });
-    return tx.fairEvaluation.update({ where: { id }, data });
-  });
-
-export const listEvaluations = ({ fairId, juryUserId, projectId, skip = 0, take = 20 }) =>
-  prisma.fairEvaluation.findMany({
-    where: {
-      fairId,
-      ...(juryUserId ? { juryUserId } : {}),
-      ...(projectId ? { projectId } : {}),
-    },
-    select: {
-      id: true,
-      fairId: true,
-      projectId: true,
-      juryUserId: true,
-      rubricId: true,
-      totalScore: true,
-      comment: true,
-      createdAt: true,
-      updatedAt: true,
-      project: PROJECT_REF,
-      jury: JURY_REF,
-      details: DETAIL_REF,
-    },
-    orderBy: { createdAt: 'desc' },
-    skip,
-    take,
-  });
-
-export const countEvaluations = ({ fairId, juryUserId, projectId }) =>
-  prisma.fairEvaluation.count({
-    where: {
-      fairId,
-      ...(juryUserId ? { juryUserId } : {}),
-      ...(projectId ? { projectId } : {}),
-    },
-  });
-
-const handlePrismaError = (error, { unique = 'FAIR_EVALUATION_UNIQUE_CONSTRAINT' } = {}) => {
-  if (error instanceof Prisma.PrismaClientKnownRequestError) {
-    if (error.code === 'P2002') throw new Error(unique);
-  }
-  throw error;
-};
-
-export const safeCreateEvaluation = async (data, details) => {
-  try {
-    return await createEvaluation(data, details);
-  } catch (error) {
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
-      throw new Error('FAIR_EVALUATION_ALREADY_EXISTS');
-    }
-    throw error;
-  }
-};
-
 export default {
+  findDeclaration,
+  createDeclaration,
+  safeCreateDeclaration,
   findRubricByFair,
   createRubric,
   updateRubric,
@@ -247,16 +261,11 @@ export default {
   updateCriterion,
   deleteCriterion,
   nextCriterionPosition,
-  countCriteria,
-  findDeclaration,
-  createDeclaration,
-  safeCreateDeclaration,
   findEvaluation,
   findEvaluationByFairProjectJury,
-  createEvaluation,
-  safeCreateEvaluation,
-  updateEvaluation,
+  upsertEvaluation,
+  finalizeEvaluation,
   listEvaluations,
   countEvaluations,
-  handlePrismaError,
+  safeCreateEvaluation,
 };

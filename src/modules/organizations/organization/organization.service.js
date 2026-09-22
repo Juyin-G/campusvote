@@ -2,6 +2,26 @@
 
 import orgRepository from './organization.repository.js';
 import { ApiError } from '../../../shared/errors/index.js';
+import { ROLES } from '../../../constants/roles.js';
+
+// CAMBIO: separación de campos de plataforma (SUPERADMIN) y de tenant (ADMIN).
+// Soportan tanto snake_case (request body) como camelCase (Prisma).
+const PLATFORM_FIELDS = new Set([
+  'isActive', 'is_active',
+  'memberLimit', 'member_limit',
+  'defaultLocale', 'default_locale',
+]);
+const TENANT_FIELDS = new Set([
+  'name', 'logo', 'primaryColor', 'primary_color', 'secondaryColor', 'secondary_color',
+  'country', 'timezone',
+  'allowedEmailDomains', 'allowed_email_domains',
+  'categoryCatalog', 'category_catalog',
+  'onboardingCompleted', 'onboarding_completed',
+  'onboardingCompletedAt', 'onboarding_completed_at',
+]);
+
+const isPlatformField = (key) => PLATFORM_FIELDS.has(key);
+const isTenantField = (key) => TENANT_FIELDS.has(key);
 
 
 export const listOrganizations = async (query = {}) => {
@@ -76,12 +96,18 @@ export const createOrganization = async (data = {}) => {
 
 /**
  * Actualizar una organización
+ * CAMBIO: el SUPERADMIN solo puede modificar campos de plataforma
+ * (isActive, memberLimit, defaultLocale). Cualquier intento de modificar
+ * branding, datos de contacto u operación interna devuelve 403.
+ * El ADMIN del propio tenant solo puede modificar campos operativos de su
+ * organización (no memberLimit, no isActive).
  */
 /**
  * Un ADMIN solo opera sobre SU organización; el SUPERADMIN, sobre cualquiera.
+ * La usan también el onboarding (configurar y completar).
  */
 const isSuperAdminActor = (actor) =>
-  actor?.role === 'SUPERADMIN' || actor?.isSuperuser || actor?.isSuperAdmin;
+  actor?.role === ROLES.SUPERADMIN || actor?.isSuperuser || actor?.isSuperAdmin;
 
 const assertOwnOrganization = (id, actor, message) => {
   if (!isSuperAdminActor(actor) && actor?.organizationId !== id) {
@@ -90,8 +116,34 @@ const assertOwnOrganization = (id, actor, message) => {
 };
 
 export const updateOrganization = async (id, data = {}, actor = {}) => {
-  assertOwnOrganization(id, actor, 'Solo puedes actualizar la identidad de tu organización');
   const isSuperAdmin = isSuperAdminActor(actor);
+  const isAdmin = actor?.role === ROLES.ADMIN;
+
+  if (!isSuperAdmin && !isAdmin) {
+    throw ApiError.forbidden('No tienes permisos para editar organizaciones');
+  }
+
+  if (isAdmin && actor?.organizationId !== id) {
+    throw ApiError.forbidden('Solo puedes actualizar la identidad de tu organización');
+  }
+
+  // CAMBIO: SUPERADMIN limitado a platform fields. Bloqueo explícito si
+  // intenta tocar campos de tenant (branding, allowedEmailDomains, etc.).
+  if (isSuperAdmin) {
+    for (const key of Object.keys(data)) {
+      if (isTenantField(key)) {
+        throw ApiError.forbidden(
+          'El administrador de plataforma solo puede modificar campos de plataforma (isActive, memberLimit, defaultLocale)'
+        );
+      }
+      if (!isPlatformField(key)) {
+        throw ApiError.forbidden(
+          `El campo "${key}" no es modificable por el administrador de plataforma`
+        );
+      }
+    }
+  }
+
   const existingOrg = await orgRepository.findOrgById(id);
   if (!existingOrg) {
     throw ApiError.notFound('Organización no encontrada');
@@ -127,6 +179,10 @@ export const updateOrganization = async (id, data = {}, actor = {}) => {
 
   if (data.allowed_email_domains !== undefined) {
     updateData.allowedEmailDomains = data.allowed_email_domains;
+  }
+
+  if (data.default_locale !== undefined) {
+    updateData.defaultLocale = data.default_locale;
   }
 
   if (data.member_limit !== undefined) {

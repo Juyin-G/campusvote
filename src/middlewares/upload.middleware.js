@@ -1,12 +1,16 @@
 import multer from 'multer';
 import path from 'node:path';
+import fs from 'node:fs';
 import crypto from 'node:crypto';
 import env from '../config/env.js';
 import { ApiError } from '../shared/errors/ApiError.js';
 import { isAllowedMimeType } from '../shared/utils/fileSignature.js';
 
-// Directorio destino
+// Directorio destino. Multer NO crea el directorio; lo creamos al cargar el
+// módulo para que Render (donde `public/uploads/` no está commiteado y el FS
+// es efímero) no falle con ENOENT al guardar el primer archivo.
 const UPLOAD_DIR = path.join(process.cwd(), 'public', 'uploads');
+fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 
 // Límites configurables por entorno (env.js): tamaño por archivo y cantidad.
 const MAX_FILE_SIZE = env.UPLOAD_MAX_FILE_SIZE_MB * 1024 * 1024;
@@ -24,11 +28,8 @@ const localStorage = multer.diskStorage({
   },
 });
 
-// Filtro estricto de seguridad (MIME types permitidos).
-// El contenido real se verifica por magic bytes en la ruta (upload.routes.js).
-const storage = process.env.UPLOAD_STORAGE_DRIVER === 'firebase'
-  ? multer.memoryStorage()
-  : localStorage;
+// Almacenamiento local (sistema de archivos). Firebase fue descontinuado en el proyecto.
+const storage = localStorage;
 
 // Filtro estricto de seguridad (MIME types permitidos)
 const fileFilter = (req, file, cb) => {

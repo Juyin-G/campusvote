@@ -21,7 +21,14 @@ export const USER_PUBLIC_SELECT = {
   dateJoined: true,
 };
 
-const buildWhere = ({ organizationId, role, search, isActive, includeSuperAdmin = false } = {}) => {
+const buildWhere = ({
+  organizationId,
+  role,
+  search,
+  isActive,
+  includeSuperAdmin = false,
+  scopeWhere = {},
+} = {}) => {
   const where = {};
   if (organizationId) where.organizationId = organizationId;
   if (!includeSuperAdmin) where.role = { not: 'SUPERADMIN' };
@@ -38,6 +45,11 @@ const buildWhere = ({ organizationId, role, search, isActive, includeSuperAdmin 
       { lastName: { contains: search, mode: 'insensitive' } },
       { institutionalId: { contains: search, mode: 'insensitive' } },
     ];
+  }
+  // Merge scopeWhere (REGION/SITE) por encima de los filtros
+  // administrativos pero respetando organizationId/rol/búsqueda.
+  for (const key of Object.keys(scopeWhere)) {
+    where[key] = scopeWhere[key];
   }
   return where;
 };
@@ -66,18 +78,32 @@ export const findByInstitutionalId = (institutionalId) =>
     select: USER_PUBLIC_SELECT,
   });
 
-export const list = ({ organizationId, role, search, isActive, skip = 0, take = 10 } = {}) =>
+export const list = ({
+  organizationId,
+  role,
+  search,
+  isActive,
+  scopeWhere,
+  skip = 0,
+  take = 10,
+} = {}) =>
   prisma.user.findMany({
-    where: buildWhere({ organizationId, role, search, isActive }),
+    where: buildWhere({ organizationId, role, search, isActive, scopeWhere }),
     select: USER_PUBLIC_SELECT,
     orderBy: { dateJoined: 'desc' },
     skip,
     take,
   });
 
-export const count = ({ organizationId, role, search, isActive } = {}) =>
+export const count = ({
+  organizationId,
+  role,
+  search,
+  isActive,
+  scopeWhere,
+} = {}) =>
   prisma.user.count({
-    where: buildWhere({ organizationId, role, search, isActive }),
+    where: buildWhere({ organizationId, role, search, isActive, scopeWhere }),
   });
 
 export const create = (data) =>

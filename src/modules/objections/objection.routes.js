@@ -21,11 +21,12 @@ const FILERS = [
   ROLES.STUDENT,
   ROLES.TEACHER,
   ROLES.JURY,
-  ROLES.ELECTORAL_COMMISSION,
   ROLES.ADMIN,
   ROLES.SUPERADMIN,
 ];
-const RESOLVERS = [ROLES.ELECTORAL_COMMISSION, ROLES.ADMIN, ROLES.SUPERADMIN];
+// Resolución de tachas/impugnaciones: solo ADMIN del tenant o SUPERADMIN de plataforma.
+// ELECTORAL_COMMISSION fue eliminado; los permisos administrativos los tiene ADMIN.
+const RESOLVERS = [ROLES.ADMIN, ROLES.SUPERADMIN];
 const VIEWERS = FILERS;
 
 router.post(

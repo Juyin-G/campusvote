@@ -58,7 +58,7 @@ model BallotOption {
   updatedAt        DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
   // Relaciones
-  ballotPosition BallotPosition @relation(fields: [ballotPositionId, electionId], references: [id, electionId], onDelete: Cascade, onUpdate: NoAction, map: "fk_ballot_options_position_election")
+  ballotPosition BallotPosition  @relation(fields: [ballotPositionId, electionId], references: [id, electionId], onDelete: Cascade, onUpdate: NoAction, map: "fk_ballot_options_position_election")
   tallies        Tally[]
   voteSelections VoteSelection[]
 

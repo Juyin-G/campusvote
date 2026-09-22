@@ -10,10 +10,11 @@ import { HTTP_STATUS } from '../../../constants/httpStatus.js';
  * @access Autenticado
  */
 export const listCandidateLists = asyncHandler(async (req, res) => {
-  const { candidateLists, total } = await candidateListService.listCandidateLists(
+  const { data: candidateLists, pagination } = await candidateListService.listCandidateLists(
     req.params.electionId,
     req.query
   );
+  const total = pagination.total;
 
   // Sin paginar a propósito: la papeleta necesita todas las listas.
   return sendSuccess(
@@ -48,7 +49,7 @@ export const getCandidateListById = asyncHandler(async (req, res) => {
 /**
  * Crear una lista candidata (solo con la elección en DRAFT)
  * @route POST /api/elections/:electionId/candidate-lists
- * @access ADMIN, ELECTORAL_COMMISSION
+ * @access ADMIN
  */
 export const createCandidateList = asyncHandler(async (req, res) => {
   const candidateList = await candidateListService.createCandidateList(
@@ -68,7 +69,7 @@ export const createCandidateList = asyncHandler(async (req, res) => {
 /**
  * Actualizar una lista candidata (solo con la elección en DRAFT)
  * @route PUT /api/elections/:electionId/candidate-lists/:id
- * @access ADMIN, ELECTORAL_COMMISSION
+ * @access ADMIN
  */
 export const updateCandidateList = asyncHandler(async (req, res) => {
   const candidateList = await candidateListService.updateCandidateList(
@@ -89,7 +90,7 @@ export const updateCandidateList = asyncHandler(async (req, res) => {
 /**
  * Eliminar una lista candidata (solo en DRAFT y sin candidaturas)
  * @route DELETE /api/elections/:electionId/candidate-lists/:id
- * @access ADMIN, ELECTORAL_COMMISSION
+ * @access ADMIN
  */
 export const deleteCandidateList = asyncHandler(async (req, res) => {
   const result = await candidateListService.deleteCandidateList(

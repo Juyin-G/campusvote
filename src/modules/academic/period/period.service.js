@@ -32,7 +32,10 @@ export const createPeriod = async (payload) => {
   const isActive = payload.is_active ?? false;
 
   if (isActive) {
-    const overlapping = await periodRepository.checkOverlap(payload.start_date, payload.end_date);
+    const overlapping = await periodRepository.checkOverlap(
+      new Date(payload.start_date),
+      new Date(payload.end_date)
+    );
     if (overlapping) {
       throw new ApiError(
         HTTP_STATUS.CONFLICT,

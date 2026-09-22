@@ -49,7 +49,7 @@ export const getCandidacyById = asyncHandler(async (req, res) => {
 /**
  * Registrar una candidatura (solo en DRAFT/SCHEDULED)
  * @route POST /api/elections/:electionId/candidacies
- * @access ADMIN, ELECTORAL_COMMISSION
+ * @access ADMIN
  */
 export const createCandidacy = asyncHandler(async (req, res) => {
   const candidacy = await candidacyService.createCandidacy(
@@ -69,7 +69,7 @@ export const createCandidacy = asyncHandler(async (req, res) => {
 /**
  * Actualizar una candidatura parcialmente (solo en DRAFT/SCHEDULED)
  * @route PATCH /api/elections/:electionId/candidacies/:id
- * @access ADMIN, ELECTORAL_COMMISSION
+ * @access ADMIN
  */
 export const updateCandidacy = asyncHandler(async (req, res) => {
   const candidacy = await candidacyService.updateCandidacy(
@@ -90,7 +90,7 @@ export const updateCandidacy = asyncHandler(async (req, res) => {
 /**
  * Retirar una candidatura (solo en DRAFT/SCHEDULED)
  * @route DELETE /api/elections/:electionId/candidacies/:id
- * @access ADMIN, ELECTORAL_COMMISSION
+ * @access ADMIN
  */
 export const deleteCandidacy = asyncHandler(async (req, res) => {
   const result = await candidacyService.deleteCandidacy(

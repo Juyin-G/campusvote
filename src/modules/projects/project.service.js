@@ -23,7 +23,9 @@ import { ApiError } from '../../shared/errors/ApiError.js';
 import { ROLES } from '../../constants/roles.js';
 import { parsePagination } from '../../shared/utils/pagination.js';
 
-const REVIEWER_ROLES = [ROLES.ADMIN, ROLES.SUPERADMIN];
+// El SUPERADMIN administra la plataforma, no los datos de cada institución:
+// no revisa, no asigna stands y no ve proyectos (403 por falta de organización).
+const REVIEWER_ROLES = [ROLES.ADMIN];
 const EDITABLE_STATUSES = ['DRAFT', 'REJECTED'];
 
 // Estados de la feria en los que se permite registrar/modificar proyectos.
@@ -35,9 +37,6 @@ const USER_ROLE_BY_MEMBER_ROLE = {
   COLLABORATOR: ROLES.STUDENT,
   ADVISOR: ROLES.TEACHER,
 };
-
-const isSuperAdmin = (actor) =>
-  actor.role === ROLES.SUPERADMIN || actor.isSuperAdmin || actor.isSuperuser;
 
 const isOrgAdmin = (actor) => actor.role === ROLES.ADMIN;
 
@@ -165,7 +164,6 @@ const loadProject = async (projectId) => {
 
 /** Tenant check: el actor pertenece a la organización del proyecto. */
 const assertTenantMatch = ({ project, actor }) => {
-  if (isSuperAdmin(actor)) return;
   if (!actor.organizationId) {
     throw ApiError.forbidden('Tu cuenta no está vinculada a ninguna organización');
   }
@@ -188,15 +186,12 @@ const assertEditable = (project) => {
 
 /** Admin, propietario o integrante: ven el proyecto aunque no esté aprobado. */
 const canSeeUnapproved = ({ project, actor, members }) =>
-  isSuperAdmin(actor) ||
   isOrgAdmin(actor) ||
   project.createdById === actor.id ||
   members.some((m) => m.userId === actor.id);
 
 /** Filtro de visibilidad para listar proyectos según el actor. */
 const buildVisibilityWhere = (actor) => {
-  if (isSuperAdmin(actor)) return {};
-
   if (!actor.organizationId) {
     throw ApiError.forbidden('Tu cuenta no está vinculada a ninguna organización');
   }
@@ -325,6 +320,20 @@ export const updateProject = async ({ projectId, data, actor }) => {
   // La categoría es de la feria: si la feria cambia y no se indica otra
   // categoría, la anterior deja de ser válida y se quita.
   const targetFairId = fairChanges ? data.fair_id : project.fairId;
+
+  // Los jurados se asignan por categoría: cambiarla con la feria ya abierta
+  // dejaría el proyecto fuera del alcance del jurado que lo tenía asignado.
+  const categoryChanges =
+    data.category_id !== undefined && data.category_id !== project.categoryId;
+  if (categoryChanges) {
+    const targetFair = await fairRepository.findById(targetFairId);
+    if (targetFair && targetFair.status !== 'DRAFT') {
+      throw ApiError.conflict(
+        'No se puede cambiar la categoría de un proyecto cuando la feria no está en preparación (DRAFT)'
+      );
+    }
+  }
+
   let categoryChange = {};
   if (data.category_id) {
     await assertCategoryOfFair({ categoryId: data.category_id, fairId: targetFairId });

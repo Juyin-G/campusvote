@@ -154,9 +154,10 @@ describe('Position Controller', () => {
 
 describe('CandidateList Controller', () => {
   it('listar devuelve el total sin paginar', async () => {
+    // Forma que devuelve candidateList.crud.service: { data, pagination }.
     listSvc.listCandidateLists.mockResolvedValue({
-      candidateLists: [{ id: RECURSO }],
-      total: 1,
+      data: [{ id: RECURSO }],
+      pagination: { page: 1, limit: null, total: 1 },
     });
 
     await candidateListController.listCandidateLists(req, res, next);

@@ -11,9 +11,9 @@
 // ============================================================
 
 model FairResultPublication {
-  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  fairId        String   @unique(map: "uq_fair_result_publications_fair") @map("fair_id") @db.Uuid
-  publishedById String   @map("published_by") @db.Uuid
+  id            String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  fairId        String @unique(map: "uq_fair_result_publications_fair") @map("fair_id") @db.Uuid
+  publishedById String @map("published_by") @db.Uuid
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz

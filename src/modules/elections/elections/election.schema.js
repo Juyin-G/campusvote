@@ -3,7 +3,9 @@
 
 import { z } from 'zod';
 
-export const PROCESS_TYPES = ['VOTE', 'FAIR', 'FEEDBACK', 'FORM', 'EVENT_POLL', 'AWARD'];
+// DESACOPLADO: Se eliminan 'FAIR', 'FEEDBACK', 'AWARD'. 
+// Las ferias y evaluaciones deben gestionarse a través de sus propios dominios.
+export const PROCESS_TYPES = ['VOTE', 'FORM', 'EVENT_POLL'];
 export const SCOPE_TYPES = ['UNIVERSITY', 'FACULTY', 'PROGRAM'];
 export const STATUS_TYPES = ['DRAFT', 'SCHEDULED', 'OPEN', 'CLOSED', 'CERTIFIED', 'PUBLISHED'];
 

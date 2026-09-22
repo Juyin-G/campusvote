@@ -9,20 +9,21 @@
 //     No se reutiliza el catálogo OCDE/CONCYTEC de candidate_lists (dominio
 //     electoral) — organizations.category_catalog es un JSONB ajeno a ferias.
 //   - Gestión (crear/actualizar/eliminar) SOLO en DRAFT; lectura compartida
-//     (ADMIN/SUPERADMIN o JURY formalmente asignado) en cualquier estado.
+//     (ADMIN con organización dueña o JURY formalmente asignado) en cualquier
+//     estado.
+//   - SUPERADMIN NO tiene acceso operativo: 403 desde el router (sin bypass
+//     aunque tenga organizationId).
 //   - UNIQUE (fair_id, name): sin duplicados dentro de la misma feria.
 //   - No se elimina una categoría que ya tiene proyectos asignados → 409.
 
 import * as categoryRepository from './fairCategory.repository.js';
 import * as fairRepository from '../fairs/fair.repository.js';
 import * as juryAssignmentRepository from '../juryAssignments/juryAssignment.repository.js';
+import { prisma } from '../../database/prisma.js';
 import { ApiError } from '../../shared/errors/ApiError.js';
 import { ROLES } from '../../constants/roles.js';
 
 const CATEGORY_CONFIGURABLE_STATUSES = ['DRAFT'];
-
-const isSuperAdmin = (actor) =>
-  actor.role === ROLES.SUPERADMIN || actor.isSuperAdmin || actor.isSuperuser;
 
 const loadFair = async (fairId) => {
   const fair = await fairRepository.findById(fairId);
@@ -33,7 +34,6 @@ const loadFair = async (fairId) => {
 };
 
 const assertTenantMatch = ({ fair, actor }) => {
-  if (isSuperAdmin(actor)) return;
   if (!actor.organizationId) {
     throw ApiError.forbidden('Tu cuenta no está vinculada a ninguna organización');
   }
@@ -65,12 +65,12 @@ const mapCategory = (category) => ({
   updated_at: category.updatedAt,
 });
 
-// ── Lectura compartida (ADMIN/SUPERADMIN/JURY asignado) ────────────
+// ── Lectura compartida (ADMIN/JURY asignado) ───────────────────────
 
 export const listCategories = async ({ fairId, actor }) => {
   const fair = await loadFair(fairId);
 
-  if (actor.role === ROLES.JURY && !isSuperAdmin(actor)) {
+  if (actor.role === ROLES.JURY) {
     await assertJuryAssignedToFair({ fairId, juryId: actor.id });
   } else {
     assertTenantMatch({ fair, actor });
@@ -86,7 +86,7 @@ export const listCategories = async ({ fairId, actor }) => {
   };
 };
 
-// ── Gestión (ADMIN/SUPERADMIN; SOLO DRAFT) ─────────────────────────
+// ── Gestión (ADMIN; SOLO DRAFT) ───────────────────────────────────
 
 export const createCategory = async ({ fairId, data, actor }) => {
   const fair = await loadFair(fairId);
@@ -145,6 +145,14 @@ export const deleteCategory = async ({ fairId, categoryId, actor }) => {
   const used = await categoryRepository.countProjects(categoryId);
   if (used > 0) {
     throw ApiError.conflict('No se puede eliminar la categoría porque tiene proyectos asignados');
+  }
+
+  // Verificar que no haya jurados asignados a esta categoría.
+  const jurorsWithCategory = await prisma.fairJuryCategoryAssignment.count({
+    where: { categoryId },
+  });
+  if (jurorsWithCategory > 0) {
+    throw ApiError.conflict('No se puede eliminar la categoría porque tiene jurados asignados');
   }
 
   await categoryRepository.remove(categoryId);

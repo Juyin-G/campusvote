@@ -1,7 +1,8 @@
 // SEDES DE UNA ORGANIZACIÓN (dominio exclusivo de organizaciones/ferias).
 //
 // Estructura:
-//   Organization ── OrganizationSite ── Fair (site_id opcional)
+//   Organization ── Region ── OrganizationSite
+//   Organization ── OrganizationSite ── Fair (fair.site_id opcional)
 //
 // Decisiones:
 //   * Una sede pertenece a UNA organización y se ELIMINA con ella
@@ -9,12 +10,16 @@
 //   * name obligatorio; address/city opcionales.
 //   * latitude/longitude opcionales y validados por rango (CHECK en SQL);
 //     NO se implementan mapas/GPS (solo se guardan coordenadas).
+//   * region_id opcional: una sede puede existir sin región (modo legacy
+//     pre-multi-sede). Si la organización tiene regiones configuradas, los
+//     ADMIN REGION ven la sede vía su FK a Region.
 //   * fairs.site_id → ON DELETE SET NULL: si una sede se elimina, la feria
 //     conserva el resto de su configuración (el contexto físico queda libre).
 
 model OrganizationSite {
   id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   organizationId String   @map("organization_id") @db.Uuid
+  regionId       String?  @map("region_id") @db.Uuid
   name           String   @db.VarChar(200)
   address        String?  @db.VarChar(500)
   city           String?  @db.VarChar(100)
@@ -25,10 +30,13 @@ model OrganizationSite {
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
   // Relaciones
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  fairs        Fair[]
+  organization    Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  region          Region?              @relation(fields: [regionId], references: [id], onDelete: SetNull)
+  fairs           Fair[]
+  userAssignments UserSiteAssignment[]
 
   // Índices
   @@index([organizationId], map: "idx_organization_sites_organization")
+  @@index([regionId], map: "idx_organization_sites_region")
   @@map("organization_sites")
 }

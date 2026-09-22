@@ -3,11 +3,11 @@
 //
 // Autorización:
 //   - ADMIN gestiona las ferias de SU organización (aislamiento por tenant).
-//   - ELECTORAL_COMMISSION, JURY, STUDENT y TEACHER NO tienen acceso (rutas
-//     protegidas con authorize([ADMIN, SUPERADMIN]); sin permisos nuevos).
-//   - SUPERADMIN conserva, como en el resto del sistema (patrón
-//     assertTenantAccess de rating/objection), el bypass de tenant para lectura
-//     global: NO se le agregan capacidades nuevas de gestión.
+//   - SUPERADMIN es administrador de plataforma y NO pertenece operacionalmente
+//     a ninguna organización: 403 desde el router (sin bypass aunque tenga
+//     organizationId).
+//   - JURY, STUDENT y TEACHER NO tienen acceso administrativo (rutas protegidas
+//     con authorize([ADMIN]); sin permisos nuevos).
 
 import * as fairRepository from './fair.repository.js';
 import { prisma } from '../../database/prisma.js';
@@ -16,19 +16,72 @@ import { ROLES } from '../../constants/roles.js';
 import { parsePagination } from '../../shared/utils/pagination.js';
 import { getRegistrationDeadline } from './fair.registration.js';
 
-const isSuperAdmin = (actor) =>
-  actor.role === ROLES.SUPERADMIN || actor.isSuperAdmin || actor.isSuperuser;
-
 // Ciclo de vida de la feria: DRAFT (configuración) -> OPEN (abierta/activa)
-// -> CLOSED (finalizada). CLOSED es terminal; OPEN puede volver a DRAFT.
+// -> CLOSED (finalizada). CLOSED es terminal.
+//
+// Parte 3 — Estados de la feria: OPEN -> DRAFT solo se permite si NO existe
+// participación (ningún voto y ninguna rúbrica finalizada). Si ya hay
+// participación, se bloquea con 409 para preservar la coherencia del historial;
+// los votos y rúbricas existentes NO se tocan.
 const STATUS_TRANSITIONS = {
   DRAFT: ['OPEN'],
   OPEN: ['DRAFT', 'CLOSED'],
   CLOSED: [],
 };
 
+/**
+ * ¿Existe participación en la feria?
+ *   1. alguna fila en fair_vote_participation (algún voto emitido), O
+ *   2. alguna fair_evaluations con submitted_at NOT NULL (rúbrica finalizada).
+ */
+const fairHasParticipation = async (fairId) => {
+  const [votes, finalizedRubrics] = await Promise.all([
+    prisma.fairVoteParticipation.count({ where: { fairId } }),
+    prisma.fairEvaluation.count({ where: { fairId, submittedAt: { not: null } } }),
+  ]);
+  return votes > 0 || finalizedRubrics > 0;
+};
+
+/**
+ * ¿Hay alguna categoría con proyectos participantes y sin jurados asignados?
+ */
+const fairHasCategoriesWithoutJurors = async (fairId) => {
+  const categories = await prisma.fairCategory.findMany({
+    where: { fairId },
+    select: { id: true },
+  });
+
+  for (const cat of categories) {
+    const projectCount = await prisma.project.count({
+      where: { categoryId: cat.id, status: { in: ['SUBMITTED', 'APPROVED'] } },
+    });
+    if (projectCount > 0) {
+      const juryCount = await prisma.fairJuryCategoryAssignment.count({
+        where: {
+          category: { id: cat.id, fairId },
+        },
+      });
+      if (juryCount === 0) return true;
+    }
+  }
+  return false;
+};
+
+/**
+ * ¿Hay proyectos participantes sin categoría?
+ */
+const fairHasProjectsWithoutCategory = async (fairId) => {
+  const count = await prisma.project.count({
+    where: {
+      fairId,
+      status: { in: ['SUBMITTED', 'APPROVED'] },
+      categoryId: null,
+    },
+  });
+  return count > 0;
+};
+
 const assertTenantMatch = ({ fair, actor }) => {
-  if (isSuperAdmin(actor)) return;
   if (!actor.organizationId) {
     throw ApiError.forbidden('Tu cuenta no está vinculada a ninguna organización');
   }
@@ -96,11 +149,11 @@ const mapFair = (fair) => ({
 });
 
 export const listFairs = async ({ actor, filters = {} }) => {
-  const where = isSuperAdmin(actor) ? {} : { organizationId: actor.organizationId };
-
-  if (!isSuperAdmin(actor) && !actor.organizationId) {
+  if (!actor.organizationId) {
     throw ApiError.forbidden('Tu cuenta no está vinculada a ninguna organización');
   }
+
+  const where = { organizationId: actor.organizationId };
   if (filters.status) where.status = filters.status;
 
   const { page, limit, offset } = parsePagination(filters || {});
@@ -196,14 +249,29 @@ export const changeFairStatus = async ({ fairId, data, actor }) => {
     );
   }
 
+  // OPEN -> DRAFT queda prohibido una vez que existe participación.
+  if (fair.status === 'OPEN' && data.status === 'DRAFT') {
+    if (await fairHasParticipation(fairId)) {
+      throw ApiError.conflict(
+        'La feria ya tiene participación (votos o rúbricas finalizadas); no puede volver a preparación (DRAFT)'
+      );
+    }
+  }
+
+  // DRAFT -> OPEN: validaciones de integridad académica.
+  if (fair.status === 'DRAFT' && data.status === 'OPEN') {
+    if (await fairHasCategoriesWithoutJurors(fairId)) {
+      throw ApiError.conflict(
+        'No se puede abrir la feria: existen categorías con proyectos participantes sin jurados asignados'
+      );
+    }
+    if (await fairHasProjectsWithoutCategory(fairId)) {
+      throw ApiError.conflict(
+        'No se puede abrir la feria: existen proyectos participantes sin categoría asignada'
+      );
+    }
+  }
+
   const updated = await fairRepository.update(fairId, { status: data.status });
   return mapFair(updated);
-};
-
-export default {
-  listFairs,
-  getFairById,
-  createFair,
-  updateFair,
-  changeFairStatus,
 };

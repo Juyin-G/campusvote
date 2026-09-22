@@ -1,12 +1,40 @@
 import * as careerRepository from './career.repository.js';
+import { prisma } from '../../../database/prisma.js';
 import { ApiError } from '../../../shared/errors/ApiError.js';
 import { HTTP_STATUS } from '../../../constants/httpStatus.js';
+import { getCycleRule } from '../../../constants/academicCycle.js';
 import { isAdminActor } from '../teachingEvaluation/teachingEvaluation.service.js';
 
 const assertOrgActor = (actor) => {
   if (!actor?.organizationId && actor?.role !== 'SUPERADMIN') {
     throw new ApiError(HTTP_STATUS.FORBIDDEN, 'El usuario debe pertenecer a una organización');
   }
+};
+
+const assertTotalCycles = (orgType, totalCycles) => {
+  const rule = getCycleRule(orgType);
+  if (totalCycles < rule.min) {
+    throw new ApiError(
+      HTTP_STATUS.BAD_REQUEST,
+      `El tipo de organización admite al menos ${rule.min} ciclo(s)`,
+    );
+  }
+  if (totalCycles > rule.max) {
+    throw new ApiError(
+      HTTP_STATUS.BAD_REQUEST,
+      `El tipo de organización admite hasta ${rule.max} ciclos (se envió ${totalCycles})`,
+    );
+  }
+  return totalCycles;
+};
+
+const getOrgType = async (organizationId) => {
+  if (!organizationId) return undefined;
+  const org = await prisma.organization.findUnique({
+    where: { id: organizationId },
+    select: { orgType: true },
+  });
+  return org?.orgType;
 };
 
 export const listCareers = async (query = {}, actor = {}) => {
@@ -41,6 +69,9 @@ export const getCareerById = async (id, actor = {}) => {
 export const createCareer = async (data, actor = {}) => {
   if (!isAdminActor(actor)) throw new ApiError(HTTP_STATUS.FORBIDDEN, 'Solo administradores');
   if (!actor.organizationId) throw new ApiError(HTTP_STATUS.FORBIDDEN, 'El actor debe pertenecer a una organización');
+  const orgType = await getOrgType(actor.organizationId);
+  const rule = getCycleRule(orgType);
+  const totalCycles = assertTotalCycles(orgType, data.total_cycles ?? rule.default);
   const existing = await careerRepository.findByCode(data.code, actor.organizationId);
   if (existing) {
     throw new ApiError(HTTP_STATUS.CONFLICT, `Ya existe una carrera con el código ${data.code}`);
@@ -49,24 +80,36 @@ export const createCareer = async (data, actor = {}) => {
     organizationId: actor.organizationId,
     code: data.code,
     name: data.name,
-    total_cycles: data.total_cycles ?? 6,
+    total_cycles: totalCycles,
   });
 };
 
 export const updateCareer = async (id, data, actor = {}) => {
   if (!isAdminActor(actor)) throw new ApiError(HTTP_STATUS.FORBIDDEN, 'Solo administradores');
   const organizationId = actor.role === 'SUPERADMIN' ? undefined : actor.organizationId;
-  await getCareerById(id, actor);
+  const career = await getCareerById(id, actor);
   if (data.code) {
     const existing = await careerRepository.findByCode(data.code, organizationId);
     if (existing && existing.id !== id) {
       throw new ApiError(HTTP_STATUS.CONFLICT, `Otra carrera ya usa el código ${data.code}`);
     }
   }
-  const updateData = { ...data }
+  const updateData = { ...data };
+  if (updateData.total_cycles !== undefined) {
+    const orgType = await getOrgType(actor.organizationId);
+    const totalCycles = assertTotalCycles(orgType, updateData.total_cycles);
+    const maxCourseCycle = await careerRepository.maxCourseCycle(id);
+    if (totalCycles < maxCourseCycle) {
+      throw new ApiError(
+        HTTP_STATUS.CONFLICT,
+        `No puedes reducir la carrera a ${totalCycles} ciclos porque tiene cursos hasta el ciclo ${maxCourseCycle}`,
+      );
+    }
+    updateData.total_cycles = totalCycles;
+  }
   if (updateData.is_active !== undefined) {
-    updateData.isActive = updateData.is_active
-    delete updateData.is_active
+    updateData.isActive = updateData.is_active;
+    delete updateData.is_active;
   }
   return careerRepository.update(id, organizationId, updateData);
 };

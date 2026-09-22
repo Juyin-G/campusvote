@@ -5,11 +5,29 @@ import rateLimit from 'express-rate-limit';
 import asyncHandler from '../../shared/utils/asyncHandler.js';
 import auditController from './audit.controller.js';
 import { authenticate, authorize } from '../../middlewares/auth.middleware.js';
+import { ApiError } from '../../shared/errors/ApiError.js';
 import { ROLES } from '../../constants/roles.js';
 
 const router = Router();
 
-const GESTORES = [ROLES.ADMIN, ROLES.ELECTORAL_COMMISSION];
+// CAMBIO: VIEWERS solo ADMIN del propio tenant pueden leer logs.
+// Los logs de tenant son datos privados del cliente; SUPERADMIN no entra
+// (regla de oro: tenants no se mezclan con plataforma).
+const GESTORES = [ROLES.ADMIN];
+const VIEWERS = [ROLES.ADMIN];
+
+// Handler que delega en el error handler global para mantener el formato
+// de respuesta 429 consistente con el resto de la API.
+const tokenRateLimitHandler = (req, res, next, options) => {
+  const retryAfterSeconds = Math.ceil((options?.windowMs || 0) / 1000);
+  next(
+    ApiError.tooManyRequests(
+      'Demasiadas solicitudes desde esta IP. Intente más tarde.',
+      { retryAfterSeconds, code: 'AUDIT_TOKEN_RATE_LIMITED' },
+      'AUDIT_TOKEN_RATE_LIMITED'
+    )
+  );
+};
 
 // Limitador estricto para operaciones de tokens de votación/sensibles
 const tokenRateLimiter = rateLimit({
@@ -17,10 +35,7 @@ const tokenRateLimiter = rateLimit({
   max: 30, // 30 intentos por ventana
   standardHeaders: true,
   legacyHeaders: false,
-  message: {
-    success: false,
-    error: { message: 'Demasiadas solicitudes desde esta IP. Intente más tarde.' }
-  }
+  handler: tokenRateLimitHandler,
 });
 
 /**
@@ -30,29 +45,29 @@ const tokenRateLimiter = rateLimit({
 router.get(
   '/verify',
   authenticate,
-  authorize([ROLES.ADMIN, ROLES.SUPERADMIN, ROLES.ELECTORAL_COMMISSION]),
-  asyncHandler(auditController.verifyAuditChain.bind(auditController))
+  authorize([ROLES.ADMIN]),
+  asyncHandler(auditController.verifyAuditChain)
 );
 
 router.get(
   '/logs',
   authenticate,
-  authorize(GESTORES),
-  asyncHandler(auditController.getAuditLogs.bind(auditController))
+  authorize(VIEWERS),
+  asyncHandler(auditController.getAuditLogs)
 );
 
 router.get(
   '/logs/:id',
   authenticate,
-  authorize(GESTORES),
-  asyncHandler(auditController.getAuditLogById.bind(auditController))
+  authorize(VIEWERS),
+  asyncHandler(auditController.getAuditLogById)
 );
 
 router.post(
   '/logs',
   authenticate,
   authorize(GESTORES),
-  asyncHandler(auditController.createAuditLog.bind(auditController))
+  asyncHandler(auditController.createAuditLog)
 );
 
 /**
@@ -64,21 +79,21 @@ router.post(
   '/tokens',
   authenticate,
   authorize(GESTORES),
-  asyncHandler(auditController.createOneTimeToken.bind(auditController))
+  asyncHandler(auditController.createOneTimeToken)
 );
 
 // Consumir token en cabina/proceso de votación (protegido por Rate Limit)
 router.post(
   '/tokens/consume',
   tokenRateLimiter,
-  asyncHandler(auditController.consumeOneTimeToken.bind(auditController))
+  asyncHandler(auditController.consumeOneTimeToken)
 );
 
 // Consultar validez de token sin consumirlo
 router.get(
   '/tokens/status',
   tokenRateLimiter,
-  asyncHandler(auditController.checkTokenStatus.bind(auditController))
+  asyncHandler(auditController.checkTokenStatus)
 );
 
 // Mantenimiento y depuración de tokens vencidos (Solo administradores)
@@ -86,7 +101,7 @@ router.delete(
   '/tokens/cleanup',
   authenticate,
   authorize([ROLES.ADMIN]),
-  asyncHandler(auditController.cleanupExpiredTokens.bind(auditController))
+  asyncHandler(auditController.cleanupExpiredTokens)
 );
 
 export default router;

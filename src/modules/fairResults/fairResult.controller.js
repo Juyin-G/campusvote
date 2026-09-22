@@ -1,38 +1,43 @@
-// src/modules/fairResults/fairResult.controller.js
-import * as fairResultService from './fairResult.service.js';
-import asyncHandler from '../../shared/utils/asyncHandler.js';
-import { sendCreated, sendSuccess } from '../../shared/utils/apiResponse.js';
-import { HTTP_STATUS } from '../../constants/httpStatus.js';
+import { FairResultsService } from './fairResult.service.js';
 
-const getActorId = (user) => user?.userId ?? user?.id ?? null;
+export class FairResultsController {
+  /**
+   * GET /api/fairs/:id/results
+   */
+  static async getResults(req, res, next) {
+    try {
+      const { id: fairId } = req.params;
+      const data = await FairResultsService.getResults(fairId, req.user);
+      return res.status(200).json({ success: true, data });
+    } catch (error) {
+      next(error);
+    }
+  }
 
-const getActor = (user) => ({
-  id: getActorId(user) || user?.id,
-  role: user?.role,
-  organizationId: user?.organizationId || null,
-  isSuperAdmin: user?.isSuperAdmin || false,
-  isSuperuser: user?.isSuperuser || false,
-});
+  /**
+   * POST /api/fairs/:id/results/publish
+   */
+  static async publishResults(req, res, next) {
+    try {
+      const { id: fairId } = req.params;
+      // Se descarta deliberadamente req.body para evitar inyecciones en la publicación
+      const data = await FairResultsService.publishResults(fairId, req.user);
+      return res.status(201).json({ success: true, data });
+    } catch (error) {
+      next(error);
+    }
+  }
 
-// GET /api/fairs/:id/results
-export const getFairResults = asyncHandler(async (req, res) => {
-  const result = await fairResultService.getFairResults({
-    fairId: req.params.id,
-    actor: getActor(req.user),
-  });
-  return sendSuccess(res, result, 'Resultados de la feria obtenidos correctamente', {}, HTTP_STATUS.OK);
-});
-
-// POST /api/fairs/:id/results/publish
-export const publishFairResults = asyncHandler(async (req, res) => {
-  const result = await fairResultService.publishFairResults({
-    fairId: req.params.id,
-    actor: getActor(req.user),
-  });
-  return sendCreated(res, result, 'Resultados publicados correctamente');
-});
-
-export default {
-  getFairResults,
-  publishFairResults,
-};
+  /**
+   * GET /api/fairs/:id/projects/:projectId
+   */
+  static async getProjectReview(req, res, next) {
+    try {
+      const { id: fairId, projectId } = req.params;
+      const data = await FairResultsService.getProjectReviewForJury(fairId, projectId, req.user);
+      return res.status(200).json({ success: true, data });
+    } catch (error) {
+      next(error);
+    }
+  }
+}

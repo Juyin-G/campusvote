@@ -28,9 +28,10 @@ model FairJuryAssignment {
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
   // Relaciones
-  fair       Fair @relation(fields: [fairId], references: [id], onDelete: Restrict)
-  user       User @relation("FairJuryAssignments", fields: [userId], references: [id], onDelete: Restrict)
-  assignedBy User @relation("FairJuryAssignmentsBy", fields: [assignedById], references: [id], onDelete: Restrict)
+  fair       Fair                         @relation(fields: [fairId], references: [id], onDelete: Restrict)
+  user       User                         @relation("FairJuryAssignments", fields: [userId], references: [id], onDelete: Restrict)
+  assignedBy User                         @relation("FairJuryAssignmentsBy", fields: [assignedById], references: [id], onDelete: Restrict)
+  categories FairJuryCategoryAssignment[]
 
   // Índices / unicidad
   @@unique([fairId, userId], map: "uq_fair_jury_assignments_fair_user")

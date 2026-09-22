@@ -1,9 +1,10 @@
 // src/modules/projects/project.routes.js
 // Rutas de proyectos de feria académica.
 // Inscripción/edición/integrantes: el DOCENTE asesor que inscribe el proyecto.
-// Revisión de la inscripción y asignación de stand: ADMIN/SUPERADMIN.
+// Revisión de la inscripción y asignación de stand: ADMIN de la organización
+// dueña del proyecto (el SUPERADMIN administra la plataforma, no sus datos).
 // Lectura: cualquier rol autenticado (el scope por organización se resuelve
-// en el service, siguiendo el patrón assertTenantAccess de rating/objection).
+// en el service; SUPERADMIN NO tiene acceso operativo a proyectos — 403).
 
 import { Router } from 'express';
 import { authenticate, authorize } from '../../middlewares/auth.middleware.js';
@@ -15,8 +16,8 @@ import * as projectSchema from './project.schema.js';
 const router = Router();
 
 const CREATORS = [ROLES.TEACHER];
-const REVIEWERS = [ROLES.ADMIN, ROLES.SUPERADMIN];
-const CATALOG_READERS = [ROLES.TEACHER, ROLES.ADMIN, ROLES.SUPERADMIN];
+const REVIEWERS = [ROLES.ADMIN];
+const CATALOG_READERS = [ROLES.TEACHER, ROLES.ADMIN];
 
 router.use(authenticate);
 
@@ -76,7 +77,8 @@ router.delete(
 );
 
 // ── REVISIÓN ADMINISTRATIVA (APROBAR / RECHAZAR) ────────────────────
-// ELECTORAL_COMMISSION deliberadamente NO gestiona proyectos.
+// La revisión administrativa de proyectos la realiza exclusivamente ADMIN (no se
+// concede a roles electorales: STUDENT/TEACHER/JURY).
 router.post(
   '/:id/review',
   authorize(REVIEWERS),

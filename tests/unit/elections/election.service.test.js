@@ -130,6 +130,18 @@ describe('Election Service — CRUD', () => {
     expect(data.startAt).toBeInstanceOf(Date);
   });
 
+  it('createElection rechaza si falta organizationId (403)', async () => {
+    const err = await capturarError(() =>
+      service.createElection(
+        { title: 'X', scope_type: 'UNIVERSITY' },
+        ACTOR,
+        undefined
+      )
+    );
+
+    expect(err.statusCode).toBe(403);
+  });
+
   it('traduce P2003 (FK inexistente) a 400', async () => {
     mockCreateElection.mockRejectedValue({ code: 'P2003' });
 

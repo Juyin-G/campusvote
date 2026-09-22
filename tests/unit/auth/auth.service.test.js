@@ -158,6 +158,24 @@ describe('Auth Service', () => {
     jest.clearAllMocks();
   });
 
+  describe('requestPasswordReset', () => {
+    it('retorna mensaje genérico aunque el correo no exista', async () => {
+      mockGeneratePasswordResetToken.mockResolvedValue(null);
+
+      const result = await authService.requestPasswordReset('noexiste@test.com');
+      expect(result.message).toBeDefined();
+    });
+
+    it('genera token y envía correo si el usuario existe', async () => {
+      mockGeneratePasswordResetToken.mockResolvedValue('reset-token-123');
+      mockSendReset.mockResolvedValue(true);
+
+      const result = await authService.requestPasswordReset('test@test.com');
+      expect(mockGeneratePasswordResetToken).toHaveBeenCalledWith('test@test.com');
+      expect(result.message).toBeDefined();
+    });
+  });
+
   describe('Login (Inicio de sesion)', () => {
     const mockUser = {
       id: '123',

@@ -6,11 +6,12 @@
  *   - Institución "CampusVote Demo (Laboratorio)" con su admin.
  *   - 1 docente asesor, 6 alumnos y 3 jurados, todos ACTIVOS.
  *   - "Feria Demo Laboratorio" ABIERTA e INICIADA (el jurado ya puede evaluar)
- *     durante 7 días, con 3 categorías, 4 stands, rúbrica de 3 criterios y
- *     los 3 jurados asignados.
+ *     durante 7 días, con 3 categorías, 4 stands, rúbrica checklist de 3
+ *     criterios y los 3 jurados asignados a todas las categorías.
  *   - 4 proyectos APROBADOS con portada, descripción, categoría, stand e
  *     integrantes.
- * No crea declaraciones ni evaluaciones: eso lo hace el jurado desde la app.
+ * No crea declaraciones, rúbricas respondidas ni votos: eso lo hace el jurado
+ * desde la app.
  *
  * Es idempotente: volver a correrlo no duplica nada; reabre la feria por
  * otros 7 días y restablece la contraseña de las cuentas demo.
@@ -19,7 +20,7 @@
  *   $env:DEMO_DATABASE_URL="<cadena de conexión>"   # por defecto DATABASE_URL
  *   $env:DEMO_PASSWORD="<contraseña para las cuentas demo, 10+ caracteres>"
  *   node scripts/seed-demo-jurado.js --confirmar
- *   node scripts/seed-demo-jurado.js --confirmar --reiniciar   # borra evaluaciones y declaraciones
+ *   node scripts/seed-demo-jurado.js --confirmar --reiniciar   # borra rúbricas respondidas, votos y declaraciones
  *
  * Requiere que las migraciones ya estén aplicadas (scripts/apply-sql.js).
  */
@@ -164,6 +165,8 @@ async function main() {
           institutionalId: `DEMO-${clave.toUpperCase()}`,
           role,
           organizationId: org.id,
+          // chk_users_scope_admin_only: todo ADMIN tiene alcance; el resto, ninguno.
+          scopeLevel: role === 'ADMIN' ? 'ORG' : null,
           authProvider: 'LOCAL',
           isVerified: true,
           status: 'ACTIVE',
@@ -200,20 +203,25 @@ async function main() {
     }
 
     const rubric = await buscarOCrear(prisma.fairRubric, { fairId: fair.id }, { name: 'Rúbrica demo' });
+    // Rúbrica checklist: cada criterio se marca cumplido o no (sin notas).
     for (const [i, name] of CRITERIOS.entries()) {
-      await buscarOCrear(
-        prisma.rubricCriterion,
-        { rubricId: rubric.id, position: i + 1 },
-        { name, minScore: 0, maxScore: 10 }
-      );
+      await buscarOCrear(prisma.rubricCriterion, { rubricId: rubric.id, position: i + 1 }, { name });
     }
 
+    // Jurados por categoría: cada jurado solo ve y evalúa proyectos de sus
+    // categorías; en la demo los tres tienen todas.
     for (const clave of ['jurado1', 'jurado2', 'jurado3']) {
-      await buscarOCrear(
+      const asignacion = await buscarOCrear(
         prisma.fairJuryAssignment,
         { fairId: fair.id, userId: u[clave].id },
         { assignedById: u.admin.id }
       );
+      for (const categoria of Object.values(categorias)) {
+        await buscarOCrear(prisma.fairJuryCategoryAssignment, {
+          juryAssignmentId: asignacion.id,
+          categoryId: categoria.id,
+        }, {});
+      }
     }
 
     // ── Proyectos aprobados ──────────────────────────────────────────
@@ -246,8 +254,12 @@ async function main() {
     // ── Reinicio opcional para volver a probar desde cero ────────────
     if (REINICIAR) {
       const evals = await prisma.fairEvaluation.deleteMany({ where: { fairId: fair.id } });
+      const votos = await prisma.fairVote.deleteMany({ where: { fairId: fair.id } });
+      await prisma.fairVoteParticipation.deleteMany({ where: { fairId: fair.id } });
       const decl = await prisma.fairJuryDeclaration.deleteMany({ where: { fairId: fair.id } });
-      console.log(`Reinicio: ${evals.count} evaluaciones y ${decl.count} declaraciones eliminadas.`);
+      console.log(
+        `Reinicio: ${evals.count} rúbricas respondidas, ${votos.count} votos y ${decl.count} declaraciones eliminadas.`
+      );
     }
 
     const [proyectos, evaluaciones] = await Promise.all([

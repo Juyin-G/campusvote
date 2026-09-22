@@ -42,7 +42,7 @@
  *               type: string
  *             role:
  *               type: string
- *               enum: [STUDENT, TEACHER, ADMIN, SUPERADMIN, ELECTORAL_COMMISSION, JURY]
+ *               enum: [STUDENT, TEACHER, ADMIN, SUPERADMIN, JURY]
  *             status:
  *               type: string
  *               enum: [PENDING, ACTIVE, SUSPENDED, DELETED]
@@ -84,7 +84,7 @@
  * /api/fairs/{id}/juries:
  *   get:
  *     tags: [FairJuries]
- *     summary: Listar jurados asignados a una feria (ADMIN/SUPERADMIN)
+ *     summary: Listar jurados asignados a una feria (ADMIN)
  *     description: >
  *       Solo las ferias de la organización del ADMIN (aislamiento por tenant).
  *       No se exige estado de feria: es una consulta.
@@ -104,7 +104,7 @@
  *         $ref: '#/components/responses/ForbiddenResponse'
  *   post:
  *     tags: [FairJuries]
- *     summary: Asignar un usuario JURY a una feria (ADMIN/SUPERADMIN)
+ *     summary: Asignar un usuario JURY a una feria (ADMIN)
  *     description: >
  *       Valida en backend: el usuario debe tener rol global JURY, estar ACTIVE
  *       y pertenecer a la misma organización que la feria. La feria debe estar
@@ -170,7 +170,7 @@
  *         $ref: '#/components/responses/NotFoundResponse'
  *   delete:
  *     tags: [FairJuries]
- *     summary: Quitar un jurado de una feria (ADMIN/SUPERADMIN)
+ *     summary: Quitar un jurado de una feria (ADMIN)
  *     description: >
  *       La feria debe estar en DRAFT u OPEN; en CLOSED se bloquea.
  *     security:

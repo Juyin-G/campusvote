@@ -1,0 +1,71 @@
+// ============================================================
+// EVALUACIÓN ACADÉMICA DOCENTE
+// ============================================================
+// Dominio completamente separado de electoral (ratings/).
+// Estudiantes evalúan docentes mediante criterios globales
+// por organización. Score = promedio simple de 1-5.
+// ============================================================
+
+enum EvaluationResponseStatus {
+  DRAFT
+  SUBMITTED
+
+  @@map("evaluation_response_status")
+}
+
+model EvaluationCriterion {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId  String   @map("organization_id") @db.Uuid
+  name            String   @db.VarChar(255)
+  description     String?  @db.Text
+  isActive        Boolean  @default(true) @map("is_active")
+  // Identifica origen del criterio para migración histórica:
+  //   NULL = criterio creado normalmente por ADMIN
+  //   'TEACHER_EVALUATIONS_MIGRATION' = creado por migración de teacher_evaluations
+  migrationSource String?  @map("migration_source") @db.VarChar(50)
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  organization Organization               @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  details      EvaluationResponseDetail[]
+
+  @@unique([organizationId, name], name: "uq_evaluation_criteria_org_name")
+  @@index([organizationId, isActive], name: "idx_evaluation_criteria_org_active")
+  @@map("evaluation_criteria")
+}
+
+model EvaluationResponse {
+  id                   String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  teachingAssignmentId String                   @map("teaching_assignment_id") @db.Uuid
+  studentId            String                   @map("student_id") @db.Uuid
+  status               EvaluationResponseStatus @default(DRAFT)
+  submittedAt          DateTime?                @map("submitted_at") @db.Timestamptz
+  comment              String?                  @db.Text
+  createdAt            DateTime                 @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt            DateTime                 @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  teachingAssignment TeachingAssignment         @relation(fields: [teachingAssignmentId], references: [id], onDelete: Restrict)
+  student            User                       @relation("EvaluationResponsesByStudent", fields: [studentId], references: [id], onDelete: Restrict)
+  details            EvaluationResponseDetail[]
+
+  @@unique([teachingAssignmentId, studentId], name: "uq_evaluation_responses_assignment_student")
+  @@index([studentId], name: "idx_evaluation_responses_student")
+  @@index([teachingAssignmentId], name: "idx_evaluation_responses_assignment")
+  @@map("evaluation_responses")
+}
+
+model EvaluationResponseDetail {
+  id                   String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  evaluationResponseId String   @map("evaluation_response_id") @db.Uuid
+  criterionId          String   @map("criterion_id") @db.Uuid
+  score                Int      @db.SmallInt
+  createdAt            DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  evaluationResponse EvaluationResponse  @relation(fields: [evaluationResponseId], references: [id], onDelete: Cascade)
+  criterion          EvaluationCriterion @relation(fields: [criterionId], references: [id], onDelete: Restrict)
+
+  @@unique([evaluationResponseId, criterionId], name: "uq_eval_response_details_response_criterion")
+  @@index([evaluationResponseId], name: "idx_eval_response_details_response")
+  @@index([criterionId], name: "idx_eval_response_details_criterion")
+  @@map("evaluation_response_details")
+}

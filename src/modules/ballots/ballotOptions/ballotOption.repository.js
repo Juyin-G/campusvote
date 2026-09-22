@@ -91,6 +91,12 @@ export const findSpecialOptionByType = (
     select: BALLOT_OPTION_SELECT,
   });
 
+// Nombres cortos que usa ballotOption.mutations.service.js; sin ellos
+// crear/editar/borrar opciones de la cédula respondía 500.
+export const create = createBallotOption;
+export const update = updateBallotOption;
+export { deleteBallotOptionById as delete };
+
 export default {
   findBallotOptionById,
   findBallotOptionsByPosition,

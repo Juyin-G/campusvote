@@ -1,16 +1,24 @@
-// src/modules/fairResults/fairResult.repository.js
-// Consultas de resultados (dominio FERIAS). NO re-calcula nada: devuelve los
-// datos crudos (proyectos APPROVED de la feria + total_score de sus
-// evaluaciones) para que el SERVICE derive promedio, ranking y ganador.
-//
-// La agregación se hace en el service para mantener la lógica de negocio
-// (reglas de desempate, precision de 2 decimales) testable sin BD.
-
 import { prisma } from '../../database/prisma.js';
 
 const APPROVED = 'APPROVED';
 
-/** Proyectos APPROVED de la feria (única fuente de verdad del tenant: FAIR). */
+/**
+ * Busca una feria por su ID e incluye la organización asociada para validaciones multi-tenant.
+ */
+export const findFairById = (fairId) =>
+  prisma.fair.findUnique({
+    where: { id: fairId },
+    select: {
+      id: true,
+      organizationId: true,
+      status: true,
+    },
+  });
+
+/**
+ * Proyectos APPROVED de la feria con sus evaluaciones (fairEvaluations)
+ * para el cálculo dinámico del promedio de ranking.
+ */
 export const listApprovedProjects = (fairId) =>
   prisma.project.findMany({
     where: { fairId, status: APPROVED },
@@ -20,23 +28,12 @@ export const listApprovedProjects = (fairId) =>
       name: true,
       status: true,
     },
-    orderBy: { createdAt: 'asc' },
+    orderBy: { id: 'asc' },
   });
 
-/** total_score de todas las evaluaciones de la feria (una por proyecto/jurado). */
-export const listEvaluationTotals = (fairId) =>
-  prisma.fairEvaluation.findMany({
-    where: { fairId },
-    select: {
-      projectId: true,
-      totalScore: true,
-    },
-  });
-
-// ════════════════════════════════════════════════════════════════════
-// PUBLICACIÓN DE RESULTADOS (persistencia mínima; ranking sigue DERIVADO)
-// ════════════════════════════════════════════════════════════════════
-
+/**
+ * Selección estandarizada para la publicación de resultados.
+ */
 const PUBLICATION_SELECT = {
   id: true,
   fairId: true,
@@ -44,18 +41,36 @@ const PUBLICATION_SELECT = {
   createdAt: true,
   updatedAt: true,
   publishedBy: {
-    select: { id: true, firstName: true, lastName: true },
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
+    },
   },
 };
 
-/** Publicación de una feria (null si aún no se publicó). Máximo una por fair. */
+/**
+ * Busca la publicación oficial de resultados asociada a una feria.
+ */
+/** Votos por proyecto de la feria: Map(projectId -> cantidad). Los usan los certificados. */
+export const countVotesByProject = async (fairId) => {
+  const grouped = await prisma.fairVote.groupBy({
+    by: ['projectId'],
+    where: { fairId },
+    _count: { _all: true },
+  });
+  return new Map(grouped.map((g) => [g.projectId, g._count._all]));
+};
+
 export const findPublicationByFair = (fairId) =>
   prisma.fairResultPublication.findUnique({
     where: { fairId },
     select: PUBLICATION_SELECT,
   });
 
-/** Crea la publicación (el UNIQUE fair_id la limita a una por feria). */
+/**
+ * Registra la publicación oficial de resultados.
+ */
 export const createPublication = async ({ fairId, publishedById }) => {
   try {
     return await prisma.fairResultPublication.create({
@@ -64,15 +79,62 @@ export const createPublication = async ({ fairId, publishedById }) => {
     });
   } catch (error) {
     if (error?.code === 'P2002') {
-      throw new Error('FAIR_RESULT_ALREADY_PUBLISHED');
+      const conflictError = new Error('FAIR_RESULT_ALREADY_PUBLISHED');
+      conflictError.statusCode = 409;
+      throw conflictError;
     }
     throw error;
   }
 };
 
+/**
+ * Busca la asignación activa de un jurado dentro de una feria.
+ */
+export const findJuryAssignment = (fairId, userId) =>
+  prisma.fairJuryAssignment.findFirst({
+    where: { fairId, userId },
+  });
+
+/**
+ * Obtiene el detalle de revisión de un proyecto exclusivo para la vista del JURY.
+ * Garantiza que pertenezca a la feria y que su estado sea APPROVED. Omite datos sensibles.
+ */
+export const findProjectForJuryReview = (fairId, projectId) =>
+  prisma.project.findFirst({
+    where: {
+      id: projectId,
+      fairId,
+      status: APPROVED,
+    },
+    select: {
+      id: true,
+      name: true,
+      fairId: true,
+      logoUrl: true,
+      coverUrl: true,
+      projectUrl: true,
+      description: true,
+      members: {
+        select: {
+          id: true,
+          role: true,
+          user: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+            },
+          },
+        },
+      },
+    },
+  });
+
 export default {
+  findFairById,
   listApprovedProjects,
-  listEvaluationTotals,
   findPublicationByFair,
   createPublication,
+  findJuryAssignment,
+  findProjectForJuryReview,
 };

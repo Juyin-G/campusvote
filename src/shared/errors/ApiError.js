@@ -52,8 +52,8 @@ export class ApiError extends Error {
     return new ApiError(422, message, details, 'UNPROCESSABLE_ENTITY');
   }
 
-  static tooManyRequests(message = 'Too many requests', details = null) {
-    return new ApiError(429, message, details, 'TOO_MANY_REQUESTS');
+  static tooManyRequests(message = 'Too many requests', details = null, code = 'TOO_MANY_REQUESTS') {
+    return new ApiError(429, message, details, code);
   }
 
   static internal(message = 'Internal Server Error', details = null) {

@@ -5,17 +5,31 @@ const mockFindMany = jest.fn();
 const mockCount = jest.fn();
 const mockCreate = jest.fn();
 const mockUpdate = jest.fn();
+const mockOrganizationSiteFindMany = jest.fn();
+const mockOrganizationSiteFindUnique = jest.fn();
+const mockUserSiteAssignmentDeleteMany = jest.fn();
+const mockUserSiteAssignmentCreateMany = jest.fn();
+
+const prismaMock = {
+  user: {
+    findUnique: mockFindUnique,
+    findMany: mockFindMany,
+    count: mockCount,
+    create: mockCreate,
+    update: mockUpdate,
+  },
+  organizationSite: {
+    findMany: mockOrganizationSiteFindMany,
+    findUnique: mockOrganizationSiteFindUnique,
+  },
+  userSiteAssignment: {
+    deleteMany: mockUserSiteAssignmentDeleteMany,
+    createMany: mockUserSiteAssignmentCreateMany,
+  },
+};
 
 jest.unstable_mockModule('../../../src/database/prisma.js', () => ({
-  prisma: {
-    user: {
-      findUnique: mockFindUnique,
-      findMany: mockFindMany,
-      count: mockCount,
-      create: mockCreate,
-      update: mockUpdate,
-    },
-  },
+  prisma: prismaMock,
 }));
 
 const mockHash = jest.fn();
@@ -25,6 +39,20 @@ jest.unstable_mockModule('bcryptjs', () => ({
   default: { hash: mockHash, compare: mockCompare },
   hash: mockHash,
   compare: mockCompare,
+}));
+
+jest.unstable_mockModule('../../../src/shared/services/email.service.js', () => ({
+  default: { hasEmailConfigured: jest.fn(() => false) },
+  hasEmailConfigured: jest.fn(() => false),
+}));
+
+jest.unstable_mockModule('../../../src/services/adminScope.service.js', () => ({
+  canCreateScope: jest.fn(async () => true),
+  actorHasSiteAccess: jest.fn(async () => true),
+  actorHasRegionAccess: jest.fn(async () => true),
+  resolveAccessibleSites: jest.fn(async () => null),
+  getAccessibleSiteIds: jest.fn(async () => null),
+  assignSiteScopes: jest.fn(async () => undefined),
 }));
 
 const userService = await import('../../../src/modules/users/user.service.js');
@@ -79,11 +107,18 @@ describe('User Service', () => {
     });
 
     it('Deberia permitir a un admin ver cualquier usuario', async () => {
-      mockFindUnique.mockResolvedValue(sampleUser);
+      // Primer findUnique: userRepository.findById devuelve sampleUser.
+      // Segundo findUnique: chequeo de scope multi-sede devuelve
+      // {organizationId, siteAssignments}.
+      mockFindUnique
+        .mockResolvedValueOnce(sampleUser)
+        .mockResolvedValueOnce({ organizationId: 'org-1', siteAssignments: [] });
 
       const result = await userService.getUserById(sampleUser.id, {
         userId: 'otro-id',
         role: 'ADMIN',
+        organizationId: 'org-1',
+        scopeLevel: 'ORG',
       });
 
       expect(result.id).toBe(sampleUser.id);
@@ -106,7 +141,10 @@ describe('User Service', () => {
       mockCount.mockResolvedValue(1);
       mockFindMany.mockResolvedValue([sampleUser]);
 
-      const result = await userService.listUsers({ page: 1, limit: 10 });
+      const result = await userService.listUsers(
+        { page: 1, limit: 10 },
+        { role: 'ADMIN', organizationId: 'org-1', scopeLevel: 'ORG' }
+      );
 
       expect(result.users).toHaveLength(1);
       expect(result.pagination).toEqual(
@@ -126,12 +164,17 @@ describe('User Service', () => {
     });
 
     it('Deberia actualizar el estado de otro usuario', async () => {
+      mockFindUnique.mockResolvedValue({
+        id: sampleUser.id,
+        organizationId: 'org-1',
+        siteAssignments: [],
+      });
       mockUpdate.mockResolvedValue({ ...sampleUser, status: 'SUSPENDED' });
 
       const result = await userService.setActiveStatus(
         sampleUser.id,
         false,
-        { userId: 'admin-id', role: 'ADMIN' }
+        { userId: 'admin-id', role: 'ADMIN', organizationId: 'org-1', scopeLevel: 'ORG' }
       );
 
       expect(mockUpdate).toHaveBeenCalledWith(
@@ -146,9 +189,19 @@ describe('User Service', () => {
 
   describe('unlockUser', () => {
     it('Deberia resetear intentos fallidos y lockedUntil', async () => {
+      mockFindUnique.mockResolvedValue({
+        id: sampleUser.id,
+        organizationId: 'org-1',
+        siteAssignments: [],
+      });
       mockUpdate.mockResolvedValue(sampleUser);
 
-      await userService.unlockUser(sampleUser.id);
+      await userService.unlockUser(sampleUser.id, {
+        id: 'admin-id',
+        role: 'ADMIN',
+        organizationId: 'org-1',
+        scopeLevel: 'ORG',
+      });
 
       expect(mockUpdate).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -210,7 +263,8 @@ describe('User Service', () => {
       mockHash.mockResolvedValue('hashed');
       mockCreate.mockResolvedValue({ ...sampleUser, id: 'new-id' });
 
-      const result = await userService.createUser({
+      const result = await userService.createUser(
+      {
         username: 'nuevo',
         email: 'nuevo@test.com',
         password: 'Password123!',
@@ -254,23 +308,47 @@ describe('User Service', () => {
 
   describe('updateUser', () => {
     it('Deberia actualizar campos permitidos', async () => {
+      mockFindUnique.mockResolvedValue({
+        id: sampleUser.id,
+        organizationId: 'org-1',
+        documentType: null,
+        documentNumber: null,
+        role: 'STUDENT',
+        siteAssignments: [],
+      });
       mockUpdate.mockResolvedValue({ ...sampleUser, firstName: 'Updated' });
 
-      const result = await userService.updateUser(sampleUser.id, {
-        first_name: 'Updated',
-      });
+      const result = await userService.updateUser(
+        sampleUser.id,
+        { first_name: 'Updated' },
+        { id: 'admin-id', role: 'ADMIN', organizationId: 'org-1', scopeLevel: 'ORG' }
+      );
 
       expect(mockUpdate).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { id: sampleUser.id },
-          data: { firstName: 'Updated' },
+          data: expect.objectContaining({ firstName: 'Updated' }),
         })
       );
       expect(result.first_name).toBe('Updated');
     });
 
     it('Deberia fallar si no hay campos para actualizar', async () => {
-      await expect(userService.updateUser(sampleUser.id, {})).rejects.toThrow(ApiError);
+      mockFindUnique.mockResolvedValue({
+        id: sampleUser.id,
+        organizationId: 'org-1',
+        documentType: null,
+        documentNumber: null,
+        role: 'STUDENT',
+        siteAssignments: [],
+      });
+      await expect(
+        userService.updateUser(
+          sampleUser.id,
+          {},
+          { id: 'admin-id', role: 'ADMIN', organizationId: 'org-1', scopeLevel: 'ORG' }
+        )
+      ).rejects.toThrow(ApiError);
     });
   });
 
@@ -282,10 +360,20 @@ describe('User Service', () => {
     });
 
     it('Deberia actualizar rol cuando es valido', async () => {
-      mockFindUnique.mockResolvedValue({ isSuperuser: false, facultyId: 'fac-1' });
+      mockFindUnique.mockResolvedValue({
+        id: sampleUser.id,
+        organizationId: 'org-1',
+        isSuperuser: false,
+        facultyId: 'fac-1',
+        siteAssignments: [],
+      });
       mockUpdate.mockResolvedValue({ ...sampleUser, role: 'TEACHER' });
 
-      const result = await userService.updateUserRole(sampleUser.id, 'TEACHER');
+      const result = await userService.updateUserRole(
+        sampleUser.id,
+        'TEACHER',
+        { id: 'admin-id', role: 'ADMIN', organizationId: 'org-1', scopeLevel: 'ORG' }
+      );
 
       expect(result.role).toBe('TEACHER');
     });

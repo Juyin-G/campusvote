@@ -57,7 +57,7 @@ export const getBallotPositionById = asyncHandler(
 /**
  * Agregar una posición a la boleta.
  * @route POST /api/ballots/:ballotId/positions
- * @access ADMIN, ELECTORAL_COMMISSION
+ * @access ADMIN
  */
 export const createBallotPosition = asyncHandler(
   async (req, res) => {
@@ -80,7 +80,7 @@ export const createBallotPosition = asyncHandler(
 /**
  * Actualizar una posición de la boleta.
  * @route PUT /api/ballots/:ballotId/positions/:id
- * @access ADMIN, ELECTORAL_COMMISSION
+ * @access ADMIN
  */
 export const updateBallotPosition = asyncHandler(
   async (req, res) => {
@@ -104,7 +104,7 @@ export const updateBallotPosition = asyncHandler(
 /**
  * Eliminar una posición de la boleta.
  * @route DELETE /api/ballots/:ballotId/positions/:id
- * @access ADMIN, ELECTORAL_COMMISSION
+ * @access ADMIN
  */
 export const deleteBallotPosition = asyncHandler(
   async (req, res) => {

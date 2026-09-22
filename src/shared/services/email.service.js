@@ -144,3 +144,15 @@ export const sendAdminActivation = async ({
     ].join('\n'),
   });
 };
+
+// Alias semántico para backward compatibility (algunos tests importan `sendActivation`).
+export { sendAdminActivation as sendActivation };
+
+export default {
+  hasEmailConfigured,
+  sendVerification,
+  sendReset,
+  sendRequestReceived,
+  sendAdminActivation,
+  sendActivation: sendAdminActivation,
+};

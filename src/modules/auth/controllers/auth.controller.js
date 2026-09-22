@@ -201,17 +201,3 @@ export const verifyEmail = asyncHandler(async (req, res) => {
     HTTP_STATUS.OK
   );
 });
-
-export const verifyFirebase = asyncHandler(async (req, res) => {
-  const result = await authService.authenticateWithFirebase(req.body.idToken);
-
-  return sendSuccess(
-    res,
-    result,
-    result.requiresTotp
-      ? MESSAGES.AUTH.TWO_FACTOR_REQUIRED
-      : MESSAGES.AUTH.LOGIN_SUCCESS,
-    { requestId: req.requestId },
-    HTTP_STATUS.OK
-  );
-});

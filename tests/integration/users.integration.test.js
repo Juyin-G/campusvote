@@ -36,6 +36,8 @@ const login = async (email) => {
 };
 
 describe('Users Integration (HTTP + DB)', () => {
+  let orgId;
+
   beforeAll(async () => {
     const hash = await bcrypt.hash(PASSWORD, 12);
     const { faculty, program } = await createAcademicFixture(runId);
@@ -44,9 +46,13 @@ describe('Users Integration (HTTP + DB)', () => {
 
     // Desde 84bf677 cada admin opera dentro de su organización.
     const organizacion = await prisma.organization.create({
-      data: { name: `Users Org ${"$"}{runId}`, code: `USR${"$"}{runId}`.slice(0, 30) },
+      data: { name: `Users Org ${runId}`, code: `USR${runId}`.slice(0, 30) },
     });
     organizacionId = organizacion.id;
+
+    // Una sola organización: cada lado de la mezcla había creado la suya y los
+    // usuarios quedaban repartidos entre las dos (el admin no podía gestionarlos).
+    orgId = organizacionId;
 
     const admin = await prisma.user.create({
       data: {
@@ -62,6 +68,7 @@ describe('Users Integration (HTTP + DB)', () => {
         isVerified: true,
         status: 'ACTIVE',
         mustChangePassword: false,
+        scopeLevel: 'ORG',
       },
     });
     adminId = admin.id;
@@ -124,6 +131,9 @@ describe('Users Integration (HTTP + DB)', () => {
       await prisma.user.deleteMany({
         where: { id: { in: idsToDelete } },
       }).catch(() => {});
+    }
+    if (orgId) {
+      await prisma.organization.delete({ where: { id: orgId } }).catch(() => {});
     }
     await prisma.$disconnect();
   });
@@ -196,13 +206,23 @@ describe('Users Integration (HTTP + DB)', () => {
   });
 
   describe('GET /api/users/:id', () => {
-    it('Deberia permitir al estudiante ver su propio perfil', async () => {
+    // GET /users/:id es solo para ADMIN (con control de sede); el propio perfil
+    // se consulta en /users/me.
+    it('Deberia permitir al estudiante ver su propio perfil en /users/me', async () => {
       const res = await request(app)
-        .get(`/api/users/${studentId}`)
+        .get('/api/users/me')
         .set('Authorization', `Bearer ${studentToken}`);
 
       expect(res.status).toBe(200);
       expect(res.body.data.id).toBe(studentId);
+    });
+
+    it('GET /users/:id es solo para ADMIN: el estudiante recibe 403 aunque sea él', async () => {
+      const res = await request(app)
+        .get(`/api/users/${studentId}`)
+        .set('Authorization', `Bearer ${studentToken}`);
+
+      expect(res.status).toBe(403);
     });
 
     it('Deberia denegar al estudiante ver otro usuario con 403', async () => {

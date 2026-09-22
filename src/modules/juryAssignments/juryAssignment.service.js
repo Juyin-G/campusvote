@@ -6,11 +6,12 @@
 //
 // Autorización:
 //   - ADMIN gestiona jurados SOLO de las ferias de su organización.
-//   - SUPERADMIN conserva el bypass de tenant del sistema para poder gestionar
-//     ferias; la invariante de aislamiento "el jurado pertenece a la misma
-//     organización que la feria" se exige SIEMPRE (evita mezclar organizaciones
-//     aunque el actor sea SUPERADMIN).
-//   - ELECTORAL_COMMISSION, STUDENT y TEACHER NO reciben permisos nuevos.
+//   - SUPERADMIN NO tiene acceso operativo (403 desde el router; sin bypass
+//     aunque tenga organizationId).
+//   - La invariante "el jurado pertenece a la misma organización que la feria"
+//     se exige SIEMPRE (evita mezclar organizaciones incluso si el actor fuera
+//     ADMIN de una organización distinta).
+//   - STUDENT y TEACHER NO reciben permisos nuevos sobre jurados.
 //   - JURY SOLO lee sus propias asignaciones (sin acceso administrativo ni a
 //     todas las ferias del sistema).
 //
@@ -31,9 +32,6 @@ import { parsePagination } from '../../shared/utils/pagination.js';
 
 const FAIR_JURY_CONFIGURABLE_STATUSES = ['DRAFT', 'OPEN'];
 
-const isSuperAdmin = (actor) =>
-  actor.role === ROLES.SUPERADMIN || actor.isSuperAdmin || actor.isSuperuser;
-
 // ── Helpers de acceso ──────────────────────────────────────────────
 
 const loadFair = async (fairId) => {
@@ -46,7 +44,6 @@ const loadFair = async (fairId) => {
 
 /** Tenant: el actor administra solo las ferias de su organización. */
 const assertTenantMatch = ({ fair, actor }) => {
-  if (isSuperAdmin(actor)) return;
   if (!actor.organizationId) {
     throw ApiError.forbidden('Tu cuenta no está vinculada a ninguna organización');
   }
@@ -74,9 +71,8 @@ const assertJuryUser = (user) => {
 
 /**
  * Aislamiento estricto de organización: el jurado debe pertenecer a la MISMA
- * organización que la feria. Se exige incluso para SUPERADMIN para preservar
- * la invariante de tenant (un jurado de la organización B no evalúa una feria
- * de la organización A).
+ * organización que la feria. Se exige para preservar la invariante de tenant
+ * (un jurado de la organización B no evalúa una feria de la organización A).
  */
 const assertSameOrganization = ({ fair, user }) => {
   if (user.organizationId !== fair.organizationId) {
@@ -118,7 +114,7 @@ const mapMyFair = (assignment) => ({
   },
 });
 
-// ── Operaciones (ADMIN/SUPERADMIN) ─────────────────────────────────
+// ── Operaciones (ADMIN) ───────────────────────────────────────────
 
 /** Lista los jurados asignados a una feria. */
 export const listJuries = async ({ fairId, actor }) => {

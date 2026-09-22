@@ -29,7 +29,7 @@ BEGIN
     WHERE id = p_certifier_user_id
       AND status = 'ACTIVE';
 
-    IF v_user_role IS NULL OR v_user_role NOT IN ('ADMIN', 'ELECTORAL_COMMISSION') THEN
+    IF v_user_role IS NULL OR v_user_role NOT IN ('ADMIN', 'SUPERADMIN') THEN
         RAISE EXCEPTION 'Usuario no autorizado para certificar la elección.';
     END IF;
 

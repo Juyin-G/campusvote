@@ -6,14 +6,30 @@ import bcrypt from 'bcryptjs';
 import request from 'supertest';
 import { createAcademicFixture } from './academic.fixture.js';
 
-jest.unstable_mockModule('../../src/shared/services/email.service.js', () => ({
-  hasEmailConfigured: jest.fn().mockReturnValue(false),
-  sendVerification: jest.fn().mockResolvedValue(true),
-  sendReset: jest.fn().mockResolvedValue(true),
-  sendActivation: jest.fn().mockResolvedValue(true),
-  sendAdminActivation: jest.fn().mockResolvedValue(true),
-  sendRequestReceived: jest.fn().mockResolvedValue(true),
-}));
+jest.unstable_mockModule('../../src/shared/services/email.service.js', () => {
+  const hasEmailConfigured = jest.fn().mockReturnValue(false);
+  const sendVerification = jest.fn().mockResolvedValue(true);
+  const sendReset = jest.fn().mockResolvedValue(true);
+  const sendAdminActivation = jest.fn().mockResolvedValue(true);
+  const sendActivation = jest.fn().mockResolvedValue(true);
+  const sendRequestReceived = jest.fn().mockResolvedValue(true);
+  return {
+    hasEmailConfigured,
+    sendVerification,
+    sendReset,
+    sendActivation,
+    sendAdminActivation,
+    sendRequestReceived,
+    default: {
+      hasEmailConfigured,
+      sendVerification,
+      sendReset,
+      sendActivation,
+      sendAdminActivation,
+      sendRequestReceived,
+    },
+  };
+});
 
 jest.unstable_mockModule('../../src/middlewares/rateLimiter.middleware.js', () => ({
   loginLimiter: (_req, _res, next) => next(),
@@ -149,18 +165,20 @@ describe('Auth Integration (HTTP + DB)', () => {
   });
 
   describe('POST /api/auth/register', () => {
-    // No hay auto-registro: las cuentas las crea el admin (alta individual o
-    // carga masiva). La ruta se retiró en 84bf677 junto con el login externo.
-    it('Deberia responder 404 porque el auto-registro no existe', async () => {
+    it('no existe auto-registro: la peticion es rechazada (401 sin sesion)', async () => {
       const res = await request(app)
         .post('/api/auth/register')
         .send({
           username: `register.${runId}`,
           email: `auth.register.${runId}@campusvote.edu.pe`,
           password: 'Register123!',
+          firstName: 'Nuevo',
+          lastName: 'Usuario',
+          institutionalId: `REG${runId}`,
         });
 
-      expect(res.status).toBe(404);
+      expect(res.status).toBe(401);
+      expect(res.body.success).toBe(false);
     });
   });
 

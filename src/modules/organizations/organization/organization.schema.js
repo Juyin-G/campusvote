@@ -16,22 +16,33 @@ export const organizationRequestStatusEnum = z.enum([
   'REJECTED',
 ]);
 
-// Permite URL válida, string vacío, null o undefined
-const optionalUrlSchema = z
-  .string()
-  .url('El logo debe ser una URL válida')
-  .or(z.literal(''))
-  .nullable()
-  .optional();
+// Permite URL válida, string vacío, null o undefined. La cadena con
+// `.nullable().optional()` falla en Zod 4 cuando llega `null`. Usamos un
+// preprocesador que convierte null/undefined a `null` antes de validar.
+const optionalUrlSchema = z.preprocess(
+  (value) => (value === undefined ? null : value),
+  z
+    .union([
+      z.string().url('El logo debe ser una URL válida'),
+      z.literal(''),
+      z.null(),
+    ])
+    .optional()
+    .nullable(),
+);
 
 const optionalNullableString = (maxLen) =>
-  z
-    .string()
-    .trim()
-    .max(maxLen)
-    .nullable()
-    .optional()
-    .or(z.literal(''));
+  z.preprocess(
+    (value) => (value === undefined ? null : value),
+    z
+      .union([
+        z.string().trim().max(maxLen),
+        z.literal(''),
+        z.null(),
+      ])
+      .optional()
+      .nullable(),
+  );
 
 // Dominios de correo permitidos (ej: "universidad.edu.pe", "gmail.com").
 // Se acepta con o sin el "@"; se normaliza quitando el "@" inicial.
@@ -42,7 +53,7 @@ const emailDomainsSchema = z
       .trim()
       .min(2, 'Un dominio debe tener al menos 2 caracteres')
       .max(255, 'El dominio no puede exceder los 255 caracteres')
-      .regex(/^@?[a-zA-Z0-9.-]+$/, 'Dominio de correo inválido')
+      .regex(/^@?[a-zA-Z0-9._-]+$/, 'Dominio de correo inválido')
       .transform((d) => d.replace(/^@/, '')),
   )
   .max(100, 'No puedes configurar más de 100 dominios')

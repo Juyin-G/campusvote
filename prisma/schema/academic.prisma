@@ -8,13 +8,12 @@ model Faculty {
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
   // Relaciones
-  programs Program[]
-  users    User[] // Necesario para la FK faculty_id en User
+  programs  Program[]
+  users     User[] // Necesario para la FK faculty_id en User
   elections Election[]
 
   @@map("faculties")
 }
-
 
 // 2. PROGRAMAS ACADÉMICOS
 
@@ -29,13 +28,12 @@ model Program {
   // Relaciones
   faculty         Faculty         @relation(fields: [facultyId], references: [id], onDelete: Restrict)
   voterRegistries VoterRegistry[]
-  users           User[]          // Necesario para la FK program_id en User
+  users           User[] // Necesario para la FK program_id en User
   elections       Election[]
 
   @@unique([facultyId, name], name: "uq_programs_faculty_name")
   @@map("programs")
 }
-
 
 // 2.5 CARRERAS POR ORGANIZACIÓN
 // "Carrera" es la forma en que cada organización (universidad/proyecto) llama a
@@ -43,18 +41,18 @@ model Program {
 // Se usa para derivar automáticamente la carrera/ciclo del código institucional
 // del estudiante al registrarse.
 model Career {
-  id             String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  organizationId String                  @map("organization_id") @db.Uuid
-  code           String                  @db.VarChar(20)
-  name           String                  @db.VarChar(150)
-  cycle          Int?                    @db.SmallInt
-  isActive       Boolean                 @default(true) @map("is_active")
-  createdAt      DateTime                @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt      DateTime                @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  code           String   @db.VarChar(20)
+  name           String   @db.VarChar(150)
+  cycle          Int?     @db.SmallInt
+  isActive       Boolean  @default(true) @map("is_active")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  users        User[]
-  courses      Course[]
+  organization        Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  users               User[]
+  courses             Course[]
   teachingAssignments TeachingAssignment[]
 
   @@unique([organizationId, code], name: "uq_careers_org_code")
@@ -63,60 +61,64 @@ model Career {
 }
 
 model Course {
-  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  organizationId String   @map("organization_id") @db.Uuid
-  careerId       String   @map("career_id") @db.Uuid
-  code           String   @db.VarChar(30)
-  name           String   @db.VarChar(150)
-  cycle          Int      @db.SmallInt
-  isActive       Boolean  @default(true) @map("is_active")
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  career         Career @relation(fields: [careerId], references: [id], onDelete: Cascade)
+  id                  String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId      String               @map("organization_id") @db.Uuid
+  careerId            String               @map("career_id") @db.Uuid
+  code                String               @db.VarChar(30)
+  name                String               @db.VarChar(150)
+  cycle               Int                  @db.SmallInt
+  isActive            Boolean              @default(true) @map("is_active")
+  organization        Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  career              Career               @relation(fields: [careerId], references: [id], onDelete: Cascade)
   teachingAssignments TeachingAssignment[]
-  teacherEvaluations TeacherEvaluation[]
+  teacherEvaluations  TeacherEvaluation[]
+
   @@unique([organizationId, code], map: "uq_courses_org_code")
   @@index([careerId, cycle], map: "idx_courses_career_cycle")
   @@map("courses")
 }
 
 model TeachingAssignment {
-  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  organizationId   String   @map("organization_id") @db.Uuid
-  academicPeriodId String   @map("academic_period_id") @db.Uuid
-  careerId         String   @map("career_id") @db.Uuid
-  courseId         String   @map("course_id") @db.Uuid
-  teacherId        String   @map("teacher_id") @db.Uuid
-  cycle            Int      @db.SmallInt
-  isActive         Boolean  @default(true) @map("is_active")
-  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  academicPeriod   AcademicPeriod @relation(fields: [academicPeriodId], references: [id], onDelete: Restrict)
-  career           Career @relation(fields: [careerId], references: [id], onDelete: Restrict)
-  course           Course @relation(fields: [courseId], references: [id], onDelete: Restrict)
-  teacher          User @relation("TeachingAssignments", fields: [teacherId], references: [id], onDelete: Restrict)
-  evaluations      TeacherEvaluation[]
+  id                  String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId      String               @map("organization_id") @db.Uuid
+  academicPeriodId    String               @map("academic_period_id") @db.Uuid
+  careerId            String               @map("career_id") @db.Uuid
+  courseId            String               @map("course_id") @db.Uuid
+  teacherId           String               @map("teacher_id") @db.Uuid
+  cycle               Int                  @db.SmallInt
+  isActive            Boolean              @default(true) @map("is_active")
+  organization        Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  academicPeriod      AcademicPeriod       @relation(fields: [academicPeriodId], references: [id], onDelete: Restrict)
+  career              Career               @relation(fields: [careerId], references: [id], onDelete: Restrict)
+  course              Course               @relation(fields: [courseId], references: [id], onDelete: Restrict)
+  teacher             User                 @relation("TeachingAssignments", fields: [teacherId], references: [id], onDelete: Restrict)
+  evaluations         TeacherEvaluation[]
+  evaluationResponses EvaluationResponse[]
+
   @@unique([academicPeriodId, courseId, teacherId], map: "uq_teaching_assignment_period_course_teacher")
   @@index([organizationId, careerId, cycle], map: "idx_teaching_assignments_scope")
   @@map("teaching_assignments")
 }
 
 model TeacherEvaluation {
-  id                   String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  organizationId       String   @map("organization_id") @db.Uuid
-  academicPeriodId     String   @map("academic_period_id") @db.Uuid
-  teachingAssignmentId  String   @map("teaching_assignment_id") @db.Uuid
-  courseId             String   @map("course_id") @db.Uuid
-  studentId            String   @map("student_id") @db.Uuid
-  teacherId            String   @map("teacher_id") @db.Uuid
-  score                Int      @db.SmallInt
-  comment              String?  @db.Text
-  isAnonymous          Boolean  @default(true) @map("is_anonymous")
-  createdAt            DateTime @default(now()) @map("created_at") @db.Timestamptz
-  organization         Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  academicPeriod       AcademicPeriod @relation(fields: [academicPeriodId], references: [id], onDelete: Restrict)
+  id                   String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId       String             @map("organization_id") @db.Uuid
+  academicPeriodId     String             @map("academic_period_id") @db.Uuid
+  teachingAssignmentId String             @map("teaching_assignment_id") @db.Uuid
+  courseId             String             @map("course_id") @db.Uuid
+  studentId            String             @map("student_id") @db.Uuid
+  teacherId            String             @map("teacher_id") @db.Uuid
+  score                Int                @db.SmallInt
+  comment              String?            @db.Text
+  isAnonymous          Boolean            @default(true) @map("is_anonymous")
+  createdAt            DateTime           @default(now()) @map("created_at") @db.Timestamptz
+  organization         Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  academicPeriod       AcademicPeriod     @relation(fields: [academicPeriodId], references: [id], onDelete: Restrict)
   teachingAssignment   TeachingAssignment @relation(fields: [teachingAssignmentId], references: [id], onDelete: Restrict)
-  course               Course @relation(fields: [courseId], references: [id], onDelete: Restrict)
-  student              User @relation("TeacherEvaluationsByStudent", fields: [studentId], references: [id], onDelete: Restrict)
-  teacher              User @relation("TeacherEvaluationsForTeacher", fields: [teacherId], references: [id], onDelete: Restrict)
+  course               Course             @relation(fields: [courseId], references: [id], onDelete: Restrict)
+  student              User               @relation("TeacherEvaluationsByStudent", fields: [studentId], references: [id], onDelete: Restrict)
+  teacher              User               @relation("TeacherEvaluationsForTeacher", fields: [teacherId], references: [id], onDelete: Restrict)
+
   @@unique([teachingAssignmentId, studentId], map: "uq_teacher_evaluation_assignment_student")
   @@index([organizationId, teacherId, academicPeriodId], map: "idx_teacher_evaluations_reporting")
   @@map("teacher_evaluations")
@@ -134,16 +136,15 @@ model AcademicPeriod {
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
   // Relaciones
-  voterRegistries    VoterRegistry[]
+  voterRegistries     VoterRegistry[]
   voterRegistryClaims VoterRegistryClaim[]
-  elections          Election[]
-  users              User[]  // FK admission_period_id en User
+  elections           Election[]
+  users               User[] // FK admission_period_id en User
   teachingAssignments TeachingAssignment[]
   teacherEvaluations  TeacherEvaluation[]
 
   @@map("academic_periods")
 }
-
 
 // 4. PADRÓN ELECTORAL (VOTER REGISTRY)
 
@@ -158,16 +159,16 @@ enum StakeType {
 }
 
 model VoterRegistry {
-  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId            String   @map("user_id") @db.Uuid
-  programId         String   @map("program_id") @db.Uuid
-  periodId          String   @map("period_id") @db.Uuid
-  semester          Int      @db.SmallInt
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId            String    @map("user_id") @db.Uuid
+  programId         String    @map("program_id") @db.Uuid
+  periodId          String    @map("period_id") @db.Uuid
+  semester          Int       @db.SmallInt
   stake             StakeType @default(STUDENT) @map("stake")
-  isEligible        Boolean  @default(true) @map("is_eligible")
-  eligibilityReason String?  @map("eligibility_reason") @db.Text
-  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt         DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  isEligible        Boolean   @default(true) @map("is_eligible")
+  eligibilityReason String?   @map("eligibility_reason") @db.Text
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
   // Relaciones
   user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)

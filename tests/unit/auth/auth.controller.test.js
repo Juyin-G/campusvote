@@ -1,12 +1,16 @@
 import { jest } from '@jest/globals';
 
 const mockLogin = jest.fn();
+const mockRequestPasswordReset = jest.fn();
+const mockResetPassword = jest.fn();
 
 // Mock del servicio de autenticación
 jest.unstable_mockModule(
   '../../../src/modules/auth/services/auth.service.js',
   () => ({
     login: mockLogin,
+    requestPasswordReset: mockRequestPasswordReset,
+    resetPassword: mockResetPassword,
   })
 );
 
@@ -51,6 +55,39 @@ describe('Auth Controller', () => {
     };
     next = jest.fn();
     jest.clearAllMocks();
+  });
+
+  describe('POST /api/v1/auth/request-password-reset', () => {
+    it('Deberia responder 200 OK al solicitar restablecimiento', async () => {
+      const mockResponse = { message: 'Correo de restablecimiento enviado' };
+
+      req.body = { email: 'test@test.com' };
+
+      mockRequestPasswordReset.mockResolvedValue(mockResponse);
+
+      await authController.requestPasswordReset(req, res, next);
+
+      expect(mockRequestPasswordReset).toHaveBeenCalledWith(req.body.email);
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: true,
+          data: mockResponse,
+        })
+      );
+    });
+
+    it('Deberia pasar el error al middleware next si falla el servicio', async () => {
+      const error = new Error('Error al enviar correo');
+
+      req.body = { email: 'test@test.com' };
+
+      mockRequestPasswordReset.mockRejectedValue(error);
+
+      await authController.requestPasswordReset(req, res, next);
+
+      expect(next).toHaveBeenCalledWith(error);
+    });
   });
 
   describe('POST /api/v1/auth/login', () => {

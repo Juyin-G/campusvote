@@ -5,6 +5,30 @@ import { ROLES } from '../../../constants/roles.js';
 import asyncHandler from '../../../shared/utils/asyncHandler.js';
 import { prisma } from '../../../database/prisma.js';
 import * as service from './teachingEvaluation.service.js';
+import * as criteriaService from './evaluationCriteria.service.js';
+import * as responseService from './evaluationResponse.service.js';
+import * as detailService from './evaluationResponseDetail.service.js';
+import * as resultsService from './evaluationResults.service.js';
+import {
+  createCriterionSchema,
+  updateCriterionSchema,
+  criterionIdParamSchema,
+} from './evaluationCriteria.schema.js';
+import {
+  createDraftSchema,
+  responseIdParamSchema,
+  updateCommentSchema,
+  submitResponseSchema,
+} from './evaluationResponse.schema.js';
+import {
+  upsertDetailSchema,
+  deleteDetailSchema,
+  getDetailsSchema,
+} from './evaluationResponseDetail.schema.js';
+import {
+  teacherResultsParamsSchema,
+  teacherResultsQuerySchema,
+} from './evaluationResults.schema.js';
 import { z } from 'zod';
 
 const router = Router();
@@ -24,7 +48,7 @@ const evaluationSchema = z.object({ body: z.object({
 
 const orgScope = (user) => (user?.role === ROLES.SUPERADMIN ? {} : { organizationId: user?.organizationId });
 
-router.get('/careers', authenticate, authorize(ROLES.ADMIN, ROLES.SUPERADMIN), asyncHandler(async (req, res) => {
+router.get('/evaluation-careers', authenticate, authorize(ROLES.ADMIN, ROLES.SUPERADMIN), asyncHandler(async (req, res) => {
   const careers = await prisma.career.findMany({
     where: { ...orgScope(req.user), isActive: true },
     orderBy: [{ code: 'asc' }],
@@ -33,7 +57,7 @@ router.get('/careers', authenticate, authorize(ROLES.ADMIN, ROLES.SUPERADMIN), a
   res.json({ success: true, data: careers });
 }));
 
-router.get('/courses', authenticate, authorize(ROLES.ADMIN, ROLES.SUPERADMIN), asyncHandler(async (req, res) => {
+router.get('/evaluation-courses', authenticate, authorize(ROLES.ADMIN, ROLES.SUPERADMIN), asyncHandler(async (req, res) => {
   const where = {
     ...orgScope(req.user),
     isActive: true,
@@ -76,5 +100,281 @@ router.get('/teachers/:teacherId/evaluation-summary', authenticate, authorize(RO
   const result = await service.teacherSummary(req.params.teacherId, req.user, req.query.period_id);
   res.json({ success: true, data: result });
 }));
+
+// ============================================================
+// EVALUACIÓN DOCENTE — NUEVO DOMINIO
+// ============================================================
+
+// --- RESULTADOS DEL DOCENTE ---
+
+router.get(
+  '/evaluation-results/teacher/:teacherId/summary',
+  authenticate,
+  authorize(ROLES.ADMIN, ROLES.SUPERADMIN, ROLES.TEACHER),
+  validate(teacherResultsQuerySchema),
+  asyncHandler(async (req, res) => {
+    const result = await resultsService.getTeacherSummary(
+      req.params.teacherId,
+      req.user,
+      req.query
+    );
+    if (result.meta?.insufficient_data) {
+      return res.json({ success: true, data: null, meta: result.meta });
+    }
+    return res.json({ success: true, data: result.data, meta: result.meta });
+  })
+);
+
+router.get(
+  '/evaluation-results/teacher/:teacherId/criteria',
+  authenticate,
+  authorize(ROLES.ADMIN, ROLES.SUPERADMIN, ROLES.TEACHER),
+  validate(teacherResultsQuerySchema),
+  asyncHandler(async (req, res) => {
+    const result = await resultsService.getCriterionAverages(
+      req.params.teacherId,
+      req.user,
+      req.query
+    );
+    if (result.meta?.insufficient_data) {
+      return res.json({ success: true, data: null, meta: result.meta });
+    }
+    return res.json({ success: true, data: result.data, meta: result.meta });
+  })
+);
+
+router.get(
+  '/evaluation-results/teacher/:teacherId/distribution',
+  authenticate,
+  authorize(ROLES.ADMIN, ROLES.SUPERADMIN, ROLES.TEACHER),
+  validate(teacherResultsQuerySchema),
+  asyncHandler(async (req, res) => {
+    const result = await resultsService.getScoreDistribution(
+      req.params.teacherId,
+      req.user,
+      req.query
+    );
+    if (result.meta?.insufficient_data) {
+      return res.json({ success: true, data: null, meta: result.meta });
+    }
+    return res.json({ success: true, data: result.data, meta: result.meta });
+  })
+);
+
+router.get(
+  '/evaluation-results/teacher/:teacherId/comments',
+  authenticate,
+  authorize(ROLES.ADMIN, ROLES.SUPERADMIN, ROLES.TEACHER),
+  validate(teacherResultsQuerySchema),
+  asyncHandler(async (req, res) => {
+    const result = await resultsService.getAnonymousComments(
+      req.params.teacherId,
+      req.user,
+      req.query
+    );
+    if (result.meta?.insufficient_data) {
+      return res.json({ success: true, data: null, meta: result.meta });
+    }
+    return res.json({ success: true, data: result.data, meta: result.meta });
+  })
+);
+
+router.get(
+  '/evaluation-results/teacher/:teacherId/evolution',
+  authenticate,
+  authorize(ROLES.ADMIN, ROLES.SUPERADMIN, ROLES.TEACHER),
+  validate(teacherResultsQuerySchema),
+  asyncHandler(async (req, res) => {
+    const result = await resultsService.getScoreEvolution(
+      req.params.teacherId,
+      req.user,
+      req.query
+    );
+    if (result.meta?.insufficient_data) {
+      return res.json({ success: true, data: null, meta: result.meta });
+    }
+    return res.json({ success: true, data: result.data, meta: result.meta });
+  })
+);
+
+// --- CRITERIOS DE EVALUACIÓN (ADMIN/SUPERADMIN) ---
+
+router.post(
+  '/evaluation-criteria',
+  authenticate,
+  authorize(ROLES.ADMIN, ROLES.SUPERADMIN),
+  validate(createCriterionSchema),
+  asyncHandler(async (req, res) => {
+    const result = await criteriaService.createCriterion(req.body, req.user);
+    res.status(201).json({ success: true, data: result });
+  })
+);
+
+router.get(
+  '/evaluation-criteria',
+  authenticate,
+  asyncHandler(async (req, res) => {
+    const result = await criteriaService.listCriteria(req.user);
+    res.json({ success: true, data: result });
+  })
+);
+
+router.get(
+  '/evaluation-criteria/:criterionId',
+  authenticate,
+  validate(criterionIdParamSchema),
+  asyncHandler(async (req, res) => {
+    const result = await criteriaService.getCriterion(req.params.criterionId, req.user);
+    res.json({ success: true, data: result });
+  })
+);
+
+router.put(
+  '/evaluation-criteria/:criterionId',
+  authenticate,
+  authorize(ROLES.ADMIN, ROLES.SUPERADMIN),
+  validate(updateCriterionSchema),
+  asyncHandler(async (req, res) => {
+    const result = await criteriaService.updateCriterion(
+      req.params.criterionId,
+      req.body,
+      req.user
+    );
+    res.json({ success: true, data: result });
+  })
+);
+
+router.patch(
+  '/evaluation-criteria/:criterionId/toggle',
+  authenticate,
+  authorize(ROLES.ADMIN, ROLES.SUPERADMIN),
+  validate(criterionIdParamSchema),
+  asyncHandler(async (req, res) => {
+    const result = await criteriaService.toggleCriterion(req.params.criterionId, req.user);
+    res.json({ success: true, data: result });
+  })
+);
+
+router.delete(
+  '/evaluation-criteria/:criterionId',
+  authenticate,
+  authorize(ROLES.ADMIN, ROLES.SUPERADMIN),
+  validate(criterionIdParamSchema),
+  asyncHandler(async (req, res) => {
+    const result = await criteriaService.deleteCriterion(req.params.criterionId, req.user);
+    res.json({ success: true, data: result });
+  })
+);
+
+// --- EVALUACIONES DEL ESTUDIANTE ---
+
+router.post(
+  '/evaluation-responses',
+  authenticate,
+  authorize(ROLES.STUDENT),
+  validate(createDraftSchema),
+  asyncHandler(async (req, res) => {
+    const result = await responseService.createDraft(
+      req.body.teachingAssignmentId,
+      req.user
+    );
+    res.status(201).json({ success: true, data: result });
+  })
+);
+
+router.get(
+  '/evaluation-responses/mine',
+  authenticate,
+  authorize(ROLES.STUDENT),
+  asyncHandler(async (req, res) => {
+    const result = await responseService.listMyResponses(req.user);
+    res.json({ success: true, data: result });
+  })
+);
+
+router.get(
+  '/evaluation-responses/:responseId',
+  authenticate,
+  validate(responseIdParamSchema),
+  asyncHandler(async (req, res) => {
+    const result = await responseService.getResponse(req.params.responseId, req.user);
+    res.json({ success: true, data: result });
+  })
+);
+
+router.patch(
+  '/evaluation-responses/:responseId/comment',
+  authenticate,
+  validate(updateCommentSchema),
+  asyncHandler(async (req, res) => {
+    const result = await responseService.updateComment(
+      req.params.responseId,
+      req.body,
+      req.user
+    );
+    res.json({ success: true, data: result });
+  })
+);
+
+router.delete(
+  '/evaluation-responses/:responseId',
+  authenticate,
+  validate(responseIdParamSchema),
+  asyncHandler(async (req, res) => {
+    const result = await responseService.deleteDraft(req.params.responseId, req.user);
+    res.json({ success: true, data: result });
+  })
+);
+
+router.post(
+  '/evaluation-responses/:responseId/submit',
+  authenticate,
+  validate(submitResponseSchema),
+  asyncHandler(async (req, res) => {
+    const result = await responseService.submitResponse(req.params.responseId, req.user);
+    res.json({ success: true, data: result });
+  })
+);
+
+// --- DETALLES DE EVALUACIÓN (score por criterio) ---
+
+router.put(
+  '/evaluation-responses/:responseId/details/:criterionId',
+  authenticate,
+  validate(upsertDetailSchema),
+  asyncHandler(async (req, res) => {
+    const result = await detailService.upsertDetail(
+      req.params.responseId,
+      req.params.criterionId,
+      req.body.score,
+      req.user
+    );
+    res.json({ success: true, data: result });
+  })
+);
+
+router.delete(
+  '/evaluation-responses/:responseId/details/:criterionId',
+  authenticate,
+  validate(deleteDetailSchema),
+  asyncHandler(async (req, res) => {
+    const result = await detailService.deleteDetail(
+      req.params.responseId,
+      req.params.criterionId,
+      req.user
+    );
+    res.json({ success: true, data: result });
+  })
+);
+
+router.get(
+  '/evaluation-responses/:responseId/details',
+  authenticate,
+  validate(getDetailsSchema),
+  asyncHandler(async (req, res) => {
+    const result = await detailService.getDetails(req.params.responseId, req.user);
+    res.json({ success: true, data: result });
+  })
+);
 
 export default router;

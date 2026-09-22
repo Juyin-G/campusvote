@@ -46,7 +46,7 @@ export const getPositionById = asyncHandler(async (req, res) => {
 /**
  * Crear un cargo (solo con la elección en DRAFT/SCHEDULED)
  * @route POST /api/elections/:electionId/positions
- * @access ADMIN, ELECTORAL_COMMISSION
+ * @access ADMIN
  */
 export const createPosition = asyncHandler(async (req, res) => {
   const position = await positionService.createPosition(
@@ -66,7 +66,7 @@ export const createPosition = asyncHandler(async (req, res) => {
 /**
  * Actualizar parcialmente un cargo (solo con la elección en DRAFT/SCHEDULED)
  * @route PATCH /api/elections/:electionId/positions/:id
- * @access ADMIN, ELECTORAL_COMMISSION
+ * @access ADMIN
  */
 export const updatePosition = asyncHandler(async (req, res) => {
   const position = await positionService.updatePosition(
@@ -87,7 +87,7 @@ export const updatePosition = asyncHandler(async (req, res) => {
 /**
  * Eliminar un cargo (solo en DRAFT/SCHEDULED y sin candidaturas asociadas)
  * @route DELETE /api/elections/:electionId/positions/:id
- * @access ADMIN, ELECTORAL_COMMISSION
+ * @access ADMIN
  */
 export const deletePosition = asyncHandler(async (req, res) => {
   const result = await positionService.deletePosition(

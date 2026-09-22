@@ -21,57 +21,80 @@ class AuditRepository {
    * CONSULTAS DE AUDIT LOGS
    */
 
-  async findAuditLogs(filters = {}) {
+  // CAMBIO: firma ahora acepta organizationId del actor. El filtro por
+  // tenant se aplica a nivel SQL mediante JOIN contra users y contra
+  // elections. Si no llega organizationId → 403 (defensa en profundidad).
+  async findAuditLogs(filters = {}, organizationId = null) {
+    if (!organizationId) {
+      const err = new Error('Filtro de organización requerido para consultar auditoría');
+      err.statusCode = 403;
+      throw err;
+    }
+
     const page = Math.max(1, parseInt(filters.page, 10) || 1);
     const limit = Math.min(100, Math.max(1, parseInt(filters.limit, 10) || 20));
     const offset = (page - 1) * limit;
 
-    const whereClauses = [];
-    const values = [];
-    let paramIndex = 1;
+    // CAMBIO: whereClauses base con filtro obligatorio por organización.
+    // Se aplica vía JOIN:
+    //   (a) audit_logs.actor_id → users.organization_id = X
+    //   (b) audit_logs.election_id → elections.organization_id = X
+    //   (c) logs sin actor ni election (de plataforma) → EXCLUIDOS del tenant.
+    const whereClauses = [
+      `(u.organization_id = $${1}::uuid OR e.organization_id = $${1}::uuid)`
+    ];
+    const values = [organizationId];
+    let paramIndex = 2;
 
     if (filters.action) {
-      whereClauses.push(`action = $${paramIndex++}`);
+      whereClauses.push(`a.action = $${paramIndex++}`);
       values.push(filters.action);
     }
     if (filters.electionId) {
-      whereClauses.push(`election_id = $${paramIndex++}`);
+      whereClauses.push(`a.election_id = $${paramIndex++}`);
       values.push(filters.electionId);
     }
     if (filters.actorId) {
-      whereClauses.push(`actor_id = $${paramIndex++}`);
+      whereClauses.push(`a.actor_id = $${paramIndex++}`);
       values.push(filters.actorId);
     }
     if (filters.fromDate) {
-      whereClauses.push(`timestamp >= $${paramIndex++}`);
+      whereClauses.push(`a.timestamp >= $${paramIndex++}`);
       values.push(filters.fromDate);
     }
     if (filters.toDate) {
-      whereClauses.push(`timestamp <= $${paramIndex++}`);
+      whereClauses.push(`a.timestamp <= $${paramIndex++}`);
       values.push(filters.toDate);
     }
 
-    const whereClause = whereClauses.length ? `WHERE ${whereClauses.join(' AND ')}` : '';
+    const whereClause = `WHERE ${whereClauses.join(' AND ')}`;
 
     const query = `
-      SELECT id, 
-             sequence_num as "sequenceNum",
-             actor_id as "actorId", 
-             election_id as "electionId", 
-             action,
-             timestamp, 
-             ip_address as "ipAddress", 
-             metadata,
-             previous_hash as "previousHash", 
-             current_hash as "currentHash", 
-             signature
-      FROM audit_logs
+      SELECT a.id,
+             a.sequence_num as "sequenceNum",
+             a.actor_id as "actorId",
+             a.election_id as "electionId",
+             a.action,
+             a.timestamp,
+             a.ip_address as "ipAddress",
+             a.metadata,
+             a.previous_hash as "previousHash",
+             a.current_hash as "currentHash",
+             a.signature
+      FROM audit_logs a
+      LEFT JOIN users u ON u.id = a.actor_id
+      LEFT JOIN elections e ON e.id = a.election_id
       ${whereClause}
-      ORDER BY sequence_num DESC
+      ORDER BY a.sequence_num DESC
       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
     `;
 
-    const countQuery = `SELECT COUNT(*) FROM audit_logs ${whereClause}`;
+    const countQuery = `
+      SELECT COUNT(*) FROM audit_logs a
+      LEFT JOIN users u ON u.id = a.actor_id
+      LEFT JOIN elections e ON e.id = a.election_id
+      ${whereClause}
+    `;
 
     const [result, countResult] = await Promise.all([
       pool.query(query, [...values, limit, offset]),
