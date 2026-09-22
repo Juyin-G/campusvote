@@ -1,7 +1,7 @@
 ﻿import { Router } from 'express';
 import { authenticate, authorizePlatform } from '../../../middlewares/auth.middleware.js';
 import { ROLES } from '../../../constants/roles.js';
-import * as voterRegistryController from './voter-registry.controller.js';
+import voterRegistryController from './voter-registry.controller.js';
 
 const router = Router();
 const SUPERADMIN_ONLY = [ROLES.SUPERADMIN];
