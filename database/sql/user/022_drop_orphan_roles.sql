@@ -47,6 +47,29 @@ END
 $$;
 
 -- Paso 1: DROP constraints
+-- Cualquier CHECK que mencione role se retira antes de cambiar el tipo, no
+-- solo los que se recrean abajo. Las bases creadas cuando user_role aún tenía
+-- OBSERVER tienen además chk_users_role_not_observer (user/012, retirado):
+-- con role como TEXT, PostgreSQL guarda `role::text <> 'OBSERVER'` como
+-- `role <> 'OBSERVER'::text`, y al volver a user_role el ALTER falla con
+-- "operator does not exist: user_role <> text". Esa regla ya no hace falta:
+-- el tipo nuevo no tiene OBSERVER.
+DO $$
+DECLARE
+    r RECORD;
+BEGIN
+    FOR r IN
+        SELECT conname
+          FROM pg_constraint
+         WHERE conrelid = 'public.users'::regclass
+           AND contype = 'c'
+           AND pg_get_constraintdef(oid) ~* '\mrole\M'
+    LOOP
+        EXECUTE format('ALTER TABLE users DROP CONSTRAINT %I', r.conname);
+    END LOOP;
+END
+$$;
+
 ALTER TABLE users DROP CONSTRAINT IF EXISTS chk_admin_requires_organization;
 ALTER TABLE users DROP CONSTRAINT IF EXISTS chk_users_academic_linkage;
 ALTER TABLE users DROP CONSTRAINT IF EXISTS chk_users_institutional_email;
