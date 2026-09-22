@@ -22,6 +22,9 @@ import * as juryAssignmentRepository from '../juryAssignments/juryAssignment.rep
 import { ApiError } from '../../shared/errors/ApiError.js';
 import { ROLES } from '../../constants/roles.js';
 
+// ✅ NUEVO: Importar el guard compartido en lugar de definirlo localmente
+import { assertTenantMatch } from '../../shared/guards/tenant.guard.js';
+
 const STAND_CONFIGURABLE_STATUSES = ['DRAFT'];
 
 const loadFair = async (fairId) => {
@@ -32,14 +35,8 @@ const loadFair = async (fairId) => {
   return fair;
 };
 
-const assertTenantMatch = ({ fair, actor }) => {
-  if (!actor.organizationId) {
-    throw ApiError.forbidden('Tu cuenta no está vinculada a ninguna organización');
-  }
-  if (fair.organizationId !== actor.organizationId) {
-    throw ApiError.forbidden('La feria no pertenece a tu organización');
-  }
-};
+// ✅ ELIMINADO: La función local assertTenantMatch({ fair, actor }) fue removida.
+// Ahora usamos la versión compartida que también bloquea a SUPERADMIN explícitamente.
 
 const assertJuryAssignedToFair = async ({ fairId, juryId }) => {
   const assignment = await juryAssignmentRepository.findByFairUser(fairId, juryId);
@@ -72,7 +69,8 @@ export const listStands = async ({ fairId, actor }) => {
   if (actor.role === ROLES.JURY) {
     await assertJuryAssignedToFair({ fairId, juryId: actor.id });
   } else {
-    assertTenantMatch({ fair, actor });
+    // ✅ ACTUALIZADO: Firma del guard compartido (actor, recurso, nombre)
+    assertTenantMatch(actor, fair, 'Feria');
   }
 
   const stands = await standRepository.findByFair(fairId);
@@ -89,7 +87,8 @@ export const listStands = async ({ fairId, actor }) => {
 
 export const createStand = async ({ fairId, data, actor }) => {
   const fair = await loadFair(fairId);
-  assertTenantMatch({ fair, actor });
+  // ✅ ACTUALIZADO
+  assertTenantMatch(actor, fair, 'Feria');
   assertStandConfigurable(fair);
 
   try {
@@ -100,7 +99,7 @@ export const createStand = async ({ fairId, data, actor }) => {
     });
     return mapStand(stand);
   } catch (err) {
-    if (err.message === 'FAIR_STAND_DUPLICATE') {
+    if (err.message === 'FAIR_STAND_DUPLICATE' || err.code === 'P2002') {
       throw ApiError.conflict('Ya existe un stand con ese código en esta feria');
     }
     throw err;
@@ -109,7 +108,8 @@ export const createStand = async ({ fairId, data, actor }) => {
 
 export const updateStand = async ({ fairId, standId, data, actor }) => {
   const fair = await loadFair(fairId);
-  assertTenantMatch({ fair, actor });
+  // ✅ ACTUALIZADO
+  assertTenantMatch(actor, fair, 'Feria');
   assertStandConfigurable(fair);
 
   const current = await standRepository.findById(standId, fairId);
@@ -124,7 +124,7 @@ export const updateStand = async ({ fairId, standId, data, actor }) => {
     });
     return mapStand(updated);
   } catch (err) {
-    if (err.message === 'FAIR_STAND_DUPLICATE') {
+    if (err.message === 'FAIR_STAND_DUPLICATE' || err.code === 'P2002') {
       throw ApiError.conflict('Ya existe un stand con ese código en esta feria');
     }
     throw err;
@@ -133,7 +133,8 @@ export const updateStand = async ({ fairId, standId, data, actor }) => {
 
 export const deleteStand = async ({ fairId, standId, actor }) => {
   const fair = await loadFair(fairId);
-  assertTenantMatch({ fair, actor });
+  // ✅ ACTUALIZADO
+  assertTenantMatch(actor, fair, 'Feria');
   assertStandConfigurable(fair);
 
   const current = await standRepository.findById(standId, fairId);

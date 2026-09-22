@@ -31,6 +31,9 @@ import fairResultRoutes from '../modules/fairResults/fairResult.routes.js';
 import fairCategoryRoutes from '../modules/fairCategories/fairCategory.routes.js';
 import fairJuryCategoryAssignmentRoutes from '../modules/fairJuryCategoryAssignments/fairJuryCategoryAssignment.routes.js';
 import fairStandRoutes from '../modules/fairStands/fairStand.routes.js';
+import academicRoutes from '../modules/academic/academic.routes.js';
+import voterRegistryPlatformRoutes from '../modules/academic/voter-registry/voter-registry.platform.routes.js'; // ✅ NUEVO
+import auditRoutes from '../modules/audit/audit.routes.js';
 
 import {
   fairCertificatesRouter,
@@ -79,6 +82,9 @@ router.use('/platform/translations', platformTranslationRoutes);
 
 // CAMBIO: /admin/gmail/test es PLATFORM puro (solo SUPERADMIN).
 router.use(gmailTestRoutes);
+
+router.use('/academic/voter-registries', voterRegistryPlatformRoutes);
+
 
 // ────────────────────────────────────────────────────────────────────────
 // TENANT ROUTES — bloqueadas para SUPERADMIN

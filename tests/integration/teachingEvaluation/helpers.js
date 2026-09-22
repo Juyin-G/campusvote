@@ -1,20 +1,10 @@
 import { jest } from '@jest/globals';
-import request from 'supertest';
+import request from 'supertest'; // ✅ Importación por defecto (sin llaves)
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import { randomUUID } from 'node:crypto';
 
-// ✅ IMPORTACIONES ESTÁTICAS: Evitan la re-evaluación del módulo y el error de 'already been declared'
-import appModule from '../../../src/app.js';
-export const app = appModule;
-
-import { prisma } from '../../../src/database/prisma.js';
-export { prisma };
-
-import env from '../../../src/config/env.js';
-export { env };
-
-// Mocks de servicios externos (deben ir antes de importar la app para que surtan efecto)
+// Mocks de servicios externos (Rutas corregidas a 3 niveles: ../../../)
 jest.unstable_mockModule('../../../src/shared/services/email.service.js', () => {
   const noop = jest.fn().mockResolvedValue(true);
   return {
@@ -41,6 +31,16 @@ jest.unstable_mockModule('../../../src/middlewares/rateLimiter.middleware.js', (
   userLimiter: () => (_r, _s, n) => n(), 
   userElectionLimiter: () => (_r, _s, n) => n(),
 }));
+
+// Importaciones dinámicas para evitar errores de teardown en Jest ESM
+const appModule = await import('../../../src/app.js');
+export const app = appModule.default || appModule;
+
+const prismaModule = await import('../../../src/database/prisma.js');
+export const prisma = prismaModule.prisma || prismaModule.default;
+
+const envModule = await import('../../../src/config/env.js');
+export const env = envModule.default || envModule;
 
 export const JWT_SECRET = env.JWT_SECRET || 'test-secret-for-jest-only-do-not-use-in-prod';
 export const BASE = '/api/academic';

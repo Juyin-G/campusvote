@@ -1,4 +1,7 @@
 import * as fairResultRepository from './fairResult.repository.js';
+// ✅ NUEVO: Importar ApiError y el guard compartido
+import { ApiError } from '../../shared/errors/ApiError.js';
+import { assertTenantMatch } from '../../shared/guards/tenant.guard.js';
 
 export class FairResultsService {
   /**
@@ -8,18 +11,13 @@ export class FairResultsService {
     const fair = await fairResultRepository.findFairById(fairId);
 
     if (!fair) {
-      const error = new Error('Feria no encontrada');
-      error.statusCode = 404;
-      throw error;
+      // ✅ ACTUALIZADO: Uso de ApiError estandarizado
+      throw ApiError.notFound('Feria no encontrada');
     }
 
-    // Validación Multi-Tenant estricta (ADMIN y SUPERADMIN no cruzan frontera ORG)
-    if (fair.organizationId !== currentUser.organizationId) {
-      const error = new Error('No tiene permisos para acceder a esta organización');
-      error.statusCode = 403;
-      error.code = 'FORBIDDEN';
-      throw error;
-    }
+    // ✅ ACTUALIZADO: Validación Multi-Tenant estricta usando el guard compartido
+    // (Esto también bloquea explícitamente a SUPERADMIN en rutas de tenant)
+    assertTenantMatch(currentUser, fair, 'Feria');
 
     const publication = await fairResultRepository.findPublicationByFair(fairId);
     const isPublished = Boolean(publication);
@@ -104,32 +102,21 @@ export class FairResultsService {
     const fair = await fairResultRepository.findFairById(fairId);
 
     if (!fair) {
-      const error = new Error('Feria no encontrada');
-      error.statusCode = 404;
-      throw error;
+      throw ApiError.notFound('Feria no encontrada');
     }
 
-    // Validación Multi-Tenant
-    if (fair.organizationId !== currentUser.organizationId) {
-      const error = new Error('No tiene permisos para publicar en esta organización');
-      error.statusCode = 403;
-      error.code = 'FORBIDDEN';
-      throw error;
-    }
+    // ✅ ACTUALIZADO: Validación Multi-Tenant con guard compartido
+    assertTenantMatch(currentUser, fair, 'Feria');
 
     // Regla: Solo ferias CERRADAS pueden publicarse
     if (fair.status !== 'CLOSED') {
-      const error = new Error('Solo se pueden publicar resultados de ferias cerradas');
-      error.statusCode = 409;
-      throw error;
+      throw ApiError.conflict('Solo se pueden publicar resultados de ferias cerradas');
     }
 
     // Regla: Prevenir doble publicación
     const existingPub = await fairResultRepository.findPublicationByFair(fairId);
     if (existingPub) {
-      const error = new Error('Los resultados ya han sido publicados anteriormente');
-      error.statusCode = 409;
-      throw error;
+      throw ApiError.conflict('Los resultados ya han sido publicados anteriormente');
     }
 
     const created = await fairResultRepository.createPublication({
@@ -153,23 +140,17 @@ export class FairResultsService {
    */
   static async getProjectReviewForJury(fairId, projectId, currentUser) {
     if (currentUser.role !== 'JURY') {
-      const error = new Error('Endpoint exclusivo para rol JURY');
-      error.statusCode = 403;
-      throw error;
+      throw ApiError.forbidden('Endpoint exclusivo para rol JURY');
     }
 
     const assignment = await fairResultRepository.findJuryAssignment(fairId, currentUser.id);
     if (!assignment) {
-      const error = new Error('El jurado no tiene asignación en esta feria');
-      error.statusCode = 403;
-      throw error;
+      throw ApiError.forbidden('El jurado no tiene asignación en esta feria');
     }
 
     const project = await fairResultRepository.findProjectForJuryReview(fairId, projectId);
     if (!project) {
-      const error = new Error('Proyecto no encontrado o no cumple con el estado APPROVED en esta feria');
-      error.statusCode = 404;
-      throw error;
+      throw ApiError.notFound('Proyecto no encontrado o no cumple con el estado APPROVED en esta feria');
     }
 
     return {

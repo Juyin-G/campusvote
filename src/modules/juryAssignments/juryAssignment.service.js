@@ -30,6 +30,9 @@ import { ApiError } from '../../shared/errors/ApiError.js';
 import { ROLES } from '../../constants/roles.js';
 import { parsePagination } from '../../shared/utils/pagination.js';
 
+// ✅ NUEVO: Importar el guard compartido en lugar de definirlo localmente
+import { assertTenantMatch } from '../../shared/guards/tenant.guard.js';
+
 const FAIR_JURY_CONFIGURABLE_STATUSES = ['DRAFT', 'OPEN'];
 
 // ── Helpers de acceso ──────────────────────────────────────────────
@@ -42,15 +45,8 @@ const loadFair = async (fairId) => {
   return fair;
 };
 
-/** Tenant: el actor administra solo las ferias de su organización. */
-const assertTenantMatch = ({ fair, actor }) => {
-  if (!actor.organizationId) {
-    throw ApiError.forbidden('Tu cuenta no está vinculada a ninguna organización');
-  }
-  if (fair.organizationId !== actor.organizationId) {
-    throw ApiError.forbidden('La feria no pertenece a tu organización');
-  }
-};
+// ✅ ELIMINADO: La función local assertTenantMatch({ fair, actor }) fue removida.
+// Ahora usamos la versión compartida que también bloquea a SUPERADMIN explícitamente.
 
 /** Los jurados solo se configuran en DRAFT/OPEN; CLOSED congela el panel. */
 const assertFairJuriesConfigurable = (fair) => {
@@ -119,7 +115,8 @@ const mapMyFair = (assignment) => ({
 /** Lista los jurados asignados a una feria. */
 export const listJuries = async ({ fairId, actor }) => {
   const fair = await loadFair(fairId);
-  assertTenantMatch({ fair, actor });
+  // ✅ ACTUALIZADO: Firma del guard compartido (actor, recurso, nombre)
+  assertTenantMatch(actor, fair, 'Feria');
 
   const assignments = await juryRepository.listByFair(fairId);
 
@@ -135,7 +132,8 @@ export const listJuries = async ({ fairId, actor }) => {
 /** Asigna un usuario JURY a una feria. */
 export const assignJury = async ({ fairId, userId, actor }) => {
   const fair = await loadFair(fairId);
-  assertTenantMatch({ fair, actor });
+  // ✅ ACTUALIZADO
+  assertTenantMatch(actor, fair, 'Feria');
   assertFairJuriesConfigurable(fair);
 
   const user = await prisma.user.findUnique({
@@ -162,10 +160,10 @@ export const assignJury = async ({ fairId, userId, actor }) => {
     });
     return mapAssignment(assignment);
   } catch (err) {
-    if (err.message === 'FAIR_JURY_ALREADY_ASSIGNED') {
+    if (err.message === 'FAIR_JURY_ALREADY_ASSIGNED' || err.code === 'P2002') {
       throw ApiError.conflict('El usuario ya está asignado como jurado de esta feria');
     }
-    if (err.message === 'FAIR_JURY_FOREIGN_KEY') {
+    if (err.message === 'FAIR_JURY_FOREIGN_KEY' || err.code === 'P2003') {
       throw ApiError.badRequest('La feria o el usuario no son válidos');
     }
     throw err;
@@ -175,7 +173,8 @@ export const assignJury = async ({ fairId, userId, actor }) => {
 /** Consulta si un usuario está asignado como jurado de una feria. */
 export const getJuryAssignment = async ({ fairId, userId, actor }) => {
   const fair = await loadFair(fairId);
-  assertTenantMatch({ fair, actor });
+  // ✅ ACTUALIZADO
+  assertTenantMatch(actor, fair, 'Feria');
 
   const assignment = await juryRepository.findByFairUser(fairId, userId);
   if (!assignment) {
@@ -187,7 +186,8 @@ export const getJuryAssignment = async ({ fairId, userId, actor }) => {
 /** Quita un jurado de una feria (elimina la asignación). */
 export const removeJury = async ({ fairId, userId, actor }) => {
   const fair = await loadFair(fairId);
-  assertTenantMatch({ fair, actor });
+  // ✅ ACTUALIZADO
+  assertTenantMatch(actor, fair, 'Feria');
   assertFairJuriesConfigurable(fair);
 
   const assignment = await juryRepository.findByFairUser(fairId, userId);
