@@ -43,6 +43,37 @@
  *     responses:
  *       201: { description: Usuario creado }
  *
+ * /api/users/bulk-excel:
+ *   post:
+ *     summary: Importa usuarios (STUDENT/TEACHER/JURY) desde un archivo .xlsx
+ *     tags: [Users]
+ *     security: [{ bearerAuth: [] }]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required: [organization_id, file]
+ *             properties:
+ *               organization_id: { type: string, format: uuid }
+ *               site_id: { type: string, format: uuid }
+ *               default_role:
+ *                 type: string
+ *                 enum: [STUDENT, TEACHER, JURY]
+ *                 description: |
+ *                   Seleccion de destino. Se aplica solo a filas sin columna role.
+ *               file:
+ *                 type: string
+ *                 format: binary
+ *                 description: |
+ *                   Plantilla .xlsx con columnas username, email, password,
+ *                   first_name, last_name, role, institutional_id,
+ *                   document_type, document_number, current_cycle.
+ *     responses:
+ *       201: { description: Resumen del lote (created, errors, temp_passwords) }
+ *       400: { description: Excel invalido o filas sin datos }
+ *
  * /api/users/{id}:
  *   get:
  *     summary: Obtiene un usuario por ID

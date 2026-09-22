@@ -249,6 +249,22 @@ export const createUsersBulkSchema = z.object({
   }),
 });
 
+// ADMIN: importar usuarios desde archivo .xlsx (multipart, campo "file").
+// default_role es el selector de destino (profesores/alumnos/jurados) y solo
+// se aplica a las filas sin valor en la columna role.
+export const bulkExcelSchema = z.object({
+  body: z.object({
+    organization_id: uuid('ID de organización'),
+    site_id: uuid('ID de sede').optional(),
+    default_role: z
+      .union([
+        z.enum(['STUDENT', 'TEACHER', 'JURY']),
+        z.literal('').transform(() => undefined),
+      ])
+      .optional(),
+  }),
+});
+
 // Asignar / reemplazar sede(s) académica(s) de un usuario académico.
 //   PUT /api/users/:id/site
 export const assignSiteSchema = z.object({

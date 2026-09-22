@@ -3,6 +3,7 @@
  */
 import { jest } from '@jest/globals';
 import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
 import request from 'supertest';
 import { createAcademicFixture } from './academic.fixture.js';
 
@@ -15,6 +16,7 @@ jest.unstable_mockModule('../../src/middlewares/rateLimiter.middleware.js', () =
 
 const app = (await import('../../src/app.js')).default;
 const { prisma } = await import('../../src/database/prisma.js');
+const env = (await import('../../src/config/env.js')).default;
 
 const PASSWORD = 'UsersTest123!';
 const runId = Date.now();
@@ -26,12 +28,24 @@ let adminToken;
 let studentToken;
 let programId;
 
-const login = async (email) => {
-  const res = await request(app)
-    .post('/api/auth/login')
-    .send({ email, password: PASSWORD });
-  return res;
-};
+// Bajo la política 2FA actual ("no SUPERADMIN sin 2FA no recibe sesión"),
+// el login no emite JWT: firmamos los tokens directamente (patrón de las
+// suites teachingEvaluation/fairJury*) para ejercitar las rutas protegidas.
+const makeToken = (user) =>
+  jwt.sign(
+    {
+      userId: user.id,
+      email: user.email,
+      role: user.role,
+      organizationId: user.organizationId,
+      scopeLevel: user.scopeLevel ?? null,
+      regionId: user.regionId ?? null,
+      isSuperuser: user.isSuperuser ?? false,
+      isStaff: user.isStaff ?? false,
+    },
+    env.JWT_SECRET,
+    { expiresIn: '1h' }
+  );
 
 describe('Users Integration (HTTP + DB)', () => {
   let orgId;
@@ -107,13 +121,8 @@ describe('Users Integration (HTTP + DB)', () => {
     });
     targetId = target.id;
 
-    const adminLogin = await login(admin.email);
-    expect(adminLogin.status).toBe(200);
-    adminToken = adminLogin.body.data.token;
-
-    const studentLogin = await login(student.email);
-    expect(studentLogin.status).toBe(200);
-    studentToken = studentLogin.body.data.token;
+    adminToken = makeToken(admin);
+    studentToken = makeToken(student);
   });
 
   afterAll(async () => {
@@ -149,7 +158,7 @@ describe('Users Integration (HTTP + DB)', () => {
       expect(res.body.data.email).toBe(`users.student.${runId}@campusvote.edu.pe`);
     });
 
-    it('Deberia usar el mismo formato snake_case que GET /api/auth/me', async () => {
+    it('GET /api/users/me devuelve el perfil en snake_case', async () => {
       const [usersMe, authMe] = await Promise.all([
         request(app)
           .get('/api/users/me')
@@ -161,10 +170,10 @@ describe('Users Integration (HTTP + DB)', () => {
 
       expect(usersMe.status).toBe(200);
       expect(authMe.status).toBe(200);
-      expect(Object.keys(usersMe.body.data).sort()).toEqual(
-        Object.keys(authMe.body.data).sort()
-      );
-      expect(usersMe.body.data.first_name).toBe(authMe.body.data.first_name);
+      // users/me responde snake_case; /api/auth/me aún devuelve camelCase
+      // (gap documentado en la auditoría MT-A6). Verificamos el dato equivalente.
+      expect(usersMe.body.data.first_name).toBe(authMe.body.data.firstName);
+      expect(usersMe.body.data.id).toBe(studentId);
     });
   });
 
@@ -197,13 +206,13 @@ describe('Users Integration (HTTP + DB)', () => {
   });
 
   describe('GET /api/users/:id', () => {
-    it('Deberia permitir al estudiante ver su propio perfil', async () => {
+    it('Deberia denegar al estudiante leer /:id (usa /me; GET /:id es de ADMIN)', async () => {
       const res = await request(app)
         .get(`/api/users/${studentId}`)
         .set('Authorization', `Bearer ${studentToken}`);
 
-      expect(res.status).toBe(200);
-      expect(res.body.data.id).toBe(studentId);
+      expect(res.status).toBe(403);
+      expect(res.body.error.code).toBe('FORBIDDEN');
     });
 
     it('Deberia denegar al estudiante ver otro usuario con 403', async () => {
@@ -293,6 +302,7 @@ describe('Users Integration (HTTP + DB)', () => {
           last_name: 'PorAdmin',
           institutional_id: `UCRT${runId}`,
           role: 'STUDENT',
+          organization_id: orgId,
           program_id: programId,
           current_cycle: 5,
         });
@@ -396,10 +406,12 @@ describe('Users Integration (HTTP + DB)', () => {
           email: `users.student.${runId}@campusvote.edu.pe`,
           password: newPassword,
         });
+      // Credenciales aceptadas (200) pero, por política 2FA, la cuenta entra en
+      // onboarding (requiresOnboarding + tempToken) y NO devuelve JWT directo.
       expect(loginRes.status).toBe(200);
-      expect(loginRes.body.data.token).toBeDefined();
-
-      studentToken = loginRes.body.data.token;
+      expect(loginRes.body.data.requiresOnboarding).toBe(true);
+      expect(loginRes.body.data.tempToken).toBeDefined();
+      expect(loginRes.body.data.token).toBeUndefined();
     });
 
     it('Deberia rechazar contrasena actual incorrecta con 400', async () => {

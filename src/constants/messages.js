@@ -51,6 +51,7 @@ export const MESSAGES = {
   // USUARIOS (USERS)
   USER: {
     CREATED_SUCCESS: 'Usuario creado correctamente.',
+    BULK_EXCEL_PROCESSED: 'Carga masiva por Excel procesada.',
     UPDATED_SUCCESS: 'Usuario actualizado correctamente.',
     DELETED_SUCCESS: 'Usuario eliminado correctamente.',
     NOT_FOUND: 'El usuario solicitado no existe.',
