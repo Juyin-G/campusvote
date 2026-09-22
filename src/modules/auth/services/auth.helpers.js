@@ -31,6 +31,8 @@ export const AUTH_MESSAGES = {
   ACCOUNT_SUSPENDED: 'Cuenta suspendida',
   MFA_REQUIRED: 'Se requiere 2FA',
   TOKEN_INVALID: 'Token inválido o expirado',
+  ONBOARDING_COMPLETE_2FA_FIRST:
+    'Debe completar la configuración de 2FA antes de finalizar el acceso.',
 };
 
 /** TTL de los tokens temporales de propósito limitado (segundos). */
@@ -38,6 +40,9 @@ export const PENDING_TOKEN_TTL = {
   TOTP_PENDING: 600,
   ONBOARDING: 1800,
 };
+
+/** TTL del access token JWT (segundos). */
+export const ACCESS_TOKEN_TTL_SECONDS = 60 * 60;
 
 /** Wrapper para errores de autenticación (401). */
 export const authError = (message, code = 'UNAUTHORIZED') =>

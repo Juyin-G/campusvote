@@ -8,12 +8,18 @@
  * 1. approve 200 con `_debugToken` (solo en entornos no-producción).
  * 2. /onboarding/activate consume el token, crea org + ADMIN y emite un
  *    tempToken con purpose=ONBOARDING (contrato requiereOnboarding).
- * 3. Un token ya usado o inválido falla con 401 (Token inválido o expirado).
+ * 3. /onboarding/totp/setup → verify → /finalize entrega la sesión completa.
+ * 4. Un token ya usado o inválido falla con 401 (Token inválido o expirado).
  */
 import { jest } from '@jest/globals';
 import bcrypt from 'bcryptjs';
 import request from 'supertest';
 import jwt from 'jsonwebtoken';
+import { generateSync } from 'otplib';
+
+/** Genera el TOTP actual (otplib v13: generateSync(options)). */
+const generateTotpCode = (secret) =>
+  generateSync({ secret, digits: 6, period: 30, epoch: Math.floor(Date.now() / 1000) });
 
 jest.unstable_mockModule('../../src/shared/services/email.service.js', () => {
   const hasEmailConfigured = jest.fn().mockReturnValue(false);
@@ -59,6 +65,7 @@ let organizationRequest;
 let approvedAdmin;
 let authorizationToken;
 let activationToken;
+let onboardingToken;
 
 const loginSuperAdmin = async () => {
   const res = await request(app)
@@ -154,12 +161,50 @@ expect(res.status).toBe(200);
     const decoded = jwt.verify(res.body.data.tempToken, env.JWT_SECRET);
     expect(decoded.purpose).toBe('ONBOARDING');
 
-    // El admin creado por SQL debe existir con el email de la solicitud.
+    // El admin creado debe existir con el email de la solicitud.
     approvedAdmin = await prisma.user.findUnique({ where: { email: adminEmail } });
     expect(approvedAdmin).not.toBeNull();
     expect(approvedAdmin.role).toBe('ADMIN');
     expect(approvedAdmin.status).toBe('PENDING_ACTIVATION');
     expect(approvedAdmin.mustSetup2fa).toBe(true);
+
+    onboardingToken = res.body.data.tempToken;
+  });
+
+  it('completa el onboarding: setup → verify TOTP → finalize entrega sesión completa', async () => {
+    const setupRes = await request(app)
+      .post('/api/auth/onboarding/totp/setup')
+      .set('Authorization', `Bearer ${onboardingToken}`);
+
+    expect(setupRes.status).toBe(200);
+    expect(setupRes.body.data.secret).toBeDefined();
+
+    const code = generateTotpCode(setupRes.body.data.secret);
+
+    const verifyRes = await request(app)
+      .post('/api/auth/onboarding/totp/verify')
+      .set('Authorization', `Bearer ${onboardingToken}`)
+      .send({ code });
+
+    expect(verifyRes.status).toBe(200);
+    expect(verifyRes.body.data.backupCodes).toBeDefined();
+
+    const finalizeRes = await request(app)
+      .post('/api/auth/onboarding/finalize')
+      .set('Authorization', `Bearer ${onboardingToken}`);
+
+    expect(finalizeRes.status).toBe(200);
+    expect(finalizeRes.body.data.onboarded).toBe(true);
+    expect(finalizeRes.body.data.token).toBeDefined();
+    expect(finalizeRes.body.data.refreshToken).toBeDefined();
+
+    const decoded = jwt.verify(finalizeRes.body.data.token, env.JWT_SECRET);
+    expect(decoded.userId).toBe(approvedAdmin.id);
+
+    const refreshed = await prisma.user.findUnique({ where: { id: approvedAdmin.id } });
+    expect(refreshed.status).toBe('ACTIVE');
+    expect(refreshed.twoFactorEnabled).toBe(true);
+    expect(refreshed.mustSetup2fa).toBe(false);
   });
 
   it('rechaza el mismo token ya usado con 401 (Token inválido o expirado)', async () => {

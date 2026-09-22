@@ -6,14 +6,17 @@ import bcrypt from 'bcryptjs';
 import crypto from 'node:crypto';
 import { prisma } from '../../../database/prisma.js';
 import { ApiError } from '../../../shared/errors/ApiError.js';
+import env from '../../../config/env.js';
 import {
   AUTH_MESSAGES,
   authError,
   generatePendingToken,
+  generateJwt,
+  generateRefreshToken,
   formatUserResponse,
   PENDING_TOKEN_TTL,
+  ACCESS_TOKEN_TTL_SECONDS,
 } from './auth.helpers.js';
-import * as otpRepository from '../repositories/otp.repository.js';
 import * as authRepository from '../repositories/auth.repository.js';
 
 const sha256 = (value) => crypto.createHash('sha256').update(value).digest('hex');
@@ -89,28 +92,53 @@ const findPasswordResetToken = async (tokenHash) =>
 const findEmailVerificationToken = async (tokenHash) =>
   prisma.emailVerificationToken.findUnique({ where: { tokenHash } });
 
-export const finalizeOnboarding = async ({
+/**
+ * Finaliza el onboarding y entrega la sesión completa (JWT definitivo).
+ * La verificación TOTP ya activó la cuenta; aquí solo se exige que esté
+ * ACTIVE + 2FA habilitado y se emiten token + refresh token.
+ */
+export const finalizeOnboarding = async (
   userId,
-  newPassword,
-  totpSecret,
-  backupCodes,
-}) => {
-  await prisma.user.update({
-    where: { id: userId },
-    data: {
-      password: await bcrypt.hash(newPassword, 12),
-      mustChangePassword: false,
-      mustSetup2fa: false,
-      twoFactorEnabled: true,
-      status: 'ACTIVE',
-    },
+  { ipAddress = null, userAgent = null } = {},
+) => {
+  const user = await authRepository.findById(userId);
+
+  if (!user) {
+    throw ApiError.notFound('Usuario no encontrado');
+  }
+
+  if (user.status !== 'ACTIVE' || !user.twoFactorEnabled) {
+    throw authError(AUTH_MESSAGES.ONBOARDING_COMPLETE_2FA_FIRST);
+  }
+
+  const token = generateJwt(user);
+
+  const {
+    token: refreshToken,
+    tokenHash,
+  } = generateRefreshToken();
+
+  await authRepository.createSession({
+    userId: user.id,
+    tokenHash,
+    ipAddress,
+    userAgent,
+    ttlSeconds: env.REFRESH_TOKEN_TTL_SECONDS || 60 * 60 * 24 * 30,
   });
-  await otpRepository.saveTotpSecret(userId, totpSecret);
-  await otpRepository.enableTwoFactor(
-    userId,
-    (backupCodes || []).map((c) => c)
-  );
-  return { onboarded: true };
+
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { lastLogin: new Date() },
+  });
+
+  return {
+    onboarded: true,
+    token,
+    expiresIn: ACCESS_TOKEN_TTL_SECONDS,
+    refreshToken,
+    mustChangePassword: user.mustChangePassword ?? false,
+    user: formatUserResponse(user),
+  };
 };
 
 export const getProfile = async (userId) => {

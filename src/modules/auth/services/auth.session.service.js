@@ -13,13 +13,12 @@ import {
   generatePendingToken,
   formatUserResponse,
   PENDING_TOKEN_TTL,
+  ACCESS_TOKEN_TTL_SECONDS,
 } from './auth.helpers.js';
 import env from '../../../config/env.js';
 import logger from '../../../config/logger.js';
 import * as authRepository from '../repositories/auth.repository.js';
 import auditService from '../../audit/audit.service.js';
-
-const ACCESS_TOKEN_TTL_SECONDS = 60 * 60; // 1h
 
 const validateCredentials = async (email, password) => {
   const user = await prisma.user.findUnique({
