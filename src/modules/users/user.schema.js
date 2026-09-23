@@ -231,7 +231,7 @@ export const createUsersBulkSchema = z.object({
         z.object({
           username: z.string().min(3, 'Como mínimo 3 caracteres').max(50),
           email: z.string().email('Email inválido'),
-          password: passwordSchema,
+          password: passwordSchema.optional(),
           first_name: z.string().min(1, 'Como mínimo 1 carácter').max(50),
           last_name: z.string().min(1, 'Como mínimo 1 carácter').max(50),
           role: roleEnum.optional(),

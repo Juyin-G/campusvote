@@ -36,6 +36,8 @@ const userAuthSelect = {
   failedLoginAttempts: true,
   lockedUntil: true,
   lastLogin: true,
+  dateJoined: true,
+  siteAssignments: { select: { siteId: true } },
 };
 
 // BÚSQUEDAS
