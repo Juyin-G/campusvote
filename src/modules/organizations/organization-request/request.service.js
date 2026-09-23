@@ -181,8 +181,8 @@ export const approveRequest = async (id, actor = {}) => {
         where: { id },
         data: {
           status: 'APPROVED',
-          approvedAt: new Date(),
-          approvedBy: actor.id,
+          reviewedAt: new Date(),
+          reviewedById: actor.id,
         },
       });
 
@@ -236,9 +236,47 @@ export const approveRequest = async (id, actor = {}) => {
   };
 };
 
+/**
+ * Rechazar una solicitud de organización con un motivo explícito.
+ */
+export const rejectRequest = async (id, actor = {}, rejectionReason) => {
+  // 1. Validar permisos de Super Admin
+  const isSuperUser =
+    actor?.role === ROLES.SUPERADMIN || actor?.isSuperuser || actor?.isSuperAdmin;
+  if (!isSuperUser) {
+    throw ApiError.forbidden('Solo el Super Admin puede rechazar solicitudes de organización');
+  }
+
+  // 2. Validar existencia y estado de la solicitud
+  const request = await organizationRepository.findRequestById(id);
+  if (!request) {
+    throw ApiError.notFound('Solicitud de organización no encontrada');
+  }
+
+  if (request.status !== 'PENDING') {
+    throw ApiError.badRequest(`La solicitud ya se encuentra en estado ${request.status}`);
+  }
+
+  // 3. Actualizar estado y motivo en la base de datos
+  const updatedRequest = await organizationRepository.updateRequest(id, {
+    status: 'REJECTED',
+    rejectionReason,
+    reviewedById: actor.id,
+    reviewedAt: new Date(),
+  });
+
+  logger.info('Solicitud de organización rechazada', {
+    requestId: id,
+    rejectedBy: actor.id,
+  });
+
+  return updatedRequest;
+};
+
 export default {
   createRequest,
   listRequests,
   getRequestById,
   approveRequest,
+  rejectRequest,
 };
