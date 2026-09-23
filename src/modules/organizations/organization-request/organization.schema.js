@@ -1,3 +1,5 @@
+// src/modules/organizations/organization-request/organization.schema.js
+
 import { z } from 'zod';
 
 const uuid = (label) => z.string().uuid(`${label} inválido`);
@@ -17,14 +19,23 @@ export const organizationRequestStatusEnum = z.enum([
 ]);
 
 const emailSchema = z
-  .string()
+  .string({ required_error: 'El correo electrónico es obligatorio' })
   .trim()
   .toLowerCase()
   .email('El correo electrónico no tiene un formato válido')
   .max(255, 'El correo no puede exceder los 255 caracteres');
 
+/**
+ * Helper para campos opcionales que convierte cadenas vacías ("") o espacios en null.
+ */
 const optionalNullableString = (maxLen) =>
-  z.string().trim().max(maxLen).nullable().optional().or(z.literal(''));
+  z
+    .string()
+    .trim()
+    .max(maxLen, `No puede exceder los ${maxLen} caracteres`)
+    .optional()
+    .nullable()
+    .transform((val) => (val === '' ? null : val));
 
 /**
  * POST /api/organizations/requests
@@ -81,6 +92,16 @@ export const requestParamsSchema = z.object({
 });
 
 /**
+ * PATCH /api/organizations/requests/:id/approve
+ * Aprobar solicitud
+ */
+export const approveRequestSchema = z.object({
+  params: z.object({
+    id: uuid('ID de solicitud'),
+  }),
+});
+
+/**
  * PATCH /api/organizations/requests/:id/reject
  * Rechazar solicitud con motivo
  */
@@ -101,6 +122,7 @@ export default {
   createOrganizationRequestSchema,
   listRequestsQuerySchema,
   requestParamsSchema,
+  approveRequestSchema,
   rejectRequestSchema,
   organizationTypeEnum,
   organizationRequestStatusEnum,

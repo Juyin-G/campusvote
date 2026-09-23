@@ -1,4 +1,6 @@
 import { Router } from 'express';
+import jwt from 'jsonwebtoken';
+import env from '../../../config/env.js';
 
 // 1. Controladores de Organizaciones
 import {
@@ -11,34 +13,43 @@ import {
   completeOnboarding,
 } from './organization.controller.js';
 
-// 2. Controladores de Solicitudes
+// 2. Controladores de Solicitudes (Incluye approveRequest y rejectRequest)
 import {
   createRequest,
   listRequests,
   getRequestById,
+  approveRequest,
+  rejectRequest,
 } from '../organization-request/request.controller.js';
 
-// 3. Servicio de Aprobación
-import * as approvalService from '../organization-request/approval.service.js';
-
-// 4. Sedes (contexto físico de organizaciones/ferias)
+// 3. Rutas de Sedes
 import organizationSiteRoutes from '../organizationSite/organizationSite.routes.js';
 
-// 4. Middlewares y Utilidades
-import asyncHandler from '../../../shared/utils/asyncHandler.js';
-import { sendSuccess } from '../../../shared/utils/apiResponse.js';
-import { HTTP_STATUS } from '../../../constants/httpStatus.js';
-import MESSAGES from '../../../constants/messages.js';
+// 4. Middlewares
 import { authenticate, authorize } from '../../../middlewares/auth.middleware.js';
 import { validate } from '../../../middlewares/validate.middleware.js';
-import jwt from 'jsonwebtoken';
-import env from '../../../config/env.js';
+
+// 5. Schemas de Organizaciones
+import {
+  organizationParamsSchema as idParamSchema,
+  createOrganizationSchema,
+  updateOrganizationSchema,
+  listOrganizationsQuerySchema as listQuerySchema,
+} from './organization.schema.js';
+
+// 6. Schemas de Solicitudes
+import {
+  createOrganizationRequestSchema,
+  listRequestsQuerySchema,
+  requestParamsSchema,
+  approveRequestSchema,
+  rejectRequestSchema,
+} from '../organization-request/organization.schema.js';
+
+const router = Router();
 
 /**
- * Autenticación opcional: si hay un Bearer token válido, lo decodifica y lo
- * expone en req.user; si no hay token o es inválido, continúa sin rechazar.
- * Pensado para endpoints públicos que personalizan la respuesta cuando el
- * visitante está autenticado (p. ej., catálogos de organizaciones).
+ * Autenticación opcional para lectura pública/personalizada.
  */
 const optionalAuthenticate = (req, res, next) => {
   const authHeader = req.headers.authorization;
@@ -50,31 +61,10 @@ const optionalAuthenticate = (req, res, next) => {
     const decoded = jwt.verify(token, env.JWT_SECRET, { algorithms: ['HS256'] });
     req.user = decoded;
   } catch {
-    // Token inválido o expirado: tratamos como visitante anónimo (no rompemos
-    // la lectura pública de un catálogo).
+    // Token inválido: se trata como visitante anónimo
   }
   return next();
 };
-
-// 5. Schemas de Organizaciones (mismo directorio)
-import {
-  organizationParamsSchema as idParamSchema,
-  createOrganizationSchema,
-  updateOrganizationSchema,
-  listOrganizationsQuerySchema as listQuerySchema,
-} from './organization.schema.js';
-
-// 6. Schemas de Solicitudes (directorio organization-request)
-import {
-  createOrganizationRequestSchema,
-  listRequestsQuerySchema,
-  requestParamsSchema,
-  rejectRequestSchema,
-} from '../organization-request/organization.schema.js';
-
-const router = Router();
-
-const getUserId = (req) => req.user?.id || req.user?.userId;
 
 // ==========================================
 // --- SOLICITUDES (ORGANIZATION REQUESTS) ---
@@ -95,7 +85,7 @@ router.post(
 );
 
 router.get(
-  '/requests/:id',
+  '/requests/:id', 
   authenticate,
   authorize('SUPERADMIN'),
   validate(requestParamsSchema),
@@ -106,20 +96,8 @@ router.patch(
   '/requests/:id/approve',
   authenticate,
   authorize('SUPERADMIN'),
-  validate(requestParamsSchema),
-  asyncHandler(async (req, res) => {
-    const approval = await approvalService.approveRequest(
-      req.params.id,
-      getUserId(req)
-    );
-    return sendSuccess(
-      res,
-      approval,
-      'Solicitud aprobada. Se envió el enlace para activar la cuenta y crear la organización.',
-      { requestId: req.requestId },
-      HTTP_STATUS.OK
-    );
-  })
+  validate(approveRequestSchema),
+  approveRequest
 );
 
 router.patch(
@@ -127,27 +105,12 @@ router.patch(
   authenticate,
   authorize('SUPERADMIN'),
   validate(rejectRequestSchema),
-  asyncHandler(async (req, res) => {
-    const request = await approvalService.rejectRequest(
-      req.params.id,
-      getUserId(req),
-      req.body.rejection_reason
-    );
-    return sendSuccess(
-      res,
-      request,
-      MESSAGES.ORGANIZATION_REQUEST?.REJECTED_SUCCESS || 'Solicitud rechazada',
-      { requestId: req.requestId },
-      HTTP_STATUS.OK
-    );
-  })
+  rejectRequest
 );
 
 // ==========================================
 // --- SEDES (ORGANIZATION SITES) ---
 // ==========================================
-// Se monta ANTES de las rutas /:id para que el path estático /sites no
-// colisione con el parámetro de ruta.
 router.use('/sites', organizationSiteRoutes);
 
 // ==========================================
@@ -177,9 +140,6 @@ router.get(
   getOrganizationById
 );
 
-// CAMBIO: PATCH bifurcado en service. SUPERADMIN solo edita platform fields
-// (isActive, memberLimit, defaultLocale). ADMIN edita el resto (branding,
-// países, contacto, onboardingCompleted). Ver organization.service.js.
 router.patch(
   '/:id',
   authenticate,
@@ -200,10 +160,6 @@ router.delete(
 // ==========================================
 // --- ONBOARDING (TENANT: solo ADMIN) ---
 // ==========================================
-// CAMBIO: estas rutas cuelgan de /api/organizations/:id/onboarding que
-// está montado en el sub-router PLATFORM (no en tenantRouter), pero el
-// authorize('ADMIN') impide que el SUPERADMIN entre aquí. El SUPERADMIN
-// gestiona la EXISTENCIA de la organización; el onboarding es interno.
 
 router.patch(
   '/:id/onboarding',

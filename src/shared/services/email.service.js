@@ -1,6 +1,6 @@
 /**
  * @file email.service.js
- * @description Envío de correos transaccionales (verificación y reset)
+ * @description Envío de correos transaccionales (verificación, reset, aprobaciones y notificaciones)
  * @module shared/services/email
  */
 import env from '../../config/env.js';
@@ -8,7 +8,18 @@ import logger from '../../config/logger.js';
 import { ApiError } from '../errors/ApiError.js';
 import { sendRaw } from './gmail.client.js';
 
-const NEWLINE = String.fromCharCode(10);
+/**
+ * Escapa caracteres HTML especiales para prevenir vulnerabilidades de inyección HTML/XSS
+ * en los clientes de correo receptores.
+ */
+const escapeHtml = (str = '') =>
+  String(str).replace(/[&<>"']/g, (m) => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+  }[m]));
 
 const sendMail = async ({ to, subject, html, text }) => {
   try {
@@ -47,36 +58,25 @@ const sendMail = async ({ to, subject, html, text }) => {
 };
 
 /**
- * Indica si el canal Gmail está completamente configurado. El onboarding
- * usa esto para decidir entre "invitar por email" (verificación) o
- * "credenciales temporales" cuando el email no está disponible.
+ * Indica si el canal Gmail está completamente configurado.
  */
 export const hasEmailConfigured = () => {
   return Boolean(
-    env.GMAIL_CLIENT_ID
-      && env.GMAIL_CLIENT_SECRET
-      && env.GMAIL_REFRESH_TOKEN
-      && env.GMAIL_FROM,
+    env.GMAIL_CLIENT_ID &&
+      env.GMAIL_CLIENT_SECRET &&
+      env.GMAIL_REFRESH_TOKEN &&
+      env.GMAIL_FROM,
   );
 };
 
-export const sendVerification = async ({
-  email,
-  token,
-  firstName = 'Usuario',
-}) => {
+export const sendVerification = async ({ email, token, firstName = 'Usuario' }) => {
+  const safeFirstName = escapeHtml(firstName);
   const link = `${env.FRONTEND_URL}/verify-email?token=${encodeURIComponent(token)}`;
 
   await sendMail({
     to: email,
     subject: 'Verifica tu cuenta en CampusVote',
-    html: `
-      <p>Hola ${firstName},</p>
-      <p>Gracias por registrarte en CampusVote. Para activar tu cuenta, verifica tu correo:</p>
-      <p><a href="${link}">${link}</a></p>
-      <p>Este enlace expira en 24 horas.</p>
-      <p>Si no creaste esta cuenta, ignora este mensaje.</p>
-    `,
+    html: `<p>Hola ${safeFirstName},</p><p>Gracias por registrarte en CampusVote. Para activar tu cuenta, verifica tu correo:</p><p><a href="${link}">${link}</a></p><p>Este enlace expira en 24 horas.</p>`,
     text: [
       `Hola ${firstName},`,
       'Verifica tu cuenta en CampusVote:',
@@ -92,29 +92,18 @@ export const sendReset = async ({ email, token }) => {
   await sendMail({
     to: email,
     subject: 'Restablece tu contraseña en CampusVote',
-    html: `
-      <p>Recibimos una solicitud para restablecer tu contraseña.</p>
-      <p><a href="${link}">${link}</a></p>
-      <p>Este enlace expira en 1 hora.</p>
-      <p>Si no solicitaste este cambio, ignora este correo.</p>
-    `,
-    text: ['Restablece tu contraseña en CampusVote:', link, 'Expira en 1 hora.'].join(
-      '\n',
-    ),
+    html: `<p>Recibimos una solicitud para restablecer tu contraseña.</p><p><a href="${link}">${link}</a></p><p>Este enlace expira en 1 hora.</p>`,
+    text: ['Restablece tu contraseña en CampusVote:', link, 'Expira en 1 hora.'].join('\n'),
   });
 };
 
-export const sendRequestReceived = async ({
-  email,
-  institutionName,
-}) => {
+export const sendRequestReceived = async ({ email, institutionName }) => {
+  const safeInstitution = escapeHtml(institutionName);
+
   await sendMail({
     to: email,
     subject: 'Solicitud recibida por CampusVote',
-    html: `
-      <p>Hemos recibido la solicitud de acceso para <strong>${institutionName}</strong>.</p>
-      <p>El equipo de CampusVote revisará la información y te notificará el resultado.</p>
-    `,
+    html: `<p>Hemos recibido la solicitud de acceso para <strong>${safeInstitution}</strong>.</p><p>El equipo de CampusVote revisará la información y te notificará el resultado.</p>`,
     text: [
       `Solicitud recibida para ${institutionName}.`,
       'El equipo de CampusVote revisará la información y te notificará el resultado.',
@@ -122,22 +111,14 @@ export const sendRequestReceived = async ({
   });
 };
 
-export const sendAdminActivation = async ({
-  email,
-  institutionName,
-  token,
-}) => {
+export const sendAdminActivation = async ({ email, institutionName, token }) => {
+  const safeInstitution = escapeHtml(institutionName);
   const link = `${env.FRONTEND_URL}/activate-account?token=${encodeURIComponent(token)}`;
 
   await sendMail({
     to: email,
     subject: `Solicitud aprobada para ${institutionName}`,
-    html: `
-      <p>Tu solicitud para <strong>${institutionName}</strong> fue aprobada.</p>
-      <p>Activa tu cuenta de administrador desde este enlace:</p>
-      <p><a href="${link}">${link}</a></p>
-      <p>El enlace expira en 24 horas.</p>
-    `,
+    html: `<p>Tu solicitud para <strong>${safeInstitution}</strong> fue aprobada.</p><p>Activa tu cuenta de administrador desde este enlace:</p><p><a href="${link}">${link}</a></p><p>El enlace expira en 24 horas.</p>`,
     text: [
       `Tu solicitud para ${institutionName} fue aprobada.`,
       'Activa tu cuenta de administrador:',
@@ -148,9 +129,47 @@ export const sendAdminActivation = async ({
 };
 
 /**
- * Código de 6 dígitos de la página pública de inscripción de proyectos.
- * Es la única prueba de que el correo institucional es de quien lo escribe.
+ * Envía la aprobación con credenciales temporales.
+ * El usuario recibe su usuario, contraseña temporal y el link para configurar su 2FA.
  */
+export const sendAdminApprovalWithCredentials = async ({
+  email,
+  institutionName,
+  username,
+  tempPassword,
+  token,
+}) => {
+  const safeInstitution = escapeHtml(institutionName);
+  const safeUsername = escapeHtml(username);
+  const safeTempPassword = escapeHtml(tempPassword);
+  const link = `${env.FRONTEND_URL}/activate-account?token=${encodeURIComponent(token)}`;
+
+  await sendMail({
+    to: email,
+    subject: `✅ Solicitud aprobada: Bienvenido a ${institutionName}`,
+    html: `
+      <h2>¡Tu solicitud ha sido aprobada!</h2>
+      <p>Tu organización <strong>${safeInstitution}</strong> ha sido creada exitosamente en CampusVote.</p>
+      <p>Para ingresar al sistema por primera vez, utiliza las siguientes credenciales temporales:</p>
+      <ul>
+        <li><strong>Usuario:</strong> ${safeUsername}</li>
+        <li><strong>Contraseña temporal:</strong> <code style="background:#f4f4f4; padding:2px 6px; border-radius:4px;">${safeTempPassword}</code></li>
+      </ul>
+      <p><strong>Importante:</strong> Al hacer clic en el enlace de abajo e iniciar sesión, el sistema te obligará a cambiar esta contraseña y a configurar tu autenticación de dos factores (QR/OTP) por seguridad.</p>
+      <p><a href="${link}" style="background-color: #0066CC; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin-top: 10px;">Activar mi cuenta y configurar seguridad</a></p>
+      <p><small>Este enlace expira en 24 horas.</small></p>
+    `,
+    text: [
+      `¡Tu solicitud para ${institutionName} ha sido aprobada!`,
+      'Tus credenciales temporales son:',
+      `Usuario: ${username}`,
+      `Contraseña: ${tempPassword}`,
+      'Al ingresar, deberás cambiar tu contraseña y configurar tu autenticación de dos factores (QR/OTP).',
+      `Enlace de activación: ${link}`,
+    ].join('\n'),
+  });
+};
+
 export const sendFairRegistrationCode = async ({
   email,
   code,
@@ -159,33 +178,27 @@ export const sendFairRegistrationCode = async ({
   minutes = 15,
   firstName = '',
 }) => {
-  const saludo = firstName ? `Hola ${firstName},` : 'Hola,';
+  const safeFirstName = escapeHtml(firstName);
+  const safeCode = escapeHtml(code);
+  const safeFairName = escapeHtml(fairName);
+  const safeOrgName = organizationName ? escapeHtml(organizationName) : '';
+
+  const saludoHtml = safeFirstName ? `Hola ${safeFirstName},` : 'Hola,';
+  const saludoText = firstName ? `Hola ${firstName},` : 'Hola,';
+  const orgHtml = safeOrgName ? ` (${safeOrgName})` : '';
 
   await sendMail({
     to: email,
     subject: `Tu código de inscripción: ${code}`,
-    html: `
-      <p>${saludo}</p>
-      <p>Este es tu código para inscribir tu proyecto en <strong>${fairName}</strong>${
-        organizationName ? ` (${organizationName})` : ''
-      }:</p>
-      <p style="font-size:28px;letter-spacing:6px;font-weight:bold">${code}</p>
-      <p>Vence en ${minutes} minutos y solo sirve para esta feria.</p>
-      <p>Si no pediste este código, ignora este correo: nadie puede inscribir nada sin él.</p>
-    `,
+    html: `<p>${saludoHtml}</p><p>Este es tu código para inscribir tu proyecto en <strong>${safeFairName}</strong>${orgHtml}:</p><p style="font-size:28px;letter-spacing:6px;font-weight:bold">${safeCode}</p><p>Vence en ${minutes} minutos.</p>`,
     text: [
-      saludo,
+      saludoText,
       `Código para inscribir tu proyecto en ${fairName}: ${code}`,
       `Vence en ${minutes} minutos.`,
-      'Si no pediste este código, ignora este correo.',
-    ].join(NEWLINE),
+    ].join('\n'),
   });
 };
 
-/**
- * Resultado de la revisión de un proyecto. Cuando hay observaciones, el correo
- * las incluye y lleva de vuelta a la página de inscripción para corregir.
- */
 export const sendProjectReviewNotice = async ({
   email,
   projectName,
@@ -195,42 +208,43 @@ export const sendProjectReviewNotice = async ({
   link = null,
   firstName = '',
 }) => {
-  const saludo = firstName ? `Hola ${firstName},` : 'Hola,';
+  const safeFirstName = escapeHtml(firstName);
+  const safeProjectName = escapeHtml(projectName);
+  const safeFairName = escapeHtml(fairName);
+  const safeNotes = escapeHtml(reviewNotes);
+
+  const saludoHtml = safeFirstName ? `Hola ${safeFirstName},` : 'Hola,';
+  const saludoText = firstName ? `Hola ${firstName},` : 'Hola,';
+
   const aprobado = decision === 'APPROVED';
   const subject = aprobado
     ? `Tu proyecto "${projectName}" fue aprobado`
     : `Tu proyecto "${projectName}" tiene observaciones`;
 
-  // Enlace de vuelta a la página pública (solo tiene sentido si hay que corregir).
   const invitacionHtml = link
     ? `<p>Corrígelas y vuelve a enviarlo desde aquí:</p><p><a href="${link}">${link}</a></p>`
     : '';
 
   const cuerpoHtml = aprobado
-    ? `<p>Tu proyecto <strong>${projectName}</strong> quedó aprobado para ${fairName}.</p>`
-    : `
-      <p>La revisión de <strong>${projectName}</strong> (${fairName}) encontró observaciones:</p>
-      <blockquote>${reviewNotes}</blockquote>
-      ${invitacionHtml}
-    `;
+    ? `<p>Tu proyecto <strong>${safeProjectName}</strong> quedó aprobado para ${safeFairName}.</p>`
+    : `<p>La revisión de <strong>${safeProjectName}</strong> (${safeFairName}) encontró observaciones:</p><blockquote>${safeNotes}</blockquote>${invitacionHtml}`;
 
   await sendMail({
     to: email,
     subject,
-    html: `<p>${saludo}</p>${cuerpoHtml}`,
+    html: `<p>${saludoHtml}</p>${cuerpoHtml}`,
     text: [
-      saludo,
+      saludoText,
       aprobado
         ? `Tu proyecto ${projectName} fue aprobado para ${fairName}.`
         : `Observaciones de ${projectName} (${fairName}): ${reviewNotes}`,
       link && !aprobado ? `Corrige y reenvía: ${link}` : '',
     ]
       .filter(Boolean)
-      .join(NEWLINE),
+      .join('\n'),
   });
 };
 
-// Alias semántico para backward compatibility (algunos tests importan `sendActivation`).
 export { sendAdminActivation as sendActivation };
 
 export default {
@@ -240,6 +254,7 @@ export default {
   sendRequestReceived,
   sendAdminActivation,
   sendActivation: sendAdminActivation,
+  sendAdminApprovalWithCredentials,
   sendFairRegistrationCode,
   sendProjectReviewNotice,
 };
