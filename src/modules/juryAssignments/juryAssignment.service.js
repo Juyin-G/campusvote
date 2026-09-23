@@ -107,6 +107,16 @@ const mapMyFair = (assignment) => ({
     status: assignment.fair.status,
     starts_at: assignment.fair.startsAt,
     ends_at: assignment.fair.endsAt,
+    organization: assignment.fair.organization
+      ? { id: assignment.fair.organization.id, name: assignment.fair.organization.name }
+      : null,
+    site: assignment.fair.site
+      ? {
+          id: assignment.fair.site.id,
+          name: assignment.fair.site.name,
+          city: assignment.fair.site.city,
+        }
+      : null,
   },
 });
 

@@ -41,6 +41,9 @@ const MY_FAIR_SELECT = {
       status: true,
       startsAt: true,
       endsAt: true,
+      // La app del jurado muestra arriba la institución y la sede.
+      organization: { select: { id: true, name: true } },
+      site: { select: { id: true, name: true, city: true } },
     },
   },
 };
