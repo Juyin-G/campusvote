@@ -22,6 +22,9 @@ import { getRegistrationDeadline, isRegistrationClosed } from '../fairs/fair.reg
 import { ApiError } from '../../shared/errors/ApiError.js';
 import { ROLES } from '../../constants/roles.js';
 import { parsePagination } from '../../shared/utils/pagination.js';
+import { buildPublicRegistrationUrl } from '../fairs/fair.service.js';
+import emailService from '../../shared/services/email.service.js';
+import logger from '../../config/logger.js';
 
 // El SUPERADMIN administra la plataforma, no los datos de cada institución:
 // no revisa, no asigna stands y no ve proyectos (403 por falta de organización).
@@ -31,6 +34,13 @@ const EDITABLE_STATUSES = ['DRAFT', 'REJECTED'];
 // Estados de la feria en los que se permite registrar/modificar proyectos.
 const FAIR_REGISTRATION_STATUSES = ['DRAFT', 'OPEN'];
 
+// Participación con la que queda quien inscribe el proyecto: el docente es el
+// asesor; el estudiante que se inscribe a sí mismo es expositor.
+const CREATOR_MEMBER_ROLE_BY_USER_ROLE = {
+  [ROLES.TEACHER]: 'ADVISOR',
+  [ROLES.STUDENT]: 'EXPOSITOR',
+};
+
 // Rol global que debe tener cada participación.
 const USER_ROLE_BY_MEMBER_ROLE = {
   EXPOSITOR: ROLES.STUDENT,
@@ -39,6 +49,39 @@ const USER_ROLE_BY_MEMBER_ROLE = {
 };
 
 const isOrgAdmin = (actor) => actor.role === ROLES.ADMIN;
+
+/**
+ * Avisa por correo el resultado de la revisión a quien inscribió el proyecto.
+ * Cuando hay observaciones incluye el motivo y el enlace público para
+ * corregirlas. El correo NUNCA hace fallar la revisión: si no se puede enviar
+ * (sin Gmail configurado, por ejemplo), queda en el log.
+ */
+const notifyReviewDecision = async ({ projectId, decision, reviewNotes }) => {
+  try {
+    const destino = await projectRepository.findReviewRecipient(projectId);
+    if (!destino?.createdBy?.email) return;
+
+    const link =
+      destino.fair?.publicRegistrationEnabled && destino.fair?.publicToken
+        ? buildPublicRegistrationUrl(destino.fair.publicToken)
+        : null;
+
+    await emailService.sendProjectReviewNotice({
+      email: destino.createdBy.email,
+      firstName: destino.createdBy.firstName,
+      projectName: destino.name,
+      fairName: destino.fair?.name ?? '',
+      decision,
+      reviewNotes: reviewNotes ?? '',
+      link,
+    });
+  } catch (error) {
+    logger.error('No se pudo avisar el resultado de la revisión', {
+      projectId,
+      error: error.message,
+    });
+  }
+};
 
 // ── Helpers de feria ───────────────────────────────────────────────
 
@@ -174,7 +217,7 @@ const assertTenantMatch = ({ project, actor }) => {
 
 const assertOwner = ({ project, actor }) => {
   if (project.createdById !== actor.id) {
-    throw ApiError.forbidden('Solo el docente que inscribió el proyecto puede realizar esta acción');
+    throw ApiError.forbidden('Solo quien inscribió el proyecto puede realizar esta acción');
   }
 };
 
@@ -278,6 +321,25 @@ export const createProject = async ({ data, actor }) => {
     await assertCategoryOfFair({ categoryId: data.category_id, fairId: fair.id });
   }
 
+  const creatorMemberRole = CREATOR_MEMBER_ROLE_BY_USER_ROLE[actor.role];
+  if (!creatorMemberRole) {
+    throw ApiError.forbidden('Solo un docente o un estudiante puede inscribir un proyecto');
+  }
+
+  // Un estudiante participa en un solo proyecto por feria, también cuando es
+  // él quien inscribe (la participación del creador no pasa por addMember).
+  if (creatorMemberRole === 'EXPOSITOR') {
+    const other = await projectRepository.findMembershipInFair({
+      fairId: fair.id,
+      userId: actor.id,
+    });
+    if (other) {
+      throw ApiError.conflict(
+        `Ya participas en el proyecto "${other.project.name}" de esta feria`
+      );
+    }
+  }
+
   const project = await projectRepository.createWithAdvisor({
     organizationId: actor.organizationId,
     fairId: data.fair_id,
@@ -289,7 +351,7 @@ export const createProject = async ({ data, actor }) => {
     coverUrl: data.cover_url ?? null,
     projectUrl: data.project_url ?? null,
     status: 'DRAFT',
-  });
+  }, creatorMemberRole);
 
   return mapProject(project, actor);
 };
@@ -430,6 +492,12 @@ export const reviewProject = async ({ projectId, data, actor }) => {
     ...(data.category_id !== undefined ? { categoryId: data.category_id } : {}),
   });
 
+  await notifyReviewDecision({
+    projectId,
+    decision: data.decision,
+    reviewNotes: data.review_notes,
+  });
+
   return mapProject(updated, actor);
 };
 
@@ -550,7 +618,7 @@ export const removeMember = async ({ projectId, userId, actor }) => {
   assertFairAcceptsProjectChanges(await requireActiveFair(project));
 
   if (userId === project.createdById) {
-    throw ApiError.conflict('No se puede quitar al docente que inscribió el proyecto');
+    throw ApiError.conflict('No se puede quitar a quien inscribió el proyecto');
   }
 
   const removed = await projectRepository.removeMember(projectId, userId);

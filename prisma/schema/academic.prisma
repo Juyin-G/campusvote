@@ -128,6 +128,9 @@ model TeacherEvaluation {
 
 model AcademicPeriod {
   id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  // Institución dueña del período. NULL = período heredado (compartido),
+  // creado antes de que los períodos fueran por organización.
+  organizationId String? @map("organization_id") @db.Uuid
   name      String   @db.VarChar(50)
   startDate DateTime @map("start_date") @db.Date
   endDate   DateTime @map("end_date") @db.Date
@@ -136,6 +139,8 @@ model AcademicPeriod {
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
   // Relaciones
+  organization        Organization?        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  fairs               Fair[]
   voterRegistries     VoterRegistry[]
   voterRegistryClaims VoterRegistryClaim[]
   elections           Election[]
@@ -143,6 +148,7 @@ model AcademicPeriod {
   teachingAssignments TeachingAssignment[]
   teacherEvaluations  TeacherEvaluation[]
 
+  @@index([organizationId], map: "idx_academic_periods_organization")
   @@map("academic_periods")
 }
 

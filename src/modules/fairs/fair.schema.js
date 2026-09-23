@@ -47,6 +47,10 @@ export const createFairSchema = z.object({
       ends_at: dateField.optional(),
       registration_deadline: dateField.optional(),
       site_id: z.union([z.literal(''), z.null(), uuid('El site_id')]).transform((v) => v || null).optional(),
+      academic_period_id: z
+        .union([z.literal(''), z.null(), uuid('El academic_period_id')])
+        .transform((v) => v || null)
+        .optional(),
     })
     .strict(),
 });
@@ -61,6 +65,10 @@ export const updateFairSchema = z.object({
       ends_at: dateField.optional(),
       registration_deadline: dateField.optional(),
       site_id: z.union([z.literal(''), z.null(), uuid('El site_id')]).transform((v) => v || null).optional(),
+      academic_period_id: z
+        .union([z.literal(''), z.null(), uuid('El academic_period_id')])
+        .transform((v) => v || null)
+        .optional(),
     })
     .strict()
     .refine((data) => Object.values(data).some((value) => value !== undefined), {
@@ -77,10 +85,23 @@ export const changeStatusSchema = z.object({
     .strict(),
 });
 
+// Encender/apagar el enlace público de inscripciones.
+export const publicRegistrationSchema = z.object({
+  params: idParamSchema.shape.params,
+  body: z
+    .object({
+      enabled: z.boolean({ error: 'Indica si el enlace queda habilitado' }),
+      // Genera una dirección nueva e invalida la anterior.
+      regenerate: z.boolean().optional(),
+    })
+    .strict(),
+});
+
 export default {
   idParamSchema,
   listFairsQuerySchema,
   createFairSchema,
   updateFairSchema,
   changeStatusSchema,
+  publicRegistrationSchema,
 };

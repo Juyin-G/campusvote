@@ -14,7 +14,16 @@ import { prisma } from '../../database/prisma.js';
 import { ApiError } from '../../shared/errors/ApiError.js';
 import { ROLES } from '../../constants/roles.js';
 import { parsePagination } from '../../shared/utils/pagination.js';
-import { getRegistrationDeadline } from './fair.registration.js';
+import { getRegistrationDeadline, isRegistrationClosed } from './fair.registration.js';
+import { generateUrlSafeToken } from '../../shared/utils/hash.js';
+import env from '../../config/env.js';
+
+// Ruta de la página pública de inscripciones en el frontend.
+const PUBLIC_REGISTRATION_PATH = '/inscripcion';
+
+/** Enlace que el admin comparte con sus estudiantes. */
+export const buildPublicRegistrationUrl = (publicToken) =>
+  publicToken ? `${env.FRONTEND_URL}${PUBLIC_REGISTRATION_PATH}/${publicToken}` : null;
 
 // Ciclo de vida de la feria: DRAFT (configuración) -> OPEN (abierta/activa)
 // -> CLOSED (finalizada). CLOSED es terminal.
@@ -101,6 +110,24 @@ const assertValidDates = ({ startsAt, endsAt, registrationDeadline }) => {
   }
 };
 
+/**
+ * El período (si se indica) debe existir y ser de la MISMA organización, o ser
+ * uno heredado (organization_id NULL, anterior al multi-tenant).
+ */
+const assertPeriodOfOrganization = async ({ periodId, organizationId }) => {
+  if (periodId == null) return;
+  const period = await prisma.academicPeriod.findUnique({
+    where: { id: periodId },
+    select: { id: true, organizationId: true },
+  });
+  if (!period) {
+    throw ApiError.badRequest('El período académico no existe');
+  }
+  if (period.organizationId !== null && period.organizationId !== organizationId) {
+    throw ApiError.badRequest('El período académico no pertenece a tu organización');
+  }
+};
+
 /** La sede (si se indica) debe existir y pertenecer a la MISMA organización. */
 const assertSiteOfOrganization = async ({ siteId, organizationId }) => {
   if (siteId == null) return;
@@ -135,6 +162,23 @@ const mapFair = (fair) => ({
   registration_deadline: fair.registrationDeadline,
   // Cierre efectivo: el configurado o, si no hay, 24 h antes del inicio.
   registration_closes_at: getRegistrationDeadline(fair),
+  academic_period_id: fair.academicPeriodId ?? null,
+  academic_period: fair.academicPeriod
+    ? {
+        id: fair.academicPeriod.id,
+        name: fair.academicPeriod.name,
+        start_date: fair.academicPeriod.startDate,
+        end_date: fair.academicPeriod.endDate,
+      }
+    : null,
+  // Enlace público de inscripciones (solo lo ve el admin de la feria).
+  public_registration: {
+    enabled: fair.publicRegistrationEnabled ?? false,
+    // Aunque esté habilitado, deja de responder al cerrar la inscripción.
+    open: Boolean(fair.publicRegistrationEnabled) && !isRegistrationClosed(fair),
+    url: fair.publicRegistrationEnabled ? buildPublicRegistrationUrl(fair.publicToken) : null,
+    enabled_at: fair.publicTokenCreatedAt ?? null,
+  },
   site: fair.site
     ? {
         id: fair.site.id,
@@ -186,9 +230,14 @@ export const createFair = async ({ data, actor }) => {
     registrationDeadline: data.registration_deadline,
   });
   await assertSiteOfOrganization({ siteId: data.site_id, organizationId: actor.organizationId });
+  await assertPeriodOfOrganization({
+    periodId: data.academic_period_id,
+    organizationId: actor.organizationId,
+  });
 
   const fair = await fairRepository.create({
     organizationId: actor.organizationId,
+    academicPeriodId: data.academic_period_id ?? null,
     name: data.name,
     description: data.description ?? null,
     status: 'DRAFT',
@@ -224,6 +273,13 @@ export const updateFair = async ({ fairId, data, actor }) => {
     organizationId: fair.organizationId,
   });
 
+  if (data.academic_period_id !== undefined) {
+    await assertPeriodOfOrganization({
+      periodId: data.academic_period_id,
+      organizationId: fair.organizationId,
+    });
+  }
+
   const updated = await fairRepository.update(fairId, {
     ...(data.name !== undefined ? { name: data.name } : {}),
     ...(data.description !== undefined ? { description: data.description || null } : {}),
@@ -233,6 +289,9 @@ export const updateFair = async ({ fairId, data, actor }) => {
       ? { registrationDeadline: data.registration_deadline }
       : {}),
     ...(data.site_id !== undefined ? { siteId: data.site_id || null } : {}),
+    ...(data.academic_period_id !== undefined
+      ? { academicPeriodId: data.academic_period_id || null }
+      : {}),
   });
 
   return mapFair(updated);
@@ -273,5 +332,47 @@ export const changeFairStatus = async ({ fairId, data, actor }) => {
   }
 
   const updated = await fairRepository.update(fairId, { status: data.status });
+  return mapFair(updated);
+};
+
+/**
+ * POST /api/fairs/:id/public-registration — enciende o apaga el enlace público.
+ *
+ * El enlace NO existe hasta que el admin lo habilita: recién ahí se genera el
+ * token. Al apagarlo, la página deja de responder y se borran los códigos y
+ * permisos temporales pendientes; el token se conserva para poder volver a
+ * abrir la misma dirección, salvo que se pida `regenerate` (que invalida los
+ * enlaces ya repartidos).
+ */
+export const setPublicRegistration = async ({ fairId, data, actor }) => {
+  const fair = await loadFair(fairId);
+  assertTenantMatch({ fair, actor });
+
+  if (fair.status === 'CLOSED') {
+    throw ApiError.conflict('La feria está finalizada: su inscripción pública no puede abrirse');
+  }
+
+  const enable = data.enabled;
+
+  if (enable && isRegistrationClosed(fair)) {
+    throw ApiError.conflict(
+      'El plazo de inscripción de esta feria ya venció: amplía el cierre antes de publicar el enlace'
+    );
+  }
+
+  const needsToken = enable && (!fair.publicToken || data.regenerate === true);
+
+  const updated = await fairRepository.update(fairId, {
+    publicRegistrationEnabled: enable,
+    ...(needsToken
+      ? { publicToken: generateUrlSafeToken(24), publicTokenCreatedAt: new Date() }
+      : {}),
+  });
+
+  // Apagar el enlace corta también las sesiones en curso de esa feria.
+  if (!enable || needsToken) {
+    await prisma.fairRegistrationCode.deleteMany({ where: { fairId } });
+  }
+
   return mapFair(updated);
 };

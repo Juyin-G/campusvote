@@ -28,11 +28,20 @@ model Fair {
   // Cierre de inscripción de proyectos. NULL = 24 h antes de startsAt.
   registrationDeadline DateTime? @map("registration_deadline") @db.Timestamptz
 
+  // Período académico al que pertenece la feria (opcional).
+  academicPeriodId String? @map("academic_period_id") @db.Uuid
+
+  // Enlace público de inscripción: no existe hasta que el admin lo habilita.
+  publicRegistrationEnabled Boolean   @default(false) @map("public_registration_enabled")
+  publicToken               String?   @unique @map("public_token") @db.VarChar(64)
+  publicTokenCreatedAt      DateTime? @map("public_token_created_at") @db.Timestamptz
+
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
   // Relaciones
   organization       Organization            @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  academicPeriod     AcademicPeriod?         @relation(fields: [academicPeriodId], references: [id], onDelete: Restrict)
   site               OrganizationSite?       @relation(fields: [siteId], references: [id], onDelete: SetNull)
   projects           Project[]
   juryAssignments    FairJuryAssignment[]
@@ -47,10 +56,12 @@ model Fair {
   stands             FairStand[]
   juryDeclarations   FairJuryDeclaration[]
   certificates       Certificate[]
+  registrationCodes  FairRegistrationCode[]
 
   // Índices
   @@index([organizationId], map: "idx_fairs_organization")
   @@index([status], map: "idx_fairs_status")
   @@index([siteId], map: "idx_fairs_site")
+  @@index([academicPeriodId], map: "idx_fairs_academic_period")
   @@map("fairs")
 }

@@ -101,12 +101,17 @@ export const create = async (data) => {
  * Crea el proyecto y registra a quien lo inscribe (el docente) como ADVISOR,
  * en una sola transacción: no queda un proyecto sin su asesor.
  */
-export const createWithAdvisor = async (data) => {
+/**
+ * Crea el proyecto y deja a quien lo inscribe como integrante:
+ * ADVISOR si es el docente asesor, EXPOSITOR si es el propio estudiante
+ * (inscripción desde la página pública).
+ */
+export const createWithAdvisor = async (data, creatorMemberRole = 'ADVISOR') => {
   try {
     return await prisma.$transaction(async (tx) => {
       const project = await tx.project.create({ data, select: { id: true } });
       await tx.projectMember.create({
-        data: { projectId: project.id, userId: data.createdById, role: 'ADVISOR' },
+        data: { projectId: project.id, userId: data.createdById, role: creatorMemberRole },
       });
       return tx.project.findUnique({ where: { id: project.id }, select: PROJECT_SELECT });
     });
@@ -126,6 +131,22 @@ export const update = async (id, data) => {
     return handlePrismaError(error);
   }
 };
+
+/**
+ * Datos mínimos para avisar por correo el resultado de la revisión: a quién se
+ * escribe y si su feria tiene enlace público donde volver a corregir.
+ */
+export const findReviewRecipient = (projectId) =>
+  prisma.project.findUnique({
+    where: { id: projectId },
+    select: {
+      name: true,
+      createdBy: { select: { email: true, firstName: true } },
+      fair: {
+        select: { name: true, publicToken: true, publicRegistrationEnabled: true },
+      },
+    },
+  });
 
 export const findUserById = (id) =>
   prisma.user.findUnique({
@@ -230,6 +251,7 @@ export default {
   update,
   findUserById,
   findUserByEmail,
+  findReviewRecipient,
   findMembershipInFair,
   findCategoryById,
   countCategoriesByFair,

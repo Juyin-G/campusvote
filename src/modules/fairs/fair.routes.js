@@ -33,4 +33,11 @@ router.post(
   fairController.changeFairStatus
 );
 
+// Enlace público de inscripción de proyectos: solo el admin lo enciende/apaga.
+router.post(
+  '/:id/public-registration',
+  validate(fairSchema.publicRegistrationSchema),
+  fairController.setPublicRegistration
+);
+
 export default router;

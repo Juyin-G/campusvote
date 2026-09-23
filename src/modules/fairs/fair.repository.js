@@ -13,6 +13,13 @@ const FAIR_SELECT = {
   startsAt: true,
   endsAt: true,
   registrationDeadline: true,
+  academicPeriodId: true,
+  academicPeriod: {
+    select: { id: true, name: true, startDate: true, endDate: true },
+  },
+  publicRegistrationEnabled: true,
+  publicToken: true,
+  publicTokenCreatedAt: true,
   siteId: true,
   site: {
     select: { id: true, name: true, address: true, city: true },
@@ -32,6 +39,29 @@ const handlePrismaError = (error) => {
   }
   throw error;
 };
+
+/** Feria por su token público (la página de inscripciones). */
+export const findByPublicToken = (publicToken) =>
+  prisma.fair.findFirst({
+    where: { publicToken },
+    select: {
+      ...FAIR_SELECT,
+      organization: {
+        select: {
+          id: true,
+          name: true,
+          logo: true,
+          primaryColor: true,
+          secondaryColor: true,
+          allowedEmailDomains: true,
+        },
+      },
+      categories: {
+        select: { id: true, name: true, description: true },
+        orderBy: { name: 'asc' },
+      },
+    },
+  });
 
 export const findById = (id) =>
   prisma.fair.findUnique({
@@ -75,6 +105,7 @@ export const update = async (id, data) => {
 
 export default {
   findById,
+  findByPublicToken,
   list,
   count,
   create,

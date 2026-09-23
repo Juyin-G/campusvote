@@ -8,6 +8,8 @@ import logger from '../../config/logger.js';
 import { ApiError } from '../errors/ApiError.js';
 import { sendRaw } from './gmail.client.js';
 
+const NEWLINE = String.fromCharCode(10);
+
 const sendMail = async ({ to, subject, html, text }) => {
   try {
     if (!hasEmailConfigured()) {
@@ -145,6 +147,89 @@ export const sendAdminActivation = async ({
   });
 };
 
+/**
+ * Código de 6 dígitos de la página pública de inscripción de proyectos.
+ * Es la única prueba de que el correo institucional es de quien lo escribe.
+ */
+export const sendFairRegistrationCode = async ({
+  email,
+  code,
+  fairName,
+  organizationName,
+  minutes = 15,
+  firstName = '',
+}) => {
+  const saludo = firstName ? `Hola ${firstName},` : 'Hola,';
+
+  await sendMail({
+    to: email,
+    subject: `Tu código de inscripción: ${code}`,
+    html: `
+      <p>${saludo}</p>
+      <p>Este es tu código para inscribir tu proyecto en <strong>${fairName}</strong>${
+        organizationName ? ` (${organizationName})` : ''
+      }:</p>
+      <p style="font-size:28px;letter-spacing:6px;font-weight:bold">${code}</p>
+      <p>Vence en ${minutes} minutos y solo sirve para esta feria.</p>
+      <p>Si no pediste este código, ignora este correo: nadie puede inscribir nada sin él.</p>
+    `,
+    text: [
+      saludo,
+      `Código para inscribir tu proyecto en ${fairName}: ${code}`,
+      `Vence en ${minutes} minutos.`,
+      'Si no pediste este código, ignora este correo.',
+    ].join(NEWLINE),
+  });
+};
+
+/**
+ * Resultado de la revisión de un proyecto. Cuando hay observaciones, el correo
+ * las incluye y lleva de vuelta a la página de inscripción para corregir.
+ */
+export const sendProjectReviewNotice = async ({
+  email,
+  projectName,
+  fairName,
+  decision,
+  reviewNotes = '',
+  link = null,
+  firstName = '',
+}) => {
+  const saludo = firstName ? `Hola ${firstName},` : 'Hola,';
+  const aprobado = decision === 'APPROVED';
+  const subject = aprobado
+    ? `Tu proyecto "${projectName}" fue aprobado`
+    : `Tu proyecto "${projectName}" tiene observaciones`;
+
+  // Enlace de vuelta a la página pública (solo tiene sentido si hay que corregir).
+  const invitacionHtml = link
+    ? `<p>Corrígelas y vuelve a enviarlo desde aquí:</p><p><a href="${link}">${link}</a></p>`
+    : '';
+
+  const cuerpoHtml = aprobado
+    ? `<p>Tu proyecto <strong>${projectName}</strong> quedó aprobado para ${fairName}.</p>`
+    : `
+      <p>La revisión de <strong>${projectName}</strong> (${fairName}) encontró observaciones:</p>
+      <blockquote>${reviewNotes}</blockquote>
+      ${invitacionHtml}
+    `;
+
+  await sendMail({
+    to: email,
+    subject,
+    html: `<p>${saludo}</p>${cuerpoHtml}`,
+    text: [
+      saludo,
+      aprobado
+        ? `Tu proyecto ${projectName} fue aprobado para ${fairName}.`
+        : `Observaciones de ${projectName} (${fairName}): ${reviewNotes}`,
+      link && !aprobado ? `Corrige y reenvía: ${link}` : '',
+    ]
+      .filter(Boolean)
+      .join(NEWLINE),
+  });
+};
+
 // Alias semántico para backward compatibility (algunos tests importan `sendActivation`).
 export { sendAdminActivation as sendActivation };
 
@@ -155,4 +240,6 @@ export default {
   sendRequestReceived,
   sendAdminActivation,
   sendActivation: sendAdminActivation,
+  sendFairRegistrationCode,
+  sendProjectReviewNotice,
 };

@@ -67,6 +67,7 @@ model Organization {
   teachingAssignments TeachingAssignment[]
   teacherEvaluations  TeacherEvaluation[]
   evaluationCriteria  EvaluationCriterion[]
+  academicPeriods     AcademicPeriod[]
 
   @@map("organizations")
 }

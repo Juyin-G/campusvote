@@ -72,3 +72,16 @@ export default {
   updateFair,
   changeFairStatus,
 };
+
+// POST /api/fairs/:id/public-registration
+export const setPublicRegistration = asyncHandler(async (req, res) => {
+  const fair = await fairService.setPublicRegistration({
+    fairId: req.params.id,
+    data: req.body,
+    actor: getActor(req.user),
+  });
+  const message = fair.public_registration.enabled
+    ? 'Enlace de inscripción habilitado'
+    : 'Enlace de inscripción deshabilitado';
+  return sendSuccess(res, fair, message, {}, HTTP_STATUS.OK);
+});

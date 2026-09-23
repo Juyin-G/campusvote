@@ -25,6 +25,7 @@ import platformTranslationRoutes from '../modules/PlatformTranslation/PlatformTr
 import notificationRoutes from '../modules/notification/notification.routes.js';
 import votingRoutes from '../modules/voting/voting.routes.js';
 import votingPublicRoutes from '../modules/voting/voting.public.routes.js';
+import publicRegistrationRoutes from '../modules/publicRegistration/publicRegistration.routes.js';
 import objectionRoutes from '../modules/objections/objection.routes.js';
 import uploadRoutes from '../modules/upload/upload.routes.js';
 import gmailTestRoutes from '../modules/admin/gmailTest.routes.js';
@@ -68,6 +69,10 @@ router.use(resultsPublicRouter);
 router.use(publicKpisRoutes);
 router.use(votingPublicRoutes);
 router.use('/fairs', fairVotingPublicRouter);
+
+// Inscripción pública de proyectos: la página que el admin comparte por enlace.
+// Lleva prefijo propio (/public/inscripciones) para no pisar /fairs/:id.
+router.use(publicRegistrationRoutes);
 
 // CAMBIO: el CRUD de usuarios académicos vive en el TENANT ROUTER (protegido
 // por blockSuperAdminFromTenantRoutes). Las rutas de PROVISION (PLATFORM:

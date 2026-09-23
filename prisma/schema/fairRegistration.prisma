@@ -1,0 +1,28 @@
+// Verificación de correo de la PÁGINA PÚBLICA de inscripción de proyectos.
+//
+// Quien entra por el enlace público escribe su correo institucional y recibe un
+// código de 6 dígitos. Aquí se guarda el hash del código y, una vez validado,
+// el hash del permiso temporal con el que inscribe o corrige su proyecto.
+// Nunca se guarda el código ni el permiso en claro.
+model FairRegistrationCode {
+  id     String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  fairId String @map("fair_id") @db.Uuid
+  userId String @map("user_id") @db.Uuid
+
+  codeHash   String    @map("code_hash") @db.Char(64)
+  attempts   Int       @default(0) @db.SmallInt
+  expiresAt  DateTime  @map("expires_at") @db.Timestamptz
+  consumedAt DateTime? @map("consumed_at") @db.Timestamptz
+
+  sessionHash      String?   @unique @map("session_hash") @db.Char(64)
+  sessionExpiresAt DateTime? @map("session_expires_at") @db.Timestamptz
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  fair Fair @relation(fields: [fairId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([fairId, userId, createdAt], map: "idx_fair_registration_codes_lookup")
+  @@index([expiresAt], map: "idx_fair_registration_codes_expires")
+  @@map("fair_registration_codes")
+}

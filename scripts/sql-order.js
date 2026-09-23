@@ -131,6 +131,8 @@ export const SQL_ORDER = [
   'fairs/016_fair_jury_category_assignments.sql',
   'fairs/017_jury_category_integrity.sql',
   'fairs/018_fair_open_validation.sql',
+  'academic/014_academic_periods_organization.sql',
+  'fairs/019_fair_public_registration.sql',
   '999_foreign_keys.sql',
 ];
 

@@ -233,6 +233,7 @@ model User {
 
   // Certificados oficiales emitidos a este usuario (participación / ganador).
   certificates Certificate[]
+  fairRegistrationCodes FairRegistrationCode[]
 
   @@unique([organizationId, documentNumber], map: "uq_users_organization_document")
   // ------------------------------------------------------

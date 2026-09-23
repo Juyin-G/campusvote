@@ -26,7 +26,10 @@ const corsOptions = {
     callback(new Error('Origen no permitido por CORS'));
   },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  // X-Registration-Token: permiso temporal de la página pública de
+  // inscripción de proyectos (no es una sesión de la plataforma). Sin esta
+  // línea el navegador bloquea la petición en el preflight.
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-Registration-Token'],
   credentials: true,
   optionsSuccessStatus: 200
 };
