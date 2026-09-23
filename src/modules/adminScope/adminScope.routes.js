@@ -173,7 +173,7 @@ router.patch(
         siteIds: req.body.site_ids || [],
       });
 
-      const updated = await prisma.user.update({
+      await prisma.user.update({
         where: { id: target.id },
         data: {
           scopeLevel: req.body.scope_level || undefined,
@@ -274,6 +274,34 @@ router.get('/sites', authorize(ROLES.ADMIN), async (req, res, next) => {
       });
     }
     res.json({ sites });
+  } catch (e) {
+    next(e);
+  }
+});
+
+// GET /api/admin/regions — lista las regiones accesibles para el actor.
+// ORG ve todas; REGION ve su propia región; SITE las regiones de sus sedes.
+router.get('/regions', authorize(ROLES.ADMIN), async (req, res, next) => {
+  try {
+    const organizationId = req.user.organizationId;
+    if (!organizationId) throw ApiError.badRequest('Sin organización');
+
+    let regionIds = null;
+    if (req.user.scopeLevel === 'REGION' && req.user.regionId) {
+      regionIds = [req.user.regionId];
+    } else if (req.user.scopeLevel === 'SITE') {
+      const accessible = await resolveAccessibleSites(req.user);
+      regionIds = [...new Set(accessible.map((s) => s.regionId).filter(Boolean))];
+    }
+
+    const where = regionIds
+      ? { id: { in: regionIds }, organizationId }
+      : { organizationId };
+    const regions = await prisma.region.findMany({
+      where,
+      orderBy: { name: 'asc' },
+    });
+    res.json({ regions });
   } catch (e) {
     next(e);
   }
