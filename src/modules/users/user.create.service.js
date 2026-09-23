@@ -2,7 +2,6 @@
 // Creación de usuarios académicos (createUser) y bulk (createUsersBulk).
 // ADMIN tenant — SUPERADMIN bloqueado.
 
-import bcrypt from 'bcryptjs';
 import * as userRepository from './user.repository.js';
 import { ApiError } from '../../shared/errors/ApiError.js';
 import { isValidRole, ROLES, ADMIN_ROLES } from '../../constants/roles.js';
@@ -66,8 +65,8 @@ export const createUser = async (body = {}, actor = {}) => {
 
   rejectSuperAdminOnTenant(actor, 'createUser');
 
-  if (role === ROLES.ADMIN && actor.scopeLevel !== 'ORG') {
-    throw ApiError.forbidden('Solo ADMIN ORG puede crear usuarios con rol ADMIN');
+  if (role === ROLES.ADMIN && actor.scopeLevel === 'SITE') {
+    throw ApiError.forbidden('Solo ADMIN ORG o ADMIN de región puede crear usuarios con rol ADMIN');
   }
   if (!role || !isValidRole(role)) {
     throw ApiError.badRequest(MESSAGES.USER.INVALID_ROLE);

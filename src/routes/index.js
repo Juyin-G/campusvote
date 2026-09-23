@@ -51,6 +51,9 @@ import {
 // ── ADMIN SCOPE ───────────────────────────────────────────────────────
 import adminScopeRoutes from '../modules/adminScope/adminScope.routes.js';
 
+// ── JURADOS EXTERNOS (aceptados por dominio) ──────────────────────────
+import externalJuryRoutes from '../modules/externalJuries/externalJury.routes.js';
+
 // ── MIDDLEWARES ───────────────────────────────────────────────────────
 import { blockSuperAdminFromTenantRoutes } from '../middlewares/platformBoundary.middleware.js';
 import { authenticate } from '../middlewares/auth.middleware.js';
@@ -114,6 +117,7 @@ tenantRouter.use('/fairs', fairRoutes);
 // Auditoría y Admin Scope
 tenantRouter.use('/audit', auditRoutes);
 tenantRouter.use('/admin', adminScopeRoutes);
+tenantRouter.use('/admin/jury', externalJuryRoutes);
 
 router.use(tenantRouter);
 

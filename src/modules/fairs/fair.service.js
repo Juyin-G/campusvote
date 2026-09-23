@@ -12,8 +12,8 @@
 import * as fairRepository from './fair.repository.js';
 import { prisma } from '../../database/prisma.js';
 import { ApiError } from '../../shared/errors/ApiError.js';
-import { ROLES } from '../../constants/roles.js';
 import { parsePagination } from '../../shared/utils/pagination.js';
+import { getAccessibleSiteIds } from '../../services/adminScope.service.js';
 
 // Ciclo de vida de la feria: DRAFT (configuración) -> OPEN (abierta/activa)
 // -> CLOSED (finalizada). CLOSED es terminal.
@@ -89,6 +89,27 @@ const assertTenantMatch = ({ fair, actor }) => {
   }
 };
 
+// Scope de sede: ORG ve toda su organización; REGION/SITE solo ferias cuyo
+// siteId esté dentro de su scope. Sin scopeLevel (cuentas legadas/tests) se
+// conserva el comportamiento ORG (aislamiento por tenant únicamente).
+const assertFairAccess = async ({ fair, actor }) => {
+  assertTenantMatch({ fair, actor });
+  if (!actor.scopeLevel || actor.scopeLevel === 'ORG') return;
+  const accessible = await getAccessibleSiteIds(actor);
+  if (!fair.siteId || !accessible.includes(fair.siteId)) {
+    throw ApiError.forbidden('No tienes acceso a la sede de esta feria');
+  }
+};
+
+// Al crear/editar, REGION/SITE solo pueden asignar sedes de su scope.
+const assertSiteScope = async ({ actor, siteId }) => {
+  if (!actor.scopeLevel || actor.scopeLevel === 'ORG') return;
+  const accessible = await getAccessibleSiteIds(actor);
+  if (!siteId || !accessible.includes(siteId)) {
+    throw ApiError.forbidden('No tienes acceso a la sede indicada');
+  }
+};
+
 const assertValidDates = ({ startsAt, endsAt }) => {
   if (startsAt && endsAt && startsAt > endsAt) {
     throw ApiError.badRequest('La fecha de inicio no puede ser posterior a la fecha de fin');
@@ -147,6 +168,12 @@ export const listFairs = async ({ actor, filters = {} }) => {
   const where = { organizationId: actor.organizationId };
   if (filters.status) where.status = filters.status;
 
+  // REGION/SITE solo ven ferias de sedes dentro de su scope.
+  if (actor.scopeLevel === 'REGION' || actor.scopeLevel === 'SITE') {
+    const accessible = await getAccessibleSiteIds(actor);
+    where.siteId = { in: accessible };
+  }
+
   const { page, limit, offset } = parsePagination(filters || {});
 
   const [data, total] = await Promise.all([
@@ -162,7 +189,7 @@ export const listFairs = async ({ actor, filters = {} }) => {
 
 export const getFairById = async ({ fairId, actor }) => {
   const fair = await loadFair(fairId);
-  assertTenantMatch({ fair, actor });
+  await assertFairAccess({ fair, actor });
   return mapFair(fair);
 };
 
@@ -173,6 +200,7 @@ export const createFair = async ({ data, actor }) => {
 
   assertValidDates({ startsAt: data.starts_at, endsAt: data.ends_at });
   await assertSiteOfOrganization({ siteId: data.site_id, organizationId: actor.organizationId });
+  await assertSiteScope({ actor, siteId: data.site_id });
 
   const fair = await fairRepository.create({
     organizationId: actor.organizationId,
@@ -189,7 +217,7 @@ export const createFair = async ({ data, actor }) => {
 
 export const updateFair = async ({ fairId, data, actor }) => {
   const fair = await loadFair(fairId);
-  assertTenantMatch({ fair, actor });
+  await assertFairAccess({ fair, actor });
 
   if (fair.status === 'CLOSED') {
     throw ApiError.conflict('La feria está finalizada y no admite modificaciones');
@@ -199,10 +227,12 @@ export const updateFair = async ({ fairId, data, actor }) => {
   const nextEndsAt = data.ends_at !== undefined ? data.ends_at : fair.endsAt;
   assertValidDates({ startsAt: nextStartsAt, endsAt: nextEndsAt });
 
+  const nextSiteId = data.site_id !== undefined ? data.site_id : fair.siteId;
   await assertSiteOfOrganization({
-    siteId: data.site_id !== undefined ? data.site_id : fair.siteId,
+    siteId: nextSiteId,
     organizationId: fair.organizationId,
   });
+  await assertSiteScope({ actor, siteId: nextSiteId });
 
   const updated = await fairRepository.update(fairId, {
     ...(data.name !== undefined ? { name: data.name } : {}),
@@ -217,7 +247,7 @@ export const updateFair = async ({ fairId, data, actor }) => {
 
 export const changeFairStatus = async ({ fairId, data, actor }) => {
   const fair = await loadFair(fairId);
-  assertTenantMatch({ fair, actor });
+  await assertFairAccess({ fair, actor });
 
   const allowed = STATUS_TRANSITIONS[fair.status] || [];
   if (!allowed.includes(data.status)) {

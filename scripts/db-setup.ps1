@@ -86,6 +86,7 @@ $migrationOrder = @(
     @{ Path = "database/sql/fairs/013_fair_engagement.sql"; Label = "Fairs - Engagement" },
     @{ Path = "database/sql/fairs/014_fair_status_transition.sql"; Label = "Fairs - Status Transition" },
     @{ Path = "database/sql/fairs/015_fair_project_fk_repair.sql"; Label = "Fairs - FK Repair" },
+    @{ Path = "database/sql/fairs/016_external_jury_invites.sql"; Label = "Fairs - External Jury Invites" },
 
     # 9. Claves foraneas que cruzan modulos (deben ir al final,
     #     cuando todas las tablas ya existen)

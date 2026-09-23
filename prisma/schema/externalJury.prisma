@@ -1,0 +1,41 @@
+// INVITACIONES DE JURADOS EXTERNOS POR DOMINIO (dominio FERIAS).
+//
+// Un jurado externo es una persona FUERA de la organización que evalúa una
+// feria. La aceptación se basa en el dominio de su correo: debe estar en
+// `allowed_email_domains` de la organización (Identidad institucional).
+//
+// Flujo:
+//   1. ADMIN invita (POST /admin/jury/external/invite) → se valida el dominio
+//      contra allowed_email_domains y se crea un User rol JURY de la org con
+//      password temporal (misma mecánica que el bulk excel), más su
+//      FairJuryAssignment a la feria.
+//   2. El jurado se loguea, cambia la contraseña y usa los endpoints de jurado
+//      existentes (proyectos asignados, declaración, rúbrica).
+//   3. REVOKED suspende la cuenta JURY.
+//
+// `email` es único por feria (UNIQUE email+fairId). No hay relación Prisma a
+// User/Organization adrede (solo FK escalares) para no acoplar el schema.
+
+model ExternalJuryInvite {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  fairId         String    @map("fair_id") @db.Uuid
+  email          String    @db.VarChar(254)
+  fullName       String    @map("full_name") @db.VarChar(200)
+  documentType   String?   @map("document_type") @db.VarChar(20)
+  documentNumber String?   @map("document_number") @db.VarChar(50)
+  status         String    @default("INVITED") @db.VarChar(20)
+  invitedBy      String    @map("invited_by") @db.Uuid
+  juryUserId     String?   @map("jury_user_id") @db.Uuid
+  expiresAt      DateTime? @map("expires_at") @db.Timestamptz
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  fair Fair @relation(fields: [fairId], references: [id], onDelete: Cascade)
+
+  @@unique([email, fairId], map: "uq_external_jury_invites_email_fair")
+  @@index([fairId], map: "idx_external_jury_invites_fair")
+  @@index([status], map: "idx_external_jury_invites_status")
+  @@index([juryUserId], map: "idx_external_jury_invites_jury")
+  @@map("external_jury_invites")
+}
