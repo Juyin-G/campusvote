@@ -45,6 +45,11 @@ services:
       # caracteres.
       - key: JWT_SECRET
         generateValue: true
+      # Cifra el secreto TOTP guardado en la base. En producción es
+      # OBLIGATORIA: sin ella, configurar o verificar el 2FA responde 500.
+      # Se genera con: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+      - key: TOTP_ENCRYPTION_KEY
+        sync: false
       - key: JWT_REFRESH_SECRET
         generateValue: true
 
