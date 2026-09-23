@@ -81,7 +81,6 @@ export const upsertChecklist = async ({ fairId, projectId, data, actor }) => {
     try {
       await auditService.logAction({
         actorId: actor.id,
-        electionId: null,
         action: 'RUBRIC_CHECKLIST_FINALIZED',
         metadata: { fair_id: fairId, project_id: projectId, rubric_id: rubric.id },
       });

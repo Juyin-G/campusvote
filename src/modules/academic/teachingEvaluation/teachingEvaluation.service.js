@@ -1,6 +1,7 @@
 import { prisma } from '../../../database/prisma.js';
 import { ApiError } from '../../../shared/errors/ApiError.js';
 import { ROLES } from '../../../constants/roles.js';
+import { getAccessibleSiteIds } from '../../../services/adminScope.service.js';
 
 const isAdmin = (actor) => [ROLES.ADMIN, ROLES.SUPERADMIN].includes(actor.role);
 
@@ -70,6 +71,13 @@ export const listAssignmentsForAdmin = async (actor, filters = {}) => {
     ...(filters.cycle ? { cycle: Number(filters.cycle) } : {}),
     ...(filters.isActive === undefined ? {} : { isActive: filters.isActive }),
   };
+
+  // Scope de sede: REGION/SITE solo ven asignaciones de docentes de SUS sedes.
+  if (actor.role === ROLES.ADMIN && (actor.scopeLevel === 'REGION' || actor.scopeLevel === 'SITE')) {
+    const accessible = await getAccessibleSiteIds(actor);
+    where.teacher = { siteAssignments: { some: { siteId: { in: accessible } } } };
+  }
+
   return prisma.teachingAssignment.findMany({
     where,
     include: {

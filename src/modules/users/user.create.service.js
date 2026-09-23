@@ -2,7 +2,6 @@
 // Creación de usuarios académicos (createUser) y bulk (createUsersBulk).
 // ADMIN tenant — SUPERADMIN bloqueado.
 
-import bcrypt from 'bcryptjs';
 import * as userRepository from './user.repository.js';
 import { ApiError } from '../../shared/errors/ApiError.js';
 import { isValidRole, ROLES, ADMIN_ROLES } from '../../constants/roles.js';
@@ -20,6 +19,7 @@ import {
   rejectSuperAdminOnTenant,
 } from './user.helpers.js';
 import MESSAGES from '../../constants/messages.js';
+import { generateTemporaryPassword } from './user.excel.service.js';
 
 const USER_CREATE_SELECT = {
   id: true,
@@ -66,8 +66,8 @@ export const createUser = async (body = {}, actor = {}) => {
 
   rejectSuperAdminOnTenant(actor, 'createUser');
 
-  if (role === ROLES.ADMIN && actor.scopeLevel !== 'ORG') {
-    throw ApiError.forbidden('Solo ADMIN ORG puede crear usuarios con rol ADMIN');
+  if (role === ROLES.ADMIN && actor.scopeLevel === 'SITE') {
+    throw ApiError.forbidden('Solo ADMIN ORG o ADMIN de región puede crear usuarios con rol ADMIN');
   }
   if (!role || !isValidRole(role)) {
     throw ApiError.badRequest(MESSAGES.USER.INVALID_ROLE);
@@ -199,6 +199,7 @@ export const createUsersBulk = async (payload = {}, actor = {}) => {
   const orgId = organization_id;
   const created = [];
   const errors = [];
+  const tempPasswords = {};
 
   for (const item of items) {
     try {
@@ -210,6 +211,8 @@ export const createUsersBulk = async (payload = {}, actor = {}) => {
 
       const cleanEmail = item.email.toLowerCase().trim();
       await assertValidEmailDomain(cleanEmail, orgId);
+
+      const rawPassword = item.password || generateTemporaryPassword();
 
       const identity = await normalizeDocumentIdentity({
         document_type: item.document_type,
@@ -226,7 +229,7 @@ export const createUsersBulk = async (payload = {}, actor = {}) => {
         data: {
           username: item.username.toLowerCase().trim(),
           email: cleanEmail,
-          password: await hashPassword(item.password),
+          password: await hashPassword(rawPassword),
           firstName: item.first_name,
           lastName: item.last_name,
           institutionalId: item.institutional_id || item.username.trim(),
@@ -250,17 +253,9 @@ export const createUsersBulk = async (payload = {}, actor = {}) => {
       });
 
       created.push(formatUserResponse(newUser));
+      tempPasswords[cleanEmail] = rawPassword;
     } catch (error) {
       errors.push({ email: item.email, message: error.message });
-    }
-  }
-
-  // Solo en respuesta inmediata: contraseñas temporales (no se guardan en BD).
-  const tempPasswords = {};
-  for (let i = 0; i < items.length; i += 1) {
-    const it = items[i];
-    if (created[i] && it.email) {
-      tempPasswords[it.email.toLowerCase().trim()] = it.password;
     }
   }
 

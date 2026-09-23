@@ -6,8 +6,14 @@
  *       - Auth
  *     summary: Iniciar sesión
  *     description: |
- *       Autentica un usuario y retorna un JWT. Si el usuario tiene TOTP habilitado,
- *       devuelve un `tempToken` y `requiresTotp: true`.
+ *       Autentica un usuario con credenciales. Regla 2FA: solo SUPERADMIN recibe
+ *       sesión completa (token + refreshToken). Para el resto de roles:
+ *       - Sin 2FA configurado → `requiresOnboarding: true` + `tempToken`
+ *         (purpose=ONBOARDING) para configurar contraseña y 2FA.
+ *       - Con TOTP habilitado → `requiresTotp: true` + `tempToken`
+ *         (purpose=TOTP_PENDING).
+ *       El JWT definitivo solo se entrega tras completar TOTP
+ *       (/auth/totp/login-verify) o finalizar el onboarding (/auth/onboarding/finalize).
  *     security: []
  *     requestBody:
  *       required: true

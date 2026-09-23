@@ -59,7 +59,6 @@ BEGIN
             NEW.action::text || 
             v_formatted_ts || 
             COALESCE(NEW.actor_id::text, '') || 
-            COALESCE(NEW.election_id::text, '') || 
             NEW.metadata::text,
             'sha256'
         ),
@@ -107,7 +106,6 @@ BEGIN
                 r.action::text || 
                 r.timestamp::text || 
                 COALESCE(r.actor_id::text, '') || 
-                COALESCE(r.election_id::text, '') || 
                 r.metadata::text,
                 'sha256'
             ),

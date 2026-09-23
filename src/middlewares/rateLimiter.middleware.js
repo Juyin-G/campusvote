@@ -54,22 +54,11 @@ export const authLimiter = rateLimit({
 });
 
 // ── Limitadores por USUARIO (mejora §29.1 / sugerencia #1) ──────────
-// Defensa en profundidad sobre el anti-doble-voto (token de un solo uso):
-// clave = userId para endpoints sin electionId explícito (p.ej. cast de
-// una sesión), o userId:electionId en endpoints identificables.
+// Defensa en profundidad sobre acciones idempotentes del usuario
+// (clave = userId).
 
 const getUserId = (req) => {
   return String(req?.user?.userId ?? req?.user?.id ?? 'anon');
-};
-
-const getElectionId = (req) => {
-  return String(
-    req?.params?.id ||
-      req?.params?.electionId ||
-      req?.query?.election_id ||
-      req?.params?.election_id ||
-      'global'
-  );
 };
 
 /**
@@ -88,27 +77,5 @@ export const userLimiter = ({ windowMs = 60 * 60 * 1000, max = 60, message } = {
     handler: buildRateLimitHandler(
       'USER_RATE_LIMITED',
       message || 'Demasiadas solicitudes. Intente más tarde.'
-    ),
-  });
-
-/**
- * Límite por usuario+elección (clave `userId:electionId`).
- * Se monta DESPUÉS de `authenticate`, por lo que req.user ya existe.
- */
-export const userElectionLimiter = ({
-  windowMs = 15 * 60 * 1000,
-  max = 20,
-  message,
-} = {}) =>
-  rateLimit({
-    windowMs,
-    max,
-    message: message || 'Demasiadas solicitudes para esta elección. Intente más tarde.',
-    standardHeaders: true,
-    legacyHeaders: false,
-    keyGenerator: (req) => `${getUserId(req)}:${getElectionId(req)}`,
-    handler: buildRateLimitHandler(
-      'USER_ELECTION_RATE_LIMITED',
-      message || 'Demasiadas solicitudes para esta elección. Intente más tarde.'
     ),
   });

@@ -1,13 +1,16 @@
 BEGIN;
 
 -- 1. TIPOS DE DATOS (ENUMS)
+-- FASE 13: se removieron los tipos electorales (ELECTION_OPENING,
+-- VOTE_CONFIRMATION, RESULTS_PUBLISHED, CANDIDACY_APPROVED).
 DO $$ BEGIN
     CREATE TYPE notification_type AS ENUM (
-        'ELECTION_OPENING',     -- "Faltan 2 horas para votar"
-        'VOTE_CONFIRMATION',    -- "Tu voto fue registrado (Recibo: XYZ)"
-        'RESULTS_PUBLISHED',    -- "Ya están los resultados"
-        'CANDIDACY_APPROVED',   -- "Tu lista fue aprobada"
-        'SYSTEM_ALERT'          -- "Cambio de contraseña exitoso"
+        'SYSTEM_ALERT',         -- "Cambio de contraseña exitoso"
+        'FAIR_OPENED',          -- "La feria abrió y los jurados pueden calificar"
+        'RATING_RECEIVED',      -- "Un jurado calificó el proyecto del expositor"
+        'PROJECT_LIKED',        -- "Tu proyecto recibió un nuevo Me gusta"
+        'PROJECT_COMMENTED',    -- "Tu proyecto recibió una nueva observación"
+        'PROJECT_LIKE_MILESTONE'-- "Tu proyecto alcanzó N Me gusta"
     );
     CREATE TYPE delivery_channel AS ENUM ('IN_APP', 'EMAIL', 'PUSH');
     CREATE TYPE delivery_status AS ENUM ('PENDING', 'SENT', 'FAILED');
@@ -24,6 +27,15 @@ BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_enum WHERE enumlabel = 'RATING_RECEIVED' AND enumtypid = 'notification_type'::regtype) THEN
         ALTER TYPE notification_type ADD VALUE 'RATING_RECEIVED';
     END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_enum WHERE enumlabel = 'PROJECT_LIKED' AND enumtypid = 'notification_type'::regtype) THEN
+        ALTER TYPE notification_type ADD VALUE 'PROJECT_LIKED';
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_enum WHERE enumlabel = 'PROJECT_COMMENTED' AND enumtypid = 'notification_type'::regtype) THEN
+        ALTER TYPE notification_type ADD VALUE 'PROJECT_COMMENTED';
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_enum WHERE enumlabel = 'PROJECT_LIKE_MILESTONE' AND enumtypid = 'notification_type'::regtype) THEN
+        ALTER TYPE notification_type ADD VALUE 'PROJECT_LIKE_MILESTONE';
+    END IF;
 END $$;
 
 -- 2. TABLA: NOTIFICACIONES (Bandeja de entrada del usuario)
@@ -38,14 +50,7 @@ CREATE TABLE IF NOT EXISTS notifications (
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT chk_notifications_title_not_empty CHECK (length(trim(title)) > 0),
-    CONSTRAINT chk_notifications_message_not_empty CHECK (length(trim(message)) > 0),
-    
-    -- PROTECCIÓN RIGUROSA DE ANONIMATO DE VOTO (Inspección global en JSONB)
-    CONSTRAINT chk_notifications_vote_confirmation_secrecy CHECK (
-        type != 'VOTE_CONFIRMATION' OR NOT (
-            metadata::text ~* '"(selections|candidate_list_id|candidate_name|ballot_option_id|option_id|candidate)"'
-        )
-    )
+    CONSTRAINT chk_notifications_message_not_empty CHECK (length(trim(message)) > 0)
 );
 
 -- ÍNDICES: NOTIFICATIONS

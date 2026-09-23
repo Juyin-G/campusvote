@@ -3,6 +3,7 @@
 // Separadas para mantener user.routes.js delgado.
 
 import express from 'express';
+import multer from 'multer';
 import { authenticate, authorize } from '../../middlewares/auth.middleware.js';
 import { validate } from '../../middlewares/validate.middleware.js';
 import { ROLES } from '../../constants/roles.js';
@@ -10,11 +11,21 @@ import { ApiError } from '../../shared/errors/ApiError.js';
 import { prisma } from '../../database/prisma.js';
 import { requireActorCanActOnUser } from '../../middlewares/tenantScope.middleware.js';
 import { actorHasSiteAccess } from '../../services/adminScope.service.js';
-import { updateAcademic, bulkPdf } from './user.controller.js';
-import { assignAcademicSchema, assignSiteSchema } from './user.schema.js';
+import { updateAcademic, bulkPdf, bulkExcelImport } from './user.controller.js';
+import { assignAcademicSchema, assignSiteSchema, bulkExcelSchema } from './user.schema.js';
 import { blockSuperAdminOnTenantRoute } from './user.guards.js';
 
 const router = express.Router();
+
+// Subida de Excel en memoria (5 MB): la firma real se valida en el servicio.
+const excelUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024, files: 1 },
+  fileFilter: (_req, file, cb) => {
+    if (/\.(xlsx|xls)$/i.test(file.originalname)) return cb(null, true);
+    return cb(ApiError.badRequest('Solo se aceptan archivos Excel (.xlsx o .xls)'), false);
+  },
+});
 
 // PUT /:id/site → asignar/reemplazar sedes del usuario.
 router.put(
@@ -72,6 +83,18 @@ router.post(
   authorize(ROLES.ADMIN),
   blockSuperAdminOnTenantRoute,
   bulkPdf
+);
+
+// POST /bulk-excel → importación masiva desde archivo .xlsx (ADMIN tenant).
+// Multer corre ANTES del validate para poblar req.body desde el multipart.
+router.post(
+  '/bulk-excel',
+  authenticate,
+  authorize(ROLES.ADMIN),
+  blockSuperAdminOnTenantRoute,
+  excelUpload.single('file'),
+  validate(bulkExcelSchema),
+  bulkExcelImport
 );
 
 export default router;

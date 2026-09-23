@@ -54,53 +54,41 @@ $migrationOrder = @(
     @{ Path = "database/sql/academic/007_functions.sql"; Label = "Academic - Functions" },
     @{ Path = "database/sql/academic/008_sis_sync.sql"; Label = "Academic - SIS Sync" },
 
-    # 6. Elections
-    @{ Path = "database/sql/elections/001_enums.sql"; Label = "Elections - Enums" },
-    @{ Path = "database/sql/elections/002_elections.sql"; Label = "Elections - Tabla" },
-    @{ Path = "database/sql/elections/003_positions.sql"; Label = "Elections - Positions" },
-    @{ Path = "database/sql/elections/004_candidate_lists.sql"; Label = "Elections - Lists" },
-    @{ Path = "database/sql/elections/005_candidacies.sql"; Label = "Elections - Candidacies" },
-    @{ Path = "database/sql/elections/006_election_rules.sql"; Label = "Elections - Rules" },
-    @{ Path = "database/sql/elections/007_candidacy_documents.sql"; Label = "Elections - Candidacy Docs" },
-
-    # 7. Ballots
-    @{ Path = "database/sql/ballots/001_enums.sql"; Label = "Ballots - Enums" },
-    @{ Path = "database/sql/ballots/002_ballots.sql"; Label = "Ballots - Tabla" },
-    @{ Path = "database/sql/ballots/003_ballot_positions.sql"; Label = "Ballots - Positions" },
-    @{ Path = "database/sql/ballots/004_ballot_options.sql"; Label = "Ballots - Options" },
-    @{ Path = "database/sql/ballots/005_views.sql"; Label = "Ballots - Views" },
-    @{ Path = "database/sql/ballots/006_functions.sql"; Label = "Ballots - Functions" },
-
-    # 8. Audit
+    # 6. Audit (FASE 13: dominio ELECTIONS eliminado)
     @{ Path = "database/sql/audit/001_enums.sql"; Label = "Audit - Enums" },
     @{ Path = "database/sql/audit/002_audit_logs.sql"; Label = "Audit - Logs" },
     @{ Path = "database/sql/audit/003_audit_protection.sql"; Label = "Audit - Protection" },
-    @{ Path = "database/sql/audit/004_voting_access_tokens.sql"; Label = "Audit - Tokens" },
-    @{ Path = "database/sql/audit/005_token_consumption.sql"; Label = "Audit - Consumption" },
     @{ Path = "database/sql/audit/006_audit_permissions.sql"; Label = "Audit - Permissions" },
+    @{ Path = "database/sql/audit/007_actions_peru.sql"; Label = "Audit - Fair Actions" },
 
-    # 9. Results
-    @{ Path = "database/sql/results/001_tallies.sql"; Label = "Results - Tallies" },
-    @{ Path = "database/sql/results/002_election_results.sql"; Label = "Results - Results" },
-    @{ Path = "database/sql/results/003_turnout_trigger.sql"; Label = "Results - Turnout" },
-    @{ Path = "database/sql/results/004_tally_votes.sql"; Label = "Results - Tally Votes" },
-    @{ Path = "database/sql/results/005_certify_election.sql"; Label = "Results - Certify" },
-
-    # 10. Voting
-    @{ Path = "database/sql/voting/001_voting_sessions.sql"; Label = "Voting - Sessions" },
-    @{ Path = "database/sql/voting/002_votes.sql"; Label = "Voting - Votes" },
-    @{ Path = "database/sql/voting/003_vote_selections.sql"; Label = "Voting - Selections" },
-    @{ Path = "database/sql/voting/004_start_session.sql"; Label = "Voting - Start Session" },
-    @{ Path = "database/sql/voting/005_cast_vote.sql"; Label = "Voting - Cast Vote" },
-    @{ Path = "database/sql/voting/006_session_management.sql"; Label = "Voting - Session Mgmt" },
-    @{ Path = "database/sql/voting/007_vote_integrity.sql"; Label = "Voting - Integridad" },
-    @{ Path = "database/sql/voting/008_scrutiny.sql"; Label = "Voting - Escrutinio" },
-
-    # 11. Notificaciones e i18n (dependen de users/organizations)
+    # 7. Notificaciones e i18n (dependen de users/organizations)
     @{ Path = "database/sql/notifications/001_notifications.sql"; Label = "Notifications" },
+    @{ Path = "database/sql/notifications/002_channels.sql"; Label = "Notifications - Channels" },
     @{ Path = "database/sql/i18n/001_locales_and_translations.sql"; Label = "i18n" },
 
-    # 12. Claves foraneas que cruzan modulos (deben ir al final,
+    # 8. Ferias y proyectos académicos
+    @{ Path = "database/sql/projects/001_projects.sql"; Label = "Projects" },
+    @{ Path = "database/sql/fairs/001_fairs.sql"; Label = "Fairs" },
+    @{ Path = "database/sql/projects/002_projects_fair.sql"; Label = "Projects-Fair" },
+    @{ Path = "database/sql/fairs/002_jury_assignments.sql"; Label = "Fairs - Jury Assignments" },
+    @{ Path = "database/sql/fairs/003_fair_rubrics.sql"; Label = "Fairs - Rubrics" },
+    @{ Path = "database/sql/fairs/004_fair_evaluations.sql"; Label = "Fairs - Evaluations" },
+    @{ Path = "database/sql/fairs/005_fair_result_publications.sql"; Label = "Fairs - Result Publications" },
+    @{ Path = "database/sql/fairs/006_fair_site.sql"; Label = "Fairs - Site" },
+    @{ Path = "database/sql/fairs/007_fair_categories.sql"; Label = "Fairs - Categories" },
+    @{ Path = "database/sql/fairs/008_fair_stands.sql"; Label = "Fairs - Stands" },
+    @{ Path = "database/sql/projects/003_projects_category_stand.sql"; Label = "Projects - Category/Stand" },
+    @{ Path = "database/sql/fairs/009_fair_jury_declarations.sql"; Label = "Fairs - Jury Declarations" },
+    @{ Path = "database/sql/fairs/010_jury_assignment_integrity.sql"; Label = "Fairs - Jury Integrity" },
+    @{ Path = "database/sql/fairs/011_certificates.sql"; Label = "Fairs - Certificates" },
+    @{ Path = "database/sql/fairs/012a_fair_rubric_to_checklist.sql"; Label = "Fairs - Checklist" },
+    @{ Path = "database/sql/fairs/012b_fair_anonymous_voting.sql"; Label = "Fairs - Anonymous Voting" },
+    @{ Path = "database/sql/fairs/013_fair_engagement.sql"; Label = "Fairs - Engagement" },
+    @{ Path = "database/sql/fairs/014_fair_status_transition.sql"; Label = "Fairs - Status Transition" },
+    @{ Path = "database/sql/fairs/015_fair_project_fk_repair.sql"; Label = "Fairs - FK Repair" },
+    @{ Path = "database/sql/fairs/016_external_jury_invites.sql"; Label = "Fairs - External Jury Invites" },
+
+    # 9. Claves foraneas que cruzan modulos (deben ir al final,
     #     cuando todas las tablas ya existen)
     @{ Path = "database/sql/999_foreign_keys.sql"; Label = "Foreign Keys" }
 )

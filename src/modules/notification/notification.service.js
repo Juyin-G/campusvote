@@ -158,35 +158,6 @@ export const updateDelivery = async (deliveryId, status, errorMessage = null) =>
 };
 
 /**
- * Difunde una notificación a todos los votantes de una elección
- * (p.ej. RESULTADOS_PUBLISHED con resumen del ganador en metadata).
- */
-export const broadcastElectionResult = async ({
-  electionId,
-  title,
-  message,
-  metadata = {},
-  channels = ['IN_APP'],
-}) => {
-  const voters = await notificationRepository.findVotersForElection(electionId);
-  const userIds = [...new Set(voters.map((v) => v.voterId))];
-
-  const data = { type: 'RESULTS_PUBLISHED', title, message, metadata };
-  let created = 0;
-
-  // Lote por 100 para no saturar la conexión de Prisma.
-  for (let i = 0; i < userIds.length; i += 100) {
-    const batch = userIds.slice(i, i + 100);
-    const results = await Promise.allSettled(
-      batch.map((userId) => notificationRepository.createBroadcast(userId, data))
-    );
-    created += results.filter((r) => r.status === 'fulfilled').length;
-  }
-
-  return { notified: created, total_voters: userIds.length };
-};
-
-/**
  * Procesa un lote de entregas PENDING (worker). IN_APP se marca SENT de forma
  * inmediata; EMAIL/PUSH/SMS delegan en el provider configurado (mock de momento).
  */
@@ -244,6 +215,5 @@ export default {
   markAllAsRead,
   getPendingDeliveriesForWorker,
   updateDelivery,
-  broadcastElectionResult,
   processPendingDeliveries,
 };

@@ -57,7 +57,6 @@ model Organization {
 
   // Relaciones
   users               User[]
-  elections           Election[]
   careers             Career[]
   projects            Project[]
   fairs               Fair[]

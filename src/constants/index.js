@@ -10,10 +10,8 @@ export {
   ROLES as ROLES_ENUM,
   ALL_ROLES,
   ADMIN_ROLES,
-  ELECTORAL_ROLES,
   isValidRole,
   isAdminRole,
-  isElectoralRole,
 } from './roles.js';
 
 /**

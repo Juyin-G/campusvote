@@ -76,19 +76,25 @@ Request:
 }
 ```
 
-Respuesta sin TOTP:
+Respuesta sin TOTP (rol sin 2FA configurado → onboarding obligatorio):
 
 ```json
 {
   "success": true,
   "data": {
-    "requiresTotp": false,
-    "token": "campusvote-access-token",
-    "refreshToken": "campusvote-refresh-token",
+    "requiresOnboarding": true,
+    "tempToken": "token-temporal-purpose-ONBOARDING",
+    "mustChangePassword": true,
+    "email": "usuario@universidad.edu",
     "user": {}
   }
 }
 ```
+
+> Regla 2FA: solo SUPERADMIN recibe sesión completa con credenciales.
+> El resto de roles entra en onboarding (sin 2FA) o en `requiresTotp` (con 2FA)
+> y obtiene el JWT definitivo solo tras `/api/auth/onboarding/finalize` o
+> `/api/auth/totp/login-verify`.
 
 Respuesta con TOTP:
 

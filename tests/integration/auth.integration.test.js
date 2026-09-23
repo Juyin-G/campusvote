@@ -3,6 +3,7 @@
  */
 import { jest } from '@jest/globals';
 import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
 import request from 'supertest';
 import { createAcademicFixture } from './academic.fixture.js';
 
@@ -35,12 +36,12 @@ jest.unstable_mockModule('../../src/middlewares/rateLimiter.middleware.js', () =
   loginLimiter: (_req, _res, next) => next(),
   authLimiter: (_req, _res, next) => next(),
   userLimiter: () => (_req, _res, next) => next(),
-  userElectionLimiter: () => (_req, _res, next) => next(),
 }));
 
 const app = (await import('../../src/app.js')).default;
 const { prisma } = await import('../../src/database/prisma.js');
 const emailService = await import('../../src/shared/services/email.service.js');
+const env = (await import('../../src/config/env.js')).default;
 
 const TEST_PASSWORD = 'AuthTest123!';
 const runId = Date.now();
@@ -77,6 +78,23 @@ describe('Auth Integration (HTTP + DB)', () => {
     });
 
     testUserId = user.id;
+
+    // Política 2FA: el login de un rol sin 2FA devuelve staging (onboarding),
+    // no un JWT. Para ejercitar rutas protegidas firmamos el token directo.
+    authToken = jwt.sign(
+      {
+        userId: user.id,
+        email: user.email,
+        role: user.role,
+        organizationId: user.organizationId,
+        scopeLevel: user.scopeLevel ?? null,
+        regionId: user.regionId ?? null,
+        isSuperuser: user.isSuperuser ?? false,
+        isStaff: user.isStaff ?? false,
+      },
+      env.JWT_SECRET,
+      { expiresIn: '1h' }
+    );
   });
 
   afterAll(async () => {
@@ -107,18 +125,19 @@ describe('Auth Integration (HTTP + DB)', () => {
       expect(res.body.error.code).toBe('UNAUTHORIZED');
     });
 
-    it('Deberia iniciar sesion exitosamente y retornar JWT', async () => {
+    it('Deberia iniciar sesion y retornar etapa de onboarding (politica 2FA)', async () => {
       const res = await request(app)
         .post('/api/auth/login')
         .send({ email: testEmail, password: TEST_PASSWORD });
 
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);
-      expect(res.body.data.token).toBeDefined();
-      expect(res.body.data.requiresTotp).toBe(false);
-      expect(res.body.data.user.email).toBe(testEmail);
-
-      authToken = res.body.data.token;
+      // Roles no-SUPERADMIN sin 2FA no reciben sesión directa: staging.
+      expect(res.body.data.email).toBe(testEmail);
+      expect(res.body.data.requiresOnboarding).toBe(true);
+      expect(res.body.data.tempToken).toBeDefined();
+      expect(res.body.data.token).toBeUndefined();
+      expect(res.body.data.refreshToken).toBeUndefined();
     });
   });
 

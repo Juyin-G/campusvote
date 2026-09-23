@@ -41,7 +41,6 @@ export const notifyProjectLiked = async ({ fairId, projectId, juryUserId, projec
     );
     await auditService.logAction({
       actorId: juryUserId,
-      electionId: null,
       action: 'PROJECT_LIKED',
       metadata: { fair_id: fairId, project_id: projectId },
     });
@@ -76,7 +75,6 @@ export const notifyProjectCommented = async ({
     );
     await auditService.logAction({
       actorId: juryUserId,
-      electionId: null,
       action: 'PROJECT_COMMENTED',
       metadata: { fair_id: fairId, project_id: projectId },
     });

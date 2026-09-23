@@ -14,9 +14,18 @@
 import * as siteRepository from './organizationSite.repository.js';
 import { ApiError } from '../../../shared/errors/ApiError.js';
 import { ROLES } from '../../../constants/roles.js';
+import { getAccessibleSiteIds } from '../../../services/adminScope.service.js';
 
 const isSuperAdmin = (actor) =>
   actor.role === ROLES.SUPERADMIN || actor.isSuperAdmin || actor.isSuperuser;
+
+// ORG administra las sedes de su organización; REGION/SITE solo las consultan.
+const assertOrgManager = (actor) => {
+  if (isSuperAdmin(actor)) return;
+  if (actor.scopeLevel === 'REGION' || actor.scopeLevel === 'SITE') {
+    throw ApiError.forbidden('Solo el ADMIN de organización puede gestionar sedes');
+  }
+};
 
 const mapSite = (site) => ({
   id: site.id,
@@ -61,6 +70,13 @@ export const listSites = async ({ actor }) => {
   }
 
   const sites = await siteRepository.listByOrganization(actor.organizationId);
+
+  // Scope de sede: REGION/SITE solo ven las sedes de su radio.
+  if (actor.scopeLevel === 'REGION' || actor.scopeLevel === 'SITE') {
+    const accessible = await getAccessibleSiteIds(actor);
+    return { data: sites.filter((site) => accessible.includes(site.id)).map(mapSite) };
+  }
+
   return { data: sites.map(mapSite) };
 };
 
@@ -71,6 +87,7 @@ export const getSiteById = async ({ siteId, actor }) => {
 };
 
 export const createSite = async ({ data, actor }) => {
+  assertOrgManager(actor);
   if (!actor.organizationId) {
     throw ApiError.forbidden('Tu cuenta no está vinculada a ninguna organización');
   }
@@ -88,6 +105,7 @@ export const createSite = async ({ data, actor }) => {
 };
 
 export const updateSite = async ({ siteId, data, actor }) => {
+  assertOrgManager(actor);
   const site = await loadSite(siteId);
   assertTenantMatch({ site, actor });
 
@@ -103,6 +121,7 @@ export const updateSite = async ({ siteId, data, actor }) => {
 };
 
 export const deleteSite = async ({ siteId, actor }) => {
+  assertOrgManager(actor);
   const site = await loadSite(siteId);
   assertTenantMatch({ site, actor });
 

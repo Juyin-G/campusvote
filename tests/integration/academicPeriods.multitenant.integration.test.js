@@ -33,11 +33,26 @@ let orgB;
 let periodoA;
 let periodoB;
 
-const login = async (email) => {
-  const res = await request(app).post('/api/auth/login').send({ email, password: PASSWORD });
-  expect(res.status).toBe(200);
-  return res.body.data.token;
-};
+import jwt from 'jsonwebtoken';
+
+const env = (await import('../../src/config/env.js')).default;
+
+// Desde FASE 15 el login exige 2FA a todo rol que no sea SUPERADMIN, así que
+// las pruebas que solo necesitan una sesión de ADMIN firman el token
+// directamente (mismo criterio que tests/integration/tenant-isolation.test.js).
+const makeToken = (user) =>
+  jwt.sign(
+    {
+      id: user.id,
+      userId: user.id,
+      email: user.email,
+      role: user.role,
+      organizationId: user.organizationId,
+      scopeLevel: user.scopeLevel ?? null,
+    },
+    env.JWT_SECRET,
+    { expiresIn: '1h' }
+  );
 
 const createAdmin = async ({ key, organizationId }) => {
   const user = await prisma.user.create({
@@ -58,7 +73,7 @@ const createAdmin = async ({ key, organizationId }) => {
     },
   });
   users[key] = user;
-  tokens[key] = await login(user.email);
+  tokens[key] = makeToken(user);
   return user;
 };
 

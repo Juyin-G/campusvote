@@ -4,12 +4,13 @@
  */
 import * as userService from './user.service.js';
 import asyncHandler from '../../shared/utils/asyncHandler.js';
-import { sendSuccess, sendPaginated } from '../../shared/utils/apiResponse.js';
+import { sendSuccess, sendPaginated, sendCreated } from '../../shared/utils/apiResponse.js';
 import { HTTP_STATUS } from '../../constants/httpStatus.js';
 import MESSAGES from '../../constants/messages.js';
 import { prisma } from '../../database/prisma.js';
 import { ApiError } from '../../shared/errors/ApiError.js';
 import { generateProvisionedUsersPdf } from '../../services/usersProvisionedPdf.service.js';
+import { importUsersFromExcel } from './user.excel.service.js';
 
 const actorId = (user) => user?.userId ?? user?.id;
 
@@ -148,6 +149,23 @@ export const updateAcademic = asyncHandler(async (req, res) => {
   return sendSuccess(res, { user: updated }, 'Datos académicos actualizados', { requestId: req.requestId }, HTTP_STATUS.OK);
 });
 
+/** POST /api/users/bulk-excel — importa usuarios desde archivo .xlsx (ADMIN). */
+export const bulkExcelImport = asyncHandler(async (req, res) => {
+  if (!req.file || !req.file.buffer) {
+    throw ApiError.badRequest('Debes enviar el archivo Excel en el campo "file"');
+  }
+  const result = await importUsersFromExcel(
+    {
+      buffer: req.file.buffer,
+      organization_id: req.body.organization_id,
+      site_id: req.body.site_id,
+      default_role: req.body.default_role,
+    },
+    req.user
+  );
+  return sendCreated(res, result, MESSAGES.USER.BULK_EXCEL_PROCESSED);
+});
+
 /** POST /api/users/bulk/pdf — genera PDF del lote (solo ADMIN ORG). */
 export const bulkPdf = asyncHandler(async (req, res, next) => {
   try {
@@ -205,4 +223,5 @@ export default {
   softDeleteUser,
   updateAcademic,
   bulkPdf,
+  bulkExcelImport,
 };

@@ -29,16 +29,33 @@ const LoginResponseSchema = {
       type: 'object',
       properties: {
         user: { $ref: '#/components/schemas/User' },
-        token: {
+        requiresOnboarding: {
+          type: 'boolean',
+          description: 'true si la cuenta debe completar onboarding (rol sin 2FA configurado)',
+          example: true,
+        },
+        requiresTotp: {
+          type: 'boolean',
+          description: 'true si el usuario tiene TOTP habilitado y debe verificarlo antes de obtener sesión',
+          example: false,
+        },
+        tempToken: {
           type: 'string',
-          description: 'JWT token para autenticación',
+          description: 'Token temporal de propósito limitado (purpose=ONBOARDING o TOTP_PENDING). Solo presente en etapas de staging.',
           example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
         },
-        expires_in: {
-          type: 'integer',
-          description: 'Tiempo de expiración en segundos',
-          example: 86400,
+        mustChangePassword: { type: 'boolean', example: true },
+        email: { type: 'string', format: 'email' },
+        token: {
+          type: 'string',
+          description: 'JWT definitivo. Solo presente en sesión completa (SUPERADMIN o tras TOTP/onboarding).',
+          example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
         },
+        refreshToken: {
+          type: 'string',
+          description: 'Refresh token opaco. Solo presente en sesión completa.',
+        },
+        expiresIn: { type: 'integer', example: 3600 },
       },
     },
   },

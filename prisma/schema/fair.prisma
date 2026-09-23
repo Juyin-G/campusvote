@@ -57,6 +57,7 @@ model Fair {
   juryDeclarations   FairJuryDeclaration[]
   certificates       Certificate[]
   registrationCodes  FairRegistrationCode[]
+  externalJuryInvites ExternalJuryInvite[]
 
   // Índices
   @@index([organizationId], map: "idx_fairs_organization")

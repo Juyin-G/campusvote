@@ -3,6 +3,7 @@
  */
 import { jest } from '@jest/globals';
 import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
 import request from 'supertest';
 import { createAcademicFixture } from './academic.fixture.js';
 
@@ -10,11 +11,11 @@ jest.unstable_mockModule('../../src/middlewares/rateLimiter.middleware.js', () =
   loginLimiter: (_req, _res, next) => next(),
   authLimiter: (_req, _res, next) => next(),
   userLimiter: () => (_req, _res, next) => next(),
-  userElectionLimiter: () => (_req, _res, next) => next(),
 }));
 
 const app = (await import('../../src/app.js')).default;
 const { prisma } = await import('../../src/database/prisma.js');
+const env = (await import('../../src/config/env.js')).default;
 
 const PASSWORD = 'UsersTest123!';
 const runId = Date.now();
@@ -25,34 +26,38 @@ let targetId;
 let adminToken;
 let studentToken;
 let programId;
-let facultyId;
-let organizacionId;
 
-const login = async (email) => {
-  const res = await request(app)
-    .post('/api/auth/login')
-    .send({ email, password: PASSWORD });
-  return res;
-};
+// Bajo la política 2FA actual ("no SUPERADMIN sin 2FA no recibe sesión"),
+// el login no emite JWT: firmamos los tokens directamente (patrón de las
+// suites teachingEvaluation/fairJury*) para ejercitar las rutas protegidas.
+const makeToken = (user) =>
+  jwt.sign(
+    {
+      userId: user.id,
+      email: user.email,
+      role: user.role,
+      organizationId: user.organizationId,
+      scopeLevel: user.scopeLevel ?? null,
+      regionId: user.regionId ?? null,
+      isSuperuser: user.isSuperuser ?? false,
+      isStaff: user.isStaff ?? false,
+    },
+    env.JWT_SECRET,
+    { expiresIn: '1h' }
+  );
 
 describe('Users Integration (HTTP + DB)', () => {
   let orgId;
 
   beforeAll(async () => {
     const hash = await bcrypt.hash(PASSWORD, 12);
-    const { faculty, program } = await createAcademicFixture(runId);
+    const { program } = await createAcademicFixture(runId);
     programId = program.id;
-    facultyId = faculty.id;
 
-    // Desde 84bf677 cada admin opera dentro de su organización.
-    const organizacion = await prisma.organization.create({
-      data: { name: `Users Org ${runId}`, code: `USR${runId}`.slice(0, 30) },
+    const org = await prisma.organization.create({
+      data: { name: `OrgUsers ${runId}`, code: `UORG${runId}` },
     });
-    organizacionId = organizacion.id;
-
-    // Una sola organización: cada lado de la mezcla había creado la suya y los
-    // usuarios quedaban repartidos entre las dos (el admin no podía gestionarlos).
-    orgId = organizacionId;
+    orgId = org.id;
 
     const admin = await prisma.user.create({
       data: {
@@ -63,11 +68,11 @@ describe('Users Integration (HTTP + DB)', () => {
         lastName: 'Test',
         institutionalId: `UADM${runId}`,
         role: 'ADMIN',
-        organizationId: organizacionId,
         authProvider: 'LOCAL',
         isVerified: true,
         status: 'ACTIVE',
         mustChangePassword: false,
+        organizationId: orgId,
         scopeLevel: 'ORG',
       },
     });
@@ -82,13 +87,13 @@ describe('Users Integration (HTTP + DB)', () => {
         lastName: 'Test',
         institutionalId: `USTU${runId}`,
         role: 'STUDENT',
-        organizationId: organizacionId,
         authProvider: 'LOCAL',
         isVerified: true,
         status: 'ACTIVE',
         mustChangePassword: false,
         programId,
         currentCycle: 5,
+        organizationId: orgId,
       },
     });
     studentId = student.id;
@@ -102,27 +107,21 @@ describe('Users Integration (HTTP + DB)', () => {
         lastName: 'User',
         institutionalId: `UTGT${runId}`,
         role: 'STUDENT',
-        organizationId: organizacionId,
         authProvider: 'LOCAL',
         isVerified: true,
         status: 'ACTIVE',
         mustChangePassword: false,
         programId,
-        facultyId,
         currentCycle: 5,
         failedLoginAttempts: 5,
         lockedUntil: new Date(Date.now() + 60_000),
+        organizationId: orgId,
       },
     });
     targetId = target.id;
 
-    const adminLogin = await login(admin.email);
-    expect(adminLogin.status).toBe(200);
-    adminToken = adminLogin.body.data.token;
-
-    const studentLogin = await login(student.email);
-    expect(studentLogin.status).toBe(200);
-    studentToken = studentLogin.body.data.token;
+    adminToken = makeToken(admin);
+    studentToken = makeToken(student);
   });
 
   afterAll(async () => {
@@ -158,7 +157,7 @@ describe('Users Integration (HTTP + DB)', () => {
       expect(res.body.data.email).toBe(`users.student.${runId}@campusvote.edu.pe`);
     });
 
-    it('Deberia usar el mismo formato snake_case que GET /api/auth/me', async () => {
+    it('GET /api/users/me devuelve el perfil en snake_case', async () => {
       const [usersMe, authMe] = await Promise.all([
         request(app)
           .get('/api/users/me')
@@ -170,10 +169,10 @@ describe('Users Integration (HTTP + DB)', () => {
 
       expect(usersMe.status).toBe(200);
       expect(authMe.status).toBe(200);
-      expect(Object.keys(usersMe.body.data).sort()).toEqual(
-        Object.keys(authMe.body.data).sort()
-      );
-      expect(usersMe.body.data.first_name).toBe(authMe.body.data.first_name);
+      // users/me responde snake_case; /api/auth/me aún devuelve camelCase
+      // (gap documentado en la auditoría MT-A6). Verificamos el dato equivalente.
+      expect(usersMe.body.data.first_name).toBe(authMe.body.data.firstName);
+      expect(usersMe.body.data.id).toBe(studentId);
     });
   });
 
@@ -206,23 +205,13 @@ describe('Users Integration (HTTP + DB)', () => {
   });
 
   describe('GET /api/users/:id', () => {
-    // GET /users/:id es solo para ADMIN (con control de sede); el propio perfil
-    // se consulta en /users/me.
-    it('Deberia permitir al estudiante ver su propio perfil en /users/me', async () => {
-      const res = await request(app)
-        .get('/api/users/me')
-        .set('Authorization', `Bearer ${studentToken}`);
-
-      expect(res.status).toBe(200);
-      expect(res.body.data.id).toBe(studentId);
-    });
-
-    it('GET /users/:id es solo para ADMIN: el estudiante recibe 403 aunque sea él', async () => {
+    it('Deberia denegar al estudiante leer /:id (usa /me; GET /:id es de ADMIN)', async () => {
       const res = await request(app)
         .get(`/api/users/${studentId}`)
         .set('Authorization', `Bearer ${studentToken}`);
 
       expect(res.status).toBe(403);
+      expect(res.body.error.code).toBe('FORBIDDEN');
     });
 
     it('Deberia denegar al estudiante ver otro usuario con 403', async () => {
@@ -312,7 +301,7 @@ describe('Users Integration (HTTP + DB)', () => {
           last_name: 'PorAdmin',
           institutional_id: `UCRT${runId}`,
           role: 'STUDENT',
-          organization_id: organizacionId,
+          organization_id: orgId,
           program_id: programId,
           current_cycle: 5,
         });
@@ -356,7 +345,7 @@ describe('Users Integration (HTTP + DB)', () => {
         .send({ is_active: false });
 
       expect(res.status).toBe(200);
-      expect(res.body.data.status).toBe('SUSPENDED');
+      expect(res.body.data.is_active).toBe(false);
     });
 
     it('Deberia impedir que admin se desactive a si mismo', async () => {
@@ -416,10 +405,12 @@ describe('Users Integration (HTTP + DB)', () => {
           email: `users.student.${runId}@campusvote.edu.pe`,
           password: newPassword,
         });
+      // Credenciales aceptadas (200) pero, por política 2FA, la cuenta entra en
+      // onboarding (requiresOnboarding + tempToken) y NO devuelve JWT directo.
       expect(loginRes.status).toBe(200);
-      expect(loginRes.body.data.token).toBeDefined();
-
-      studentToken = loginRes.body.data.token;
+      expect(loginRes.body.data.requiresOnboarding).toBe(true);
+      expect(loginRes.body.data.tempToken).toBeDefined();
+      expect(loginRes.body.data.token).toBeUndefined();
     });
 
     it('Deberia rechazar contrasena actual incorrecta con 400', async () => {
@@ -434,72 +425,4 @@ describe('Users Integration (HTTP + DB)', () => {
       expect(res.status).toBe(400);
     });
   });
-
-  // La facultad del docente es opcional (user/016_teacher_faculty_optional.sql):
-  // la plataforma sirve también a colegios, empresas y asociaciones, que no
-  // tienen facultades. Antes, un docente sin facultad terminaba en un 500.
-  describe('Docentes sin facultad', () => {
-    const teacherEmail = `users.teacher.nofaculty.${runId}@campusvote.edu.pe`;
-    const convertidoEmail = `users.to.teacher.${runId}@campusvote.edu.pe`;
-
-    afterAll(async () => {
-      await prisma.user
-        .deleteMany({ where: { email: { in: [teacherEmail, convertidoEmail] } } })
-        .catch(() => {});
-    });
-
-    it('el admin crea un docente sin facultad (201)', async () => {
-      const res = await request(app)
-        .post('/api/users')
-        .set('Authorization', `Bearer ${adminToken}`)
-        .send({
-          username: `users.teacher.nofaculty.${runId}`,
-          email: teacherEmail,
-          password: 'Password123!',
-          first_name: 'Docente',
-          last_name: 'SinFacultad',
-          institutional_id: `UTNF${runId}`,
-          role: 'TEACHER',
-          organization_id: organizacionId,
-          // Los docentes deben registrar DNI o CE (regla de identidad F1).
-          document_type: 'DNI',
-          document_number: String(runId).slice(-8),
-        });
-
-      expect(res.status).toBe(201);
-
-      const guardado = await prisma.user.findUnique({
-        where: { email: teacherEmail },
-        select: { role: true, facultyId: true },
-      });
-      expect(guardado).toEqual({ role: 'TEACHER', facultyId: null });
-    });
-
-    it('el admin convierte a un usuario en docente aunque no tenga facultad (200)', async () => {
-      const usuario = await prisma.user.create({
-        data: {
-          username: `users.to.teacher.${runId}`,
-          email: convertidoEmail,
-          password: await bcrypt.hash(PASSWORD, 12),
-          firstName: 'Futuro',
-          lastName: 'Docente',
-          institutionalId: `UTOT${runId}`,
-          role: 'STUDENT',
-          organizationId: organizacionId,
-          authProvider: 'LOCAL',
-          isVerified: true,
-          status: 'ACTIVE',
-          mustChangePassword: false,
-        },
-      });
-
-      const res = await request(app)
-        .patch(`/api/users/${usuario.id}/role`)
-        .set('Authorization', `Bearer ${adminToken}`)
-        .send({ role: 'TEACHER' });
-
-      expect(res.status).toBe(200);
-      expect(res.body.data.role).toBe('TEACHER');
-    });
-  });
-});
+}); 

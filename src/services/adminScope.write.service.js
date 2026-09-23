@@ -9,9 +9,10 @@ import { actorHasSiteAccess, getAccessibleSiteIds } from './adminScope.read.serv
 const isAdmin = (actor) => actor?.role === ROLES.ADMIN;
 
 /**
- * Política de creación de scope: solo ADMIN ORG puede crear ADMINs
- * con scope; SITE/REGION no pueden crear ADMINs; SITE/REGION pueden
- * delegar alcance dentro de su propio scope.
+ * Política de creación de scope: ADMIN ORG crea ADMINs de cualquier nivel;
+ * ADMIN REGION crea ADMINs de sede (SITE) dentro de su región; ADMIN SITE
+ * no crea ADMINs. REGION/SITE pueden crear/academic delegar alcance dentro
+ * de su propio scope.
  */
 export const canCreateScope = async (actor, target) => {
   if (!isAdmin(actor)) {
@@ -22,10 +23,39 @@ export const canCreateScope = async (actor, target) => {
   }
 
   if (target.role === ROLES.ADMIN) {
-    if (actor.scopeLevel !== 'ORG') {
-      throw ApiError.forbidden('Solo ADMIN ORG puede crear usuarios con rol ADMIN');
+    const targetScope = target.scopeLevel || 'ORG';
+    const targetRegionId = target.regionId || null;
+    const targetSiteIds = target.siteIds || [];
+
+    if (actor.scopeLevel === 'ORG') {
+      return true;
     }
-    return true;
+
+    if (actor.scopeLevel === 'REGION') {
+      if (targetScope !== 'SITE') {
+        throw ApiError.forbidden(
+          'Como ADMIN de región solo puedes crear administradores de sede (SITE)'
+        );
+      }
+      if (!actor.regionId) {
+        throw ApiError.badRequest('Tu cuenta de admin de región no tiene región asignada');
+      }
+      if (targetRegionId && targetRegionId !== actor.regionId) {
+        throw ApiError.forbidden('Solo puedes crear administradores en tu propia región');
+      }
+      for (const sid of targetSiteIds) {
+        const site = await prisma.organizationSite.findUnique({
+          where: { id: sid },
+          select: { id: true, organizationId: true, regionId: true },
+        });
+        if (!site || site.organizationId !== actor.organizationId || site.regionId !== actor.regionId) {
+          throw ApiError.forbidden(`La sede ${sid} no pertenece a tu región`);
+        }
+      }
+      return true;
+    }
+
+    throw ApiError.forbidden('Solo ADMIN ORG o ADMIN de región puede crear usuarios con rol ADMIN');
   }
 
   // Usuarios académicos: SITE/REGION pueden crearlos dentro de su scope.

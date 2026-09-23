@@ -10,16 +10,17 @@
 import { jest } from '@jest/globals';
 import bcrypt from 'bcryptjs';
 import request from 'supertest';
+import jwt from 'jsonwebtoken';
 
 jest.unstable_mockModule('../../src/middlewares/rateLimiter.middleware.js', () => ({
   loginLimiter: (_req, _res, next) => next(),
   authLimiter: (_req, _res, next) => next(),
   userLimiter: () => (_req, _res, next) => next(),
-  userElectionLimiter: () => (_req, _res, next) => next(),
 }));
 
 const app = (await import('../../src/app.js')).default;
 const { prisma } = await import('../../src/database/prisma.js');
+const env = (await import('../../src/config/env.js')).default;
 
 const PASSWORD = 'FairEngagementTest123!';
 const runId = Date.now();
@@ -40,12 +41,26 @@ let juryToken;
 let jury2Token;
 let juryNoAssignToken;
 
-const login = async (email) => {
-  const r = await request(app).post('/api/auth/login').send({ email, password: PASSWORD });
-  return r.body.data.token;
-};
+const makeToken = (user) =>
+  jwt.sign(
+    {
+      id: user.id,
+      userId: user.id,
+      email: user.email,
+      role: user.role,
+      organizationId: user.organizationId,
+      scopeLevel: user.scopeLevel ?? null,
+      isSuperuser: user.isSuperuser ?? false,
+      isStaff: user.isStaff ?? false,
+    },
+    env.JWT_SECRET,
+    { expiresIn: '1h' }
+  );
 
-const createUser = async ({ role, organizationId, suffix }) =>
+// Firma directa (policy 2FA estricto: el login no emite JWT a roles no-SUPERADMIN).
+const login = async (email) => makeToken(await prisma.user.findUnique({ where: { email } }));
+
+const createUser = async ({ role, organizationId, suffix, facultyId }) =>
   prisma.user.create({
     data: {
       username: `fe.${role.toLowerCase()}.${suffix}.${runId}`,
@@ -55,8 +70,8 @@ const createUser = async ({ role, organizationId, suffix }) =>
       lastName: suffix,
       institutionalId: `FE${suffix}${runId}`,
       role,
-      // chk_users_scope_admin_only: todo ADMIN tiene alcance; el resto, ninguno.
-      scopeLevel: role === 'ADMIN' ? 'ORG' : null,
+      scopeLevel: role === 'ADMIN' ? 'ORG' : undefined,
+      facultyId: role === 'TEACHER' ? facultyId : undefined,
       authProvider: 'LOCAL',
       isVerified: true,
       status: 'ACTIVE',
@@ -71,12 +86,16 @@ async function setup() {
   });
   orgAId = orgA.id;
 
-  const admin = await createUser({ role: 'ADMIN', organizationId: orgA.id, suffix: 'Admin' });
-  const student = await createUser({ role: 'STUDENT', organizationId: orgA.id, suffix: 'Stud' });
-  const teacher = await createUser({ role: 'TEACHER', organizationId: orgA.id, suffix: 'Teach' });
-  const jury = await createUser({ role: 'JURY', organizationId: orgA.id, suffix: 'Jury' });
-  const jury2 = await createUser({ role: 'JURY', organizationId: orgA.id, suffix: 'Jury2' });
-  const juryNo = await createUser({ role: 'JURY', organizationId: orgA.id, suffix: 'JuryNo' });
+  const faculty = await prisma.faculty.create({
+    data: { name: `Fac FE ${runId}`, code: `FCFE${runId}` },
+  });
+
+  const admin = await createUser({ role: 'ADMIN', organizationId: orgA.id, suffix: 'Admin', facultyId: faculty.id });
+  const student = await createUser({ role: 'STUDENT', organizationId: orgA.id, suffix: 'Stud', facultyId: faculty.id });
+  const teacher = await createUser({ role: 'TEACHER', organizationId: orgA.id, suffix: 'Teach', facultyId: faculty.id });
+  const jury = await createUser({ role: 'JURY', organizationId: orgA.id, suffix: 'Jury', facultyId: faculty.id });
+  const jury2 = await createUser({ role: 'JURY', organizationId: orgA.id, suffix: 'Jury2', facultyId: faculty.id });
+  const juryNo = await createUser({ role: 'JURY', organizationId: orgA.id, suffix: 'JuryNo', facultyId: faculty.id });
 
   fairOpenId = (await prisma.fair.create({
     data: { organizationId: orgA.id, name: `FE Open ${runId}`, status: 'OPEN' },
@@ -100,12 +119,10 @@ async function setup() {
       fairId: fairOpenId,
       createdById: student.id,
       name: 'Proyecto A',
-      status: 'APPROVED', reviewedAt: new Date(),
+      status: 'APPROVED',
+      reviewedAt: new Date(),
     },
   })).id;
-  // El alumno participa como EXPOSITOR: la vista de engagement se decide por
-  // project_members, no por quién creó el proyecto.
-  await prisma.projectMember.create({ data: { projectId: projectAId, userId: student.id, role: 'EXPOSITOR' } });
 
   projectBId = (await prisma.project.create({
     data: {
@@ -113,7 +130,8 @@ async function setup() {
       fairId: fairOpenId,
       createdById: student.id,
       name: 'Proyecto B',
-      status: 'APPROVED', reviewedAt: new Date(),
+      status: 'APPROVED',
+      reviewedAt: new Date(),
     },
   })).id;
 
@@ -123,7 +141,8 @@ async function setup() {
       fairId: fairClosedId,
       createdById: student.id,
       name: 'Proyecto Closed',
-      status: 'APPROVED', reviewedAt: new Date(),
+      status: 'APPROVED',
+      reviewedAt: new Date(),
     },
   })).id;
 

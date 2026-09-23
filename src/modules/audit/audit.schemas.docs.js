@@ -20,7 +20,6 @@
  *       properties:
  *         id: { type: string, format: uuid }
  *         actorId: { type: string, format: uuid, nullable: true }
- *         electionId: { type: string, format: uuid, nullable: true }
  *         action: { type: string }
  *         ipAddress: { type: string, nullable: true }
  *         metadata: { type: object }
@@ -28,14 +27,4 @@
  *         currentHash: { type: string }
  *         signature: { type: string }
  *         createdAt: { type: string, format: date-time }
- *
- *     OneTimeToken:
- *       type: object
- *       properties:
- *         id: { type: string, format: uuid }
- *         userId: { type: string, format: uuid }
- *         electionId: { type: string, format: uuid }
- *         tokenHash: { type: string }
- *         expiresAt: { type: string, format: date-time }
- *         usedAt: { type: string, format: date-time, nullable: true }
  */

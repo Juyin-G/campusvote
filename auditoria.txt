@@ -1,0 +1,66 @@
+﻿AUDITA EXCLUSIVAMENTE EL BACKEND DE: C:\Users\USER\campusvote
+NO revises Flutter ni frontend administrativo.
+NO crees páginas, componentes, endpoints ni migraciones.
+NO modifiques ningún archivo.
+NO implementes soluciones.
+SOLO inspecciona y documenta el estado actual del backend.
+
+OBJETIVO
+Quiero conocer cómo está diseñada actualmente la lógica de:
+- Candidato a jurado
+- Usuario con rol JURY
+- Jurado interno
+- Jurado externo
+- Dominios institucionales
+- Organizaciones / tenants
+- Asignación JURY -> FAIR
+- Permisos ADMIN / SUPERADMIN / JURY
+- Estado del jurado
+
+IMPORTANTE: NO confundas:
+- candidato electoral != candidato a jurado
+- candidato a jurado != usuario JURY
+- usuario JURY != jurado asignado a una feria
+
+1. BÚSQUEDA GLOBAL
+Busca en TODO el backend: JURY, JUROR, JURADO, jury, juror, juryCandidate, candidate, external, internal, assignment, juryAssignments, domain, email_domain, organization, tenant.
+Revisa: modules, controllers, services, repositories, routes, validators / schemas, middleware / guards / policies, Prisma/schema, SQL migrations, seeds, tests.
+Indica dónde existe realmente cada lógica.
+
+2. CANDIDATO A JURADO
+Determina si existe realmente una entidad/concepto como JuryCandidate, CandidateJury, JuryApplication, JuryInvitation, etc. Si no existe, dilo claramente. Explica qué significa actualmente "candidato a jurado" en el código y si simplemente se usa User + role JURY. NO inventes entidades.
+
+3. CREACIÓN DEL JURY
+Determina quién puede crear un JURY, endpoint, controller, service, modelo/tablas, campos requeridos, rol, estado inicial, organización, email, contraseña/invitación, activación.
+Determina si el flujo actual es: ADMIN -> JURY, SUPERADMIN -> JURY o mediante invitación/u otro mecanismo.
+
+4. JURY INTERNO / EXTERNO
+Explica cómo identifica actualmente el backend: INTERNO (organization_id, tenant, dominio) y EXTERNO (si existe realmente, cómo se crea, quién lo autoriza, si tiene User, organization_id NULL, autenticación, permisos). Si no existe soporte real para externos, indicar: NO IMPLEMENTADO.
+
+5. DOMINIOS INSTITUCIONALES
+Busca: domain, email_domain, allowed_domain, institution_domain, organization_domain, tenant_domain, whitelist, allowed_email_domains, edu.pe.
+Determina dónde se almacenan, quién los administra, cuándo se validan y qué ocurre si no coinciden. Comprueba si realmente existe la regla: ORGANIZACIÓN -> DOMINIOS PERMITIDOS -> USUARIOS.
+
+6. ORGANIZACIONES / TENANTS
+Audita Organization/Tenant, User -> Organization, Fair -> Organization, Jury -> Organization, aislamiento de datos, middleware/policies. Determina si un ADMIN puede acceder a jurados, usuarios o ferias de otra organización.
+
+7. JURY -> FAIR
+Audita toda la asignación: modelo/tabla, FK, endpoint, controller/service, validaciones, UNIQUE, eliminación. Comprueba si se puede asignar un JURY de otra organización, si el backend lo bloquea y si se puede asignar dos veces.
+
+8. ESTADOS
+Encuentra todos los estados reales relacionados con User/JURY (PENDING, ACTIVE, INACTIVE, SUSPENDED, etc.), su significado y qué permiten.
+
+9. PERMISOS
+Audita ADMIN, SUPERADMIN y JURY. Busca middleware, guards, policies, permissions y role checks. Indica exactamente qué puede hacer cada rol respecto a jurados.
+
+10. SEGURIDAD
+Busca vulnerabilidades/inconsistencias relacionadas con autorizaciones, aislamiento multi-tenant, asignaciones cruzadas o duplicados. SOLO REPORTA. NO CORRIJAS.
+
+11. MAPA REAL
+Construye con evidencia del código las relaciones para ORGANIZATION -> USER -> ROLE -> JURY -> JURY CANDIDATE -> JURY ASSIGNMENT -> FAIR -> EVALUATION -> VOTING. Para cada relación indica: EXISTE, EXISTE PARCIALMENTE o NO EXISTE.
+
+12. TABLA FINAL
+Genera la tabla comparativa con los conceptos, si existen, dónde están, cómo funcionan y sus problemas.
+
+13. CONCLUSIÓN
+Termina exactamente con las secciones: YA IMPLEMENTADO, IMPLEMENTADO PARCIALMENTE, NO IMPLEMENTADO, RIESGOS O INCONSISTENCIAS y RECOMENDACIÓN DE ARQUITECTURA.

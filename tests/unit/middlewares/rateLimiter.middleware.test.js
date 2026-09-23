@@ -23,13 +23,11 @@ process.env.NODE_ENV = process.env.NODE_ENV || 'test';
 let loginLimiter;
 let authLimiter;
 let userLimiter;
-let userElectionLimiter;
 beforeAll(async () => {
   const mod = await import('../../../src/middlewares/rateLimiter.middleware.js');
   loginLimiter = mod.loginLimiter;
   authLimiter = mod.authLimiter;
   userLimiter = mod.userLimiter;
-  userElectionLimiter = mod.userElectionLimiter;
 });
 
 // ──────────────────────────────────────────────────────────────────────
@@ -197,7 +195,7 @@ describe('authLimiter — endpoints sensibles (reset/verify/resend/refresh)', ()
 });
 
 // ──────────────────────────────────────────────────────────────────────
-// 3. userLimiter / userElectionLimiter — Defensa por usuario
+// 3. userLimiter — Defensa por usuario
 // ──────────────────────────────────────────────────────────────────────
 
 describe('userLimiter — limite por userId', () => {
@@ -236,47 +234,6 @@ describe('userLimiter — limite por userId', () => {
       b.capturedErr,
       undefined,
       'otro userId debe tener cubeta independiente'
-    );
-  });
-});
-
-describe('userElectionLimiter — limite por userId:electionId', () => {
-  it('la misma election del mismo user tiene cubeta', async () => {
-    const limiter = userElectionLimiter({ windowMs: 60_000, max: 1 });
-    const req = () =>
-      fakeIpReq('10.0.2.3', {
-        user: { userId: 'u-4' },
-        params: { id: 'e-1' },
-      });
-
-    const a1 = await runMiddleware(limiter, req());
-    assert.equal(a1.capturedErr, undefined);
-    const a2 = await runMiddleware(limiter, req());
-    assert.equal(a2.capturedErr?.statusCode, 429);
-    assert.equal(a2.capturedErr?.code, 'USER_ELECTION_RATE_LIMITED');
-  });
-
-  it('mismo user pero election distinta no comparte cubeta', async () => {
-    const limiter = userElectionLimiter({ windowMs: 60_000, max: 1 });
-    const r1 = await runMiddleware(
-      limiter,
-      fakeIpReq('10.0.2.4', {
-        user: { userId: 'u-5' },
-        params: { id: 'e-1' },
-      })
-    );
-    assert.equal(r1.capturedErr, undefined);
-    const r2 = await runMiddleware(
-      limiter,
-      fakeIpReq('10.0.2.4', {
-        user: { userId: 'u-5' },
-        params: { id: 'e-2' },
-      })
-    );
-    assert.equal(
-      r2.capturedErr,
-      undefined,
-      'userId:electionId debe ser la clave compuesta'
     );
   });
 });

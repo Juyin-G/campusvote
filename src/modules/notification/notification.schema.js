@@ -6,13 +6,12 @@ const uuid = (label) => z.string().uuid(`${label} inválido`);
 
 // Enums alineados con la base de datos
 const NOTIFICATION_TYPES = [
-  'ELECTION_OPENING',
-  'VOTE_CONFIRMATION',
-  'RESULTS_PUBLISHED',
-  'CANDIDACY_APPROVED',
   'SYSTEM_ALERT',
   'FAIR_OPENED',
   'RATING_RECEIVED',
+  'PROJECT_LIKED',
+  'PROJECT_COMMENTED',
+  'PROJECT_LIKE_MILESTONE',
 ];
 
 const DELIVERY_CHANNELS = ['IN_APP', 'EMAIL', 'PUSH', 'SMS'];

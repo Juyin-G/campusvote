@@ -231,7 +231,7 @@ export const createUsersBulkSchema = z.object({
         z.object({
           username: z.string().min(3, 'Como mínimo 3 caracteres').max(50),
           email: z.string().email('Email inválido'),
-          password: passwordSchema,
+          password: passwordSchema.optional(),
           first_name: z.string().min(1, 'Como mínimo 1 carácter').max(50),
           last_name: z.string().min(1, 'Como mínimo 1 carácter').max(50),
           role: roleEnum.optional(),
@@ -246,6 +246,22 @@ export const createUsersBulkSchema = z.object({
       )
       .min(1, 'Debes enviar al menos un usuario')
       .max(500, 'Máximo 500 usuarios por operación'),
+  }),
+});
+
+// ADMIN: importar usuarios desde archivo .xlsx (multipart, campo "file").
+// default_role es el selector de destino (profesores/alumnos/jurados) y solo
+// se aplica a las filas sin valor en la columna role.
+export const bulkExcelSchema = z.object({
+  body: z.object({
+    organization_id: uuid('ID de organización'),
+    site_id: uuid('ID de sede').optional(),
+    default_role: z
+      .union([
+        z.enum(['STUDENT', 'TEACHER', 'JURY']),
+        z.literal('').transform(() => undefined),
+      ])
+      .optional(),
   }),
 });
 

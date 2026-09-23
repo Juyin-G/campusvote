@@ -3,6 +3,8 @@
 // Separado para mantener el service principal delgado y testeable.
 
 import * as fairResultRepository from '../fairResults/fairResult.repository.js';
+import * as votingRepository from '../fairVoting/fairVoting.repository.js'; // ✅ NUEVO
+import { buildVoteRanking } from '../fairVoting/fairVoting.helpers.js';     // ✅ NUEVO: Import estático
 import { ApiError } from '../../shared/errors/ApiError.js';
 import {
   assertAdminTenantForFairPure,
@@ -25,12 +27,8 @@ export const assertAdminTenantForFair = ({ fair, actor }) => {
 };
 
 /**
- * Determina el ganador (única fuente: getFairResults → ranking derivado).
- * Devuelve el projectId ganador, o null si no hay publicación oficial o
- * no hay proyectos evaluados en la feria.
- *
- * NOTA: Usa el ranking derivado por VOTOS (buildVoteRanking). Los totales
- * vienen de fairVoteParticipation agregados (no de total_score).
+ * Determina el ganador (única fuente: VOTOS, Decisión P1).
+ * Devuelve el projectId ganador, o null si no hay publicación oficial.
  */
 export const determineWinnerProjectId = async ({ fairId, fair }) => {
   const publication = await fairResultRepository.findPublicationByFair(fairId);
@@ -39,17 +37,12 @@ export const determineWinnerProjectId = async ({ fairId, fair }) => {
 
   const [projects, votesByProject] = await Promise.all([
     fairResultRepository.listApprovedProjects(fairId),
-    fairResultRepository.countVotesByProject(fairId),
+    votingRepository.countVotesByFair(fairId), // ✅ Usa el repositorio de votos, no uno inexistente
   ]);
 
-  // Importamos dinámicamente para evitar ciclo con fairResult.service.
-  const { buildVoteRanking } = await import('../fairResults/fairResult.service.js');
-  const ranking = buildVoteRanking({
-    status: fair.status,
-    published: Boolean(publication),
-    projects,
-    votesByProject,
-  });
+  // ✅ Import estático corregido (sin ciclos, sin dynamic import)
+  const ranking = buildVoteRanking(projects, votesByProject);
+  
   const winner = ranking.find((entry) => entry.winner === true);
   return winner ? winner.project_id : null;
 };
@@ -78,7 +71,6 @@ export const upsertCertificate = async ({
       certificateType,
     });
     if (!created) {
-      // Carrera: se creó en paralelo. Re-leer.
       const reExisting = await certificateRepository.findExisting({
         fairId,
         projectId,
@@ -89,7 +81,7 @@ export const upsertCertificate = async ({
     }
     return { certificate: created, created: true };
   } catch (err) {
-    if (err.message === 'CERTIFICATE_ALREADY_EXISTS') {
+    if (err.message === 'CERTIFICATE_ALREADY_EXISTS' || err.code === 'P2002') {
       const existing = await certificateRepository.findExisting({
         fairId,
         projectId,
